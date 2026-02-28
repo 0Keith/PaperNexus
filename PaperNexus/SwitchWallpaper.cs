@@ -1,0 +1,157 @@
+using Cronos;
+using Excogitated.Core;
+using Microsoft.Win32;
+using SixLabors.Fonts;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Drawing.Processing;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Processing;
+using System.Runtime.InteropServices;
+
+namespace Excogitated.WallpaperNexus;
+
+public interface ISwitchWallpaper
+{
+    Task<string?> SwitchToNextAsync();
+}
+
+internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchWallpaper>
+{
+    private readonly ILogger<SwitchWallpaper> _logger;
+
+    public SwitchWallpaper(ILogger<SwitchWallpaper> logger)
+    {
+        _logger = logger.ThrowIfNull();
+    }
+
+    public async Task<string?> SwitchToNextAsync()
+    {
+        var settings = await WallpaperNexusSettings.LoadAsync().ConfigureAwait(false);
+        if (!settings.IsConfigured)
+            return null;
+
+        var allFiles = new DirectoryInfo(settings.WallpapersFolder)
+            .EnumerateFiles()
+            .Where(f => f.Extension.Equals(".png", StringComparison.OrdinalIgnoreCase)
+                     || f.Extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
+                     || f.Extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (allFiles.Count == 0)
+            return null;
+
+        string next;
+        if (settings.SwitchPattern == WallpaperSwitchPattern.Random && allFiles.Count > 1)
+        {
+            var candidates = allFiles
+                .Select(f => f.FullName)
+                .Where(f => !f.Equals(settings.CurrentWallpaperPath, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            next = candidates[Random.Shared.Next(candidates.Count)];
+        }
+        else
+        {
+            var files = settings.SwitchPattern switch
+            {
+                WallpaperSwitchPattern.Oldest => allFiles.OrderBy(f => f.LastWriteTime).Select(f => f.FullName).ToList(),
+                WallpaperSwitchPattern.Newest => allFiles.OrderByDescending(f => f.LastWriteTime).Select(f => f.FullName).ToList(),
+                _ => allFiles.OrderBy(f => f.Name).Select(f => f.FullName).ToList(), // Sequential, Alphabetical, default
+            };
+            var index = files.IndexOf(settings.CurrentWallpaperPath);
+            // If persisted wallpaper is not in the folder (index == -1), start from the first file.
+            next = files[(index + 1) % files.Count];
+        }
+
+        // Write to a fixed current file in the execution directory so the original files are never modified.
+        // Apply the title overlay here rather than at download time to preserve source image quality.
+        // Save as PNG; if it exceeds 16 MB fall back to JPEG stepping quality down by 3% from 97%.
+        var title = Path.GetFileNameWithoutExtension(next);
+        using var img = await Image.LoadAsync(next).ConfigureAwait(false);
+        using var annotated = img.Clone(o =>
+        {
+            if (!settings.AnnotateWallpaper)
+                return;
+            var font = new Font(SystemFonts.Get("MS Gothic"), 18);
+            o.DrawText(title, font, Color.WhiteSmoke, new PointF(125, 5));
+        });
+        using var ms = new MemoryStream();
+        await annotated.SaveAsPngAsync(ms, new PngEncoder { ColorType = PngColorType.Rgb, BitDepth = PngBitDepth.Bit8 }).ConfigureAwait(false);
+        string currentPath;
+        if (ms.Length <= SizeCeiling)
+        {
+            currentPath = Path.Combine(AppContext.BaseDirectory, "current.png");
+            await File.WriteAllBytesAsync(currentPath, ms.ToArray()).ConfigureAwait(false);
+        }
+        else
+        {
+            currentPath = Path.Combine(AppContext.BaseDirectory, "current.jpg");
+            for (var quality = 97; quality >= 1; quality -= 3)
+            {
+                ms.SetLength(0);
+                await annotated.SaveAsJpegAsync(ms, new JpegEncoder { Quality = quality }).ConfigureAwait(false);
+                if (ms.Length <= SizeCeiling)
+                    break;
+            }
+            await File.WriteAllBytesAsync(currentPath, ms.ToArray()).ConfigureAwait(false);
+        }
+
+        if (OperatingSystem.IsWindows())
+            ApplyFillStyle(settings.FillStyle);
+        NativeMethods.SetDesktopWallpaper(currentPath);
+        _logger.LogInformation($"Switching wallpaper to: {next}");
+
+        settings.CurrentWallpaperPath = next;
+        await settings.SaveAsync().ConfigureAwait(false);
+        return next;
+    }
+
+    private const long SizeCeiling = 1 << 24; // 16 MB
+
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private static void ApplyFillStyle(WallpaperFillStyle style)
+    {
+        // WallpaperStyle and TileWallpaper registry values under HKCU\Control Panel\Desktop
+        // control how Windows positions the wallpaper image.
+        var (wallpaperStyle, tileWallpaper) = style switch
+        {
+            WallpaperFillStyle.Tile    => ("0", "1"),
+            WallpaperFillStyle.Center  => ("0", "0"),
+            WallpaperFillStyle.Stretch => ("2", "0"),
+            WallpaperFillStyle.Fit     => ("6", "0"),
+            WallpaperFillStyle.Fill    => ("10", "0"),
+            WallpaperFillStyle.Span    => ("22", "0"),
+            _                          => ("10", "0"),
+        };
+
+        using var key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", writable: true);
+        key?.SetValue("WallpaperStyle", wallpaperStyle);
+        key?.SetValue("TileWallpaper", tileWallpaper);
+    }
+}
+
+internal sealed class SwitchWallpaperJob : IScheduleScopedJob
+{
+    private readonly ISwitchWallpaper _switcher;
+    private readonly ILogger<SwitchWallpaperJob> _logger;
+
+    public SwitchWallpaperJob(ISwitchWallpaper switcher, ILogger<SwitchWallpaperJob> logger)
+    {
+        _switcher = switcher.ThrowIfNull();
+        _logger = logger.ThrowIfNull();
+    }
+
+    public async Task<JobConfig> GetJobConfigAsync()
+    {
+        var settings = await WallpaperNexusSettings.LoadAsync();
+        var cronExpression = CronExpression.Parse(settings.SwitchCronExpression);
+        return new JobConfig(CronExpression: cronExpression);
+    }
+
+    public async Task ExecuteAsync()
+    {
+        var next = await _switcher.SwitchToNextAsync();
+        if (next is null)
+            _logger.LogInformation("Wallpapers folder not configured or no wallpapers found — skipping.");
+    }
+}

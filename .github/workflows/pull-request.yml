@@ -1,0 +1,23 @@
+name: PR Build Verification
+
+on:
+  pull_request:
+    branches: ['*']
+
+jobs:
+  verify-build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+    
+    - name: Test
+      run: dotnet test --configuration Release --no-build --verbosity normal
+      continue-on-error: true

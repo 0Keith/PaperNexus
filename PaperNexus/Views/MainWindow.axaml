@@ -1,0 +1,160 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Excogitated.WallpaperNexus.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="720"
+        x:Class="Excogitated.WallpaperNexus.Views.MainWindow"
+        x:DataType="vm:WallpaperConfigViewModel"
+        Title="Wallpaper Nexus"
+        Icon="avares://WallpaperNexus/Assets/logo.png"
+        Width="500"
+        Height="720"
+        CanResize="True"
+        Background="#2B2B2B">
+
+    <Grid RowDefinitions="*,Auto" Margin="20">
+        <!-- Settings Form -->
+        <ScrollViewer Grid.Row="0">
+            <StackPanel Spacing="14">
+                <!-- Current Wallpaper -->
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Current Wallpaper" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding CurrentWallpaperName}" FontSize="13"
+                               TextWrapping="Wrap" Foreground="SteelBlue"/>
+                    <TextBlock Text="{Binding CurrentWallpaperPath}" FontSize="11"
+                               TextWrapping="Wrap" Opacity="0.6"/>
+                </StackPanel>
+
+                <!-- Wallpaper Sources -->
+                <StackPanel Spacing="4">
+                    <Grid ColumnDefinitions="*,8,Auto,4,Auto">
+                        <TextBlock Grid.Column="0" Text="Wallpaper Sources" FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+                        <Button Grid.Column="2" Content="+ Add"
+                                Command="{Binding AddSourceCommand}"
+                                Padding="8,4"/>
+                        <Button Grid.Column="4" Content="✕ Delete"
+                                Command="{Binding DeleteSourceCommand}"
+                                IsEnabled="{Binding SelectedSource, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                Padding="8,4"/>
+                    </Grid>
+                    <ListBox ItemsSource="{Binding Sources}"
+                             SelectedItem="{Binding SelectedSource}"
+                             Height="100"
+                             Background="#1E1E1E"
+                             BorderBrush="#555"
+                             BorderThickness="1">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" Padding="4,2"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- Edit panel — shown when a source is selected -->
+                    <StackPanel Spacing="6"
+                                IsVisible="{Binding SelectedSource, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                Background="#1A1A2E"
+                                Margin="0,2,0,0">
+                        <Border BorderBrush="#444" BorderThickness="1" Padding="10" CornerRadius="4">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Edit Selected Source" FontSize="11" Opacity="0.7"/>
+                                <Grid ColumnDefinitions="60,*">
+                                    <TextBlock Grid.Column="0" Text="Name" VerticalAlignment="Center" FontSize="12"/>
+                                    <TextBox Grid.Column="1" Text="{Binding EditName}"
+                                             Watermark="e.g. Bing Daily"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="60,*">
+                                    <TextBlock Grid.Column="0" Text="URL" VerticalAlignment="Center" FontSize="12"/>
+                                    <TextBox Grid.Column="1" Text="{Binding EditUrl}"
+                                             Watermark="https://example.com/feed.json"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="60,*">
+                                    <TextBlock Grid.Column="0" Text="Cron" VerticalAlignment="Center" FontSize="12"/>
+                                    <TextBox Grid.Column="1" Text="{Binding EditCronExpression}"
+                                             Watermark="e.g. 0 * * * * (every hour)"/>
+                                </Grid>
+                                <Button Content="✓ Apply Changes"
+                                        Command="{Binding ApplySourceEditCommand}"
+                                        HorizontalAlignment="Right"
+                                        Padding="12,4"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Wallpapers Folder -->
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Wallpapers Folder" FontWeight="SemiBold"/>
+                    <Grid ColumnDefinitions="*,8,Auto">
+                        <TextBox Grid.Column="0" Text="{Binding WallpapersFolder}"
+                                 Watermark="e.g. C:/Users/YourName/Wallpapers"/>
+                        <Button Grid.Column="2" Content="📁 Browse..."
+                                Click="BrowseFolder_Click"/>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Switch Cron Expression -->
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Switch Schedule (cron expression)" FontWeight="SemiBold"/>
+                    <TextBox Text="{Binding SwitchCronExpression}"
+                             Watermark="e.g. */30 * * * * (every 30 minutes)"/>
+                    <TextBlock Text="Standard 5-field cron: min hour day month weekday"
+                               FontSize="11" Opacity="0.6"/>
+                </StackPanel>
+
+                <!-- Switching Pattern -->
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Switching Pattern" FontWeight="SemiBold"/>
+                    <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.SwitchPatternOptions}"
+                              SelectedItem="{Binding SelectedSwitchPattern}"
+                              HorizontalAlignment="Stretch"/>
+                    <TextBlock Text="Sequential/Alphabetical: cycle A→Z  •  Oldest/Newest: cycle by file date  •  Random: pick randomly"
+                               FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <!-- Saved Resolution -->
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Saved Resolution" FontWeight="SemiBold"/>
+                    <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.ResolutionOptions}"
+                              SelectedItem="{Binding SelectedResolution}"
+                              HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <!-- Wallpaper Fill Style -->
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Wallpaper Fill Style" FontWeight="SemiBold"/>
+                    <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.FillStyleOptions}"
+                              SelectedItem="{Binding SelectedFillStyle}"
+                              HorizontalAlignment="Stretch"/>
+                    <TextBlock Text="Fill: crop to fill screen  •  Fit: letterbox  •  Stretch: distort to fit  •  Tile: repeat  •  Center: no scaling  •  Span: stretch across monitors"
+                               FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <!-- Annotate Wallpaper -->
+                <CheckBox Content="Show title annotation on wallpaper"
+                          IsChecked="{Binding AnnotateWallpaper}"/>
+
+                <!-- Retention Days -->
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Retention Period (days)" FontWeight="SemiBold"/>
+                    <NumericUpDown Value="{Binding RetentionDays}"
+                                   Minimum="1" Maximum="3650" Increment="30"
+                                   FormatString="0"/>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Footer -->
+        <StackPanel Grid.Row="1" Spacing="8" Margin="0,14,0,0">
+            <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="12"/>
+            <Grid ColumnDefinitions="*,8,*">
+                <Button Grid.Column="0" Content="⏭ Next Wallpaper" Command="{Binding NextWallpaperCommand}"
+                        HorizontalAlignment="Stretch"/>
+                <Button Grid.Column="2" Content="💾 Save Settings" Command="{Binding SaveCommand}"
+                        HorizontalAlignment="Stretch"/>
+            </Grid>
+        </StackPanel>
+    </Grid>
+</Window>
