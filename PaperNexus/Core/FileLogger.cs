@@ -76,7 +76,14 @@ public class FileLoggerProvider : ILoggerProvider, IAsyncDisposable
             _fileLoggerProvider = fileLoggerProvider;
         }
 
-        public IDisposable BeginScope<TState>(TState state) where TState : notnull => throw new NotImplementedException();
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+            private NullScope() { }
+            public void Dispose() { }
+        }
 
         public bool IsEnabled(LogLevel logLevel) => true;
 
