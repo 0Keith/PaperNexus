@@ -63,7 +63,7 @@ jobs:
             -HashAlgorithm SHA256 `
             -NotAfter (Get-Date).AddYears(5)
           $pfxPwd = ConvertTo-SecureString -String $certPassword -Force -AsPlainText
-          Export-PfxCertificate -Certificate $cert -FilePath $pfxPath -Password $pfxPwd | Out-Null
+          Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $pfxPwd | Out-Null
 
           if ($env:GH_TOKEN) {
             $base64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($pfxPath))
