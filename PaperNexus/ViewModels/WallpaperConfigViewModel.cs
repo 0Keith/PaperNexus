@@ -252,13 +252,13 @@ public partial class WallpaperConfigViewModel : ObservableObject
             SlideshowIntervalHours = settings.Slideshow.IntervalHours > 0 ? settings.Slideshow.IntervalHours : 1;
             SlideshowCronExpression = settings.Slideshow.CronExpression;
             SelectedResolution = ResolutionOptions.FirstOrDefault(
-                r => r.Width == settings.ResolutionWidth && r.Height == settings.ResolutionHeight)
+                r => r.Width == settings.Download.ResolutionWidth && r.Height == settings.Download.ResolutionHeight)
                 ?? ResolutionOptions[0];
             SelectedFillStyle = FillStyleOptions.FirstOrDefault(f => f.Style == settings.Slideshow.FillStyle)
                 ?? FillStyleOptions[0];
             SelectedSlideshowPattern = SwitchPatternOptions.FirstOrDefault(p => p.Pattern == settings.Slideshow.Pattern)
                 ?? SwitchPatternOptions[0];
-            RetentionDays = settings.RetentionDays;
+            RetentionDays = settings.Download.RetentionDays;
             AnnotateWallpaper = settings.AnnotateWallpaper;
             RunOnStartup = settings.RunOnStartup;
 
@@ -423,9 +423,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
                 SlideshowScheduleMode.IntervalHours => $"0 */{SlideshowIntervalHours} * * *",
                 _ => SlideshowCronExpression,
             };
-            settings.ResolutionWidth = SelectedResolution.Width;
-            settings.ResolutionHeight = SelectedResolution.Height;
-            settings.RetentionDays = RetentionDays;
+            settings.Download.ResolutionWidth = SelectedResolution.Width;
+            settings.Download.ResolutionHeight = SelectedResolution.Height;
+            settings.Download.RetentionDays = RetentionDays;
             settings.Slideshow.FillStyle = SelectedFillStyle.Style;
             settings.Slideshow.Pattern = SelectedSlideshowPattern.Pattern;
             settings.AnnotateWallpaper = AnnotateWallpaper;

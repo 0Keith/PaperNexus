@@ -79,7 +79,7 @@ internal class DownloadWallpapers : ScheduledJobService
     private async Task CleanupOldImages(WallpaperNexusSettings settings)
     {
         var files = new DirectoryInfo(settings.WallpapersFolder).EnumerateFiles();
-        var cutoff = DateTime.UtcNow.AddDays(-settings.RetentionDays);
+        var cutoff = DateTime.UtcNow.AddDays(-settings.Download.RetentionDays);
         foreach (var file in files)
             if (cutoff > file.LastWriteTimeUtc)
                 file.Delete();
