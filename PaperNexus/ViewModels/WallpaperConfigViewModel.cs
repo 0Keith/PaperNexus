@@ -101,15 +101,6 @@ public partial class WallpaperConfigViewModel : ObservableObject
     [ObservableProperty]
     private string _editCronExpression = "0 * * * *";
 
-    public string AppVersion
-    {
-        get
-        {
-            var v = typeof(WallpaperConfigViewModel).Assembly.GetName().Version;
-            return v is null ? string.Empty : $"v{v.Major}.{v.Minor}.{v.Build}";
-        }
-    }
-
     public WallpaperConfigViewModel()
     {
         _wallpapersFolder = string.Empty;

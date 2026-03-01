@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:PaperNexus.ViewModels"
+        xmlns:app="using:PaperNexus"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="720"
@@ -151,7 +152,7 @@
             <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="12"/>
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="12" VerticalAlignment="Bottom"/>
-                <TextBlock Grid.Column="1" Text="{Binding AppVersion}" FontSize="10" Opacity="0.35" VerticalAlignment="Bottom"/>
+                <TextBlock Grid.Column="1" Text="{x:Static app:App.AppVersion}" FontSize="10" Opacity="0.35" VerticalAlignment="Bottom"/>
             </Grid>
             <Grid ColumnDefinitions="*,8,*">
                 <Button Grid.Column="0" Content="⏭ Next Wallpaper" Command="{Binding NextWallpaperCommand}"
