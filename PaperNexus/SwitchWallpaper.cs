@@ -67,6 +67,9 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
         // Apply the title overlay here rather than at download time to preserve source image quality.
         // Save as PNG; if it exceeds 16 MB fall back to JPEG stepping quality down by 3% from 97%.
         var title = Path.GetFileNameWithoutExtension(next);
+        var separatorIndex = title.LastIndexOf(" - ", StringComparison.Ordinal);
+        if (separatorIndex >= 0)
+            title = title[..separatorIndex];
         using var img = await Image.LoadAsync(next).ConfigureAwait(false);
         using var annotated = img.Clone(o =>
         {
