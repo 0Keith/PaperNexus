@@ -40,6 +40,12 @@ public partial class App : Application
             // Keep running when the settings window is closed
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
+            // Register in Windows startup so the app launches with the OS
+            // Done before host build so it always runs even if host setup fails
+#pragma warning disable CA1416
+            RegisterStartup();
+#pragma warning restore CA1416
+
             // Start background wallpaper services (download + switch)
             _backgroundHost = Host.CreateDefaultBuilder()
                 .ConfigureServices(services =>
@@ -50,11 +56,6 @@ public partial class App : Application
                     services.AddServicesFrom(typeof(App).Assembly);
                 })
                 .Build();
-
-            // Register in Windows startup so the app launches with the OS
-#pragma warning disable CA1416
-            RegisterStartup();
-#pragma warning restore CA1416
 
             // Show splash screen while background services start
             _splashScreen = new SplashScreen();
