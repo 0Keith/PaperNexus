@@ -214,9 +214,16 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
     partial void OnRunOnStartupChanged(bool value)
     {
+        try
+        {
 #pragma warning disable CA1416
-        App.UpdateStartupRegistration(value);
+            App.UpdateStartupRegistration(value);
 #pragma warning restore CA1416
+        }
+        catch (Exception ex)
+        {
+            _ = ShowTransientStatusAsync($"✗ Failed to update startup registration: {ex.Message}");
+        }
         TriggerSave();
     }
 
@@ -410,7 +417,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         }
     }
 
-    private async Task ShowTransientStatusAsync(string message, int durationMs = 3000)
+    internal async Task ShowTransientStatusAsync(string message, int durationMs = 3000)
     {
         _statusCts.Cancel();
         _statusCts = new CancellationTokenSource();

@@ -6,6 +6,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using PaperNexus.Views;
+using PaperNexus.ViewModels;
 using Microsoft.Win32;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
@@ -27,6 +28,7 @@ public partial class App : Application
 
     internal bool IsExiting => _exiting;
     internal IServiceProvider? Services => _backgroundHost?.Services;
+    private ILogger<App>? Logger => _backgroundHost?.Services.GetService<ILogger<App>>();
 
     public override void Initialize()
     {
@@ -54,7 +56,10 @@ public partial class App : Application
             // Apply startup registration based on the persisted setting
 #pragma warning disable CA1416
             _ = WallpaperNexusSettings.LoadAsync().ContinueWith(t =>
-                UpdateStartupRegistration(t.Result.RunOnStartup));
+            {
+                try { UpdateStartupRegistration(t.Result.RunOnStartup); }
+                catch (Exception ex) { Logger?.LogError(ex, "Failed to apply startup registration on launch."); }
+            });
 #pragma warning restore CA1416
 
             // Show splash screen while background services start
@@ -93,7 +98,15 @@ public partial class App : Application
                 if (switcher is not null)
                     await Task.Run(switcher.SwitchToNextAsync);
             }
-            catch { /* Non-critical: wallpaper switch may fail silently */ }
+            catch (Exception ex)
+            {
+                Logger?.LogError(ex, "Error switching wallpaper from tray.");
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (_mainWindow?.DataContext is WallpaperConfigViewModel vm)
+                        _ = vm.ShowTransientStatusAsync($"✗ Error switching wallpaper: {ex.Message}");
+                });
+            }
         };
         menu.Items.Add(nextItem);
 
@@ -135,7 +148,7 @@ public partial class App : Application
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
             try { await _backgroundHost.StopAsync(cts.Token); }
-            catch { }
+            catch (Exception ex) { Logger?.LogError(ex, "Error stopping background host during exit."); }
         }
         desktop.Shutdown();
         Environment.Exit(0);
@@ -155,23 +168,19 @@ public partial class App : Application
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     internal static void UpdateStartupRegistration(bool enable)
     {
-        try
+        using var key = Registry.CurrentUser.OpenSubKey(
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", writable: true);
+        key?.DeleteValue("Excogitated Wallpaper Service", throwOnMissingValue: false);
+        key?.DeleteValue("Wallpaper Nexus", throwOnMissingValue: false);
+        if (enable)
         {
-            using var key = Registry.CurrentUser.OpenSubKey(
-                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", writable: true);
-            key?.DeleteValue("Excogitated Wallpaper Service", throwOnMissingValue: false);
-            key?.DeleteValue("Wallpaper Nexus", throwOnMissingValue: false);
-            if (enable)
-            {
-                var exePath = Environment.ProcessPath
-                    ?? Path.ChangeExtension(Assembly.GetEntryAssembly()!.Location, ".exe");
-                key?.SetValue("PaperNexus", $"\"{exePath}\"");
-            }
-            else
-            {
-                key?.DeleteValue("PaperNexus", throwOnMissingValue: false);
-            }
+            var exePath = Environment.ProcessPath
+                ?? Path.ChangeExtension(Assembly.GetEntryAssembly()!.Location, ".exe");
+            key?.SetValue("PaperNexus", $"\"{exePath}\"");
         }
-        catch { /* Non-critical: startup registration may fail on restricted machines */ }
+        else
+        {
+            key?.DeleteValue("PaperNexus", throwOnMissingValue: false);
+        }
     }
 }
