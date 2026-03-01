@@ -145,8 +145,8 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
     partial void OnStatusMessageChanged(string value)
     {
-        StatusForeground = value.StartsWith("✓")
-            ? new SolidColorBrush(Color.Parse("#4ADE80"))
+        StatusForeground = value.StartsWith("✓") ? new SolidColorBrush(Color.Parse("#4ADE80"))
+            : value.StartsWith("✗") ? new SolidColorBrush(Color.Parse("#F87171"))
             : Brushes.White;
     }
 
