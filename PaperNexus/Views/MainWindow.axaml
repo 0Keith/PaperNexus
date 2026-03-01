@@ -16,7 +16,7 @@
     <Grid RowDefinitions="*,Auto" Margin="20">
         <!-- Settings Form -->
         <ScrollViewer Grid.Row="0">
-            <StackPanel Spacing="14" Padding="0,0,16,0">
+            <StackPanel Spacing="14" Margin="0,0,16,0">
                 <!-- Current Wallpaper -->
                 <StackPanel Spacing="4">
                     <TextBlock Text="Current Wallpaper" FontWeight="SemiBold"/>
