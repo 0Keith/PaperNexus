@@ -88,7 +88,15 @@
 
                     <!-- Current Wallpaper -->
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Current Wallpaper" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="Current Wallpaper" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <Button Content="🗑"
+                                    Command="{Binding DeleteCurrentWallpaperCommand}"
+                                    IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                    ToolTip.Tip="Delete current wallpaper"
+                                    Padding="4,2" FontSize="12"
+                                    Background="Transparent" BorderThickness="0"/>
+                        </StackPanel>
                         <TextBlock Text="{Binding CurrentWallpaperName}" FontSize="13"
                                    TextWrapping="Wrap" Foreground="SteelBlue"/>
                         <TextBlock Text="{Binding CurrentWallpaperPath}" FontSize="11"
@@ -197,13 +205,8 @@
                         ToolTip.Tip="Leave feedback on GitHub"
                         Padding="5,2" FontSize="12" Opacity="0.6"/>
             </Grid>
-            <Grid ColumnDefinitions="*,8,*">
-                <Button Grid.Column="0" Content="⏭ Next Wallpaper" Command="{Binding NextWallpaperCommand}"
-                        HorizontalAlignment="Stretch"/>
-                <Button Grid.Column="2" Content="🗑 Delete Wallpaper" Command="{Binding DeleteCurrentWallpaperCommand}"
-                        IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                        HorizontalAlignment="Stretch"/>
-            </Grid>
+            <Button Content="⏭ Next Wallpaper" Command="{Binding NextWallpaperCommand}"
+                    HorizontalAlignment="Stretch"/>
         </StackPanel>
     </Grid>
 </Window>
