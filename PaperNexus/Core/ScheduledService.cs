@@ -143,21 +143,25 @@ public abstract class ScheduledJobService : IHostedService
             catch (Exception ex)
             {
                 Logger.LogError(ex, $"Unhandled Exception in Job: {JobName}");
-                await SaveContext(new()
+                try
                 {
-                    StartedAt = startedAt,
-                    FinishedAt = DateTimeOffset.Now,
-                    Duration = watch.Elapsed,
-                    LastExecutionSucceeded = false,
-                    ErrorMessage = ex.ToString(),
-                });
+                    await SaveContext(new()
+                    {
+                        StartedAt = startedAt,
+                        FinishedAt = DateTimeOffset.Now,
+                        Duration = watch.Elapsed,
+                        LastExecutionSucceeded = false,
+                        ErrorMessage = ex.ToString(),
+                    });
+                }
+                catch { }
                 await Task.Delay(maxDelay, cancellationToken);
             }
         }
     }
 
     private static readonly SemaphoreSlim _timerLock = new(1);
-    private static readonly FileInfo _timerFile = new("./timers.json");
+    private static readonly FileInfo _timerFile = new(Path.Combine(AppContext.BaseDirectory, "timers.json"));
     private static readonly ConcurrentDictionary<string, JobExecutionContext> _timers = new();
 
     private async ValueTask<JobExecutionContext> LoadContext()
@@ -299,21 +303,25 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService where TJob 
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Unhandled Exception in Job: {_jobName}");
-                await SaveContext(new()
+                try
                 {
-                    StartedAt = startedAt,
-                    FinishedAt = DateTimeOffset.Now,
-                    Duration = watch.Elapsed,
-                    LastExecutionSucceeded = false,
-                    ErrorMessage = ex.ToString(),
-                });
+                    await SaveContext(new()
+                    {
+                        StartedAt = startedAt,
+                        FinishedAt = DateTimeOffset.Now,
+                        Duration = watch.Elapsed,
+                        LastExecutionSucceeded = false,
+                        ErrorMessage = ex.ToString(),
+                    });
+                }
+                catch { }
                 await Task.Delay(maxDelay, cancellationToken);
             }
         }
     }
 
     private static readonly SemaphoreSlim _timerLock = new(1);
-    private static readonly FileInfo _timerFile = new("./timers.json");
+    private static readonly FileInfo _timerFile = new(Path.Combine(AppContext.BaseDirectory, "timers.json"));
     private static readonly ConcurrentDictionary<string, JobExecutionContext> _timers = new();
 
     private async ValueTask<JobExecutionContext> LoadContext()
