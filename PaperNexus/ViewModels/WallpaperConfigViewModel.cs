@@ -91,6 +91,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private WallpaperSource? _selectedSource;
 
     private bool _isLoading;
+    private CancellationTokenSource _statusCts = new();
 
     [ObservableProperty]
     private string _editName = string.Empty;
@@ -300,10 +301,26 @@ public partial class WallpaperConfigViewModel : ObservableObject
             settings.AnnotateWallpaper = AnnotateWallpaper;
             settings.Sources = Sources.ToList();
             await settings.SaveAsync();
+            await ShowTransientStatusAsync("✓ Settings saved.");
         }
         catch (Exception ex)
         {
             StatusMessage = $"✗ Error saving settings: {ex.Message}";
         }
+    }
+
+    private async Task ShowTransientStatusAsync(string message, int durationMs = 3000)
+    {
+        _statusCts.Cancel();
+        _statusCts = new CancellationTokenSource();
+        var cts = _statusCts;
+
+        StatusMessage = message;
+        try
+        {
+            await Task.Delay(durationMs, cts.Token);
+            StatusMessage = string.Empty;
+        }
+        catch (OperationCanceledException) { }
     }
 }
