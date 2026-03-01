@@ -90,6 +90,7 @@ internal sealed class AutoUpdateService : IScheduleScopedJob
         var exePath = Environment.ProcessPath
             ?? Path.Combine(AppContext.BaseDirectory, AssetName);
         var newExePath = exePath + ".new";
+        var backupPath = exePath + ".bak";
         var batchPath = Path.Combine(Path.GetDirectoryName(exePath)!, "update.bat");
 
         _logger.LogInformation("Downloading {Latest} from {Url}", latest, downloadUrl);
@@ -107,21 +108,36 @@ internal sealed class AutoUpdateService : IScheduleScopedJob
 
         await File.WriteAllBytesAsync(newExePath, bytes);
 
+        // Remove the Zone.Identifier alternate data stream so Smart App Control
+        // does not treat the downloaded file as untrusted internet content.
+        try
+        {
+            File.Delete(newExePath + ":Zone.Identifier");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug("Zone.Identifier removal skipped: {Message}", ex.Message);
+        }
+
         await File.WriteAllTextAsync(batchPath,
             $"""
             @echo off
             timeout /t 2 /nobreak > nul
+            copy /y "{exePath}" "{backupPath}" > nul
+            if errorlevel 1 exit /b 1
             move /y "{newExePath}" "{exePath}"
             if errorlevel 1 (
-                timeout /t 3 /nobreak > nul
-                move /y "{newExePath}" "{exePath}"
-                if errorlevel 1 (
-                    timeout /t 5 /nobreak > nul
-                    move /y "{newExePath}" "{exePath}"
-                    if errorlevel 1 exit /b 1
-                )
+                del "{backupPath}" 2>nul
+                exit /b 1
             )
             start "" "{exePath}"
+            timeout /t 8 /nobreak > nul
+            tasklist /fi "imagename eq {AssetName}" /fo csv 2>nul | findstr /i "{Path.GetFileNameWithoutExtension(AssetName)}" > nul
+            if errorlevel 1 (
+                copy /y "{backupPath}" "{exePath}" > nul
+                start "" "{exePath}"
+            )
+            del "{backupPath}" 2>nul
             del "%~f0"
             """);
 
