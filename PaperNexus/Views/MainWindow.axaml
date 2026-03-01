@@ -102,9 +102,9 @@
                     </Grid>
                 </StackPanel>
 
-                <!-- Switch Schedule -->
+                <!-- Slideshow Schedule -->
                 <StackPanel Spacing="4">
-                    <TextBlock Text="Switch Schedule" FontWeight="SemiBold"/>
+                    <TextBlock Text="Slideshow Schedule" FontWeight="SemiBold"/>
                     <StackPanel Orientation="Horizontal" Spacing="16">
                         <RadioButton Content="Interval (mins)"
                                      GroupName="ScheduleMode"
