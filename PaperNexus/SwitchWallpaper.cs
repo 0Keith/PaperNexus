@@ -42,7 +42,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
             return null;
 
         string next;
-        if (settings.SwitchPattern == WallpaperSwitchPattern.Random && allFiles.Count > 1)
+        if (settings.Slideshow.Pattern == WallpaperSwitchPattern.Random && allFiles.Count > 1)
         {
             var candidates = allFiles
                 .Select(f => f.FullName)
@@ -52,10 +52,10 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
         }
         else
         {
-            var files = settings.SwitchPattern switch
+            var files = settings.Slideshow.Pattern switch
             {
-                WallpaperSwitchPattern.Oldest => allFiles.OrderBy(f => f.LastWriteTime).Select(f => f.FullName).ToList(),
-                WallpaperSwitchPattern.Newest => allFiles.OrderByDescending(f => f.LastWriteTime).Select(f => f.FullName).ToList(),
+                WallpaperSwitchPattern.OldestFirst => allFiles.OrderBy(f => f.LastWriteTime).Select(f => f.FullName).ToList(),
+                WallpaperSwitchPattern.NewestFirst => allFiles.OrderByDescending(f => f.LastWriteTime).Select(f => f.FullName).ToList(),
                 _ => allFiles.OrderBy(f => f.Name).Select(f => f.FullName).ToList(), // Sequential, Alphabetical, default
             };
             var index = files.IndexOf(settings.CurrentWallpaperPath);
@@ -147,9 +147,9 @@ internal sealed class SwitchWallpaperJob : IScheduleScopedJob
     public async Task<JobConfig> GetJobConfigAsync()
     {
         var settings = await WallpaperNexusSettings.LoadAsync();
-        if (settings.SwitchPattern == WallpaperSwitchPattern.Never)
+        if (settings.Slideshow.Pattern == WallpaperSwitchPattern.Never)
             return new JobConfig();
-        var cronExpression = CronExpression.Parse(settings.SwitchCronExpression);
+        var cronExpression = CronExpression.Parse(settings.Slideshow.CronExpression);
         return new JobConfig(CronExpression: cronExpression);
     }
 

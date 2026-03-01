@@ -21,16 +21,25 @@ public enum WallpaperSwitchPattern
 {
     Alphabetical,
     Random,
-    Oldest,
-    Newest,
+    OldestFirst,
+    NewestFirst,
     Never,
 }
 
-public enum SwitchScheduleMode
+public enum SlideshowScheduleMode
 {
     CronExpression,
     IntervalMinutes,
     IntervalHours,
+}
+
+public class SlideshowSettings
+{
+    public SlideshowScheduleMode ScheduleMode { get; set; } = SlideshowScheduleMode.CronExpression;
+    public int IntervalMinutes { get; set; } = 30;
+    public int IntervalHours { get; set; } = 1;
+    public string CronExpression { get; set; } = "*/30 * * * *";
+    public WallpaperSwitchPattern Pattern { get; set; } = WallpaperSwitchPattern.NewestFirst;
 }
 
 public class WallpaperSource
@@ -47,17 +56,13 @@ public class WallpaperNexusSettings
         AppContext.BaseDirectory, "settings.json");
 
     public string WallpapersFolder { get; set; } = string.Empty;
-    public SwitchScheduleMode SwitchScheduleMode { get; set; } = SwitchScheduleMode.CronExpression;
-    public int SwitchIntervalMinutes { get; set; } = 30;
-    public int SwitchIntervalHours { get; set; } = 1;
-    public string SwitchCronExpression { get; set; } = "*/30 * * * *";
+    public SlideshowSettings Slideshow { get; set; } = new();
 
-    public int ImageWidth { get; set; } = 0;
-    public int ImageHeight { get; set; } = 0;
+    public int ResolutionWidth { get; set; } = 0;
+    public int ResolutionHeight { get; set; } = 0;
     public int RetentionDays { get; set; } = 365;
     public string CurrentWallpaperPath { get; set; } = string.Empty;
     public WallpaperFillStyle FillStyle { get; set; } = WallpaperFillStyle.Fill;
-    public WallpaperSwitchPattern SwitchPattern { get; set; } = WallpaperSwitchPattern.Newest;
     public bool AnnotateWallpaper { get; set; } = true;
     public bool RunOnStartup { get; set; } = true;
 
