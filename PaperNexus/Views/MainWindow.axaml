@@ -148,7 +148,10 @@
 
         <!-- Footer -->
         <StackPanel Grid.Row="1" Spacing="8" Margin="0,14,0,0">
-            <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="12"/>
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="12" VerticalAlignment="Bottom"/>
+                <TextBlock Grid.Column="1" Text="{Binding AppVersion}" FontSize="10" Opacity="0.35" VerticalAlignment="Bottom"/>
+            </Grid>
             <Grid ColumnDefinitions="*,8,*,8,*">
                 <Button Grid.Column="0" Content="⏭ Next Wallpaper" Command="{Binding NextWallpaperCommand}"
                         HorizontalAlignment="Stretch"/>
