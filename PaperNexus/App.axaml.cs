@@ -131,8 +131,13 @@ public partial class App : Application
         if (_trayIcon != null)
             _trayIcon.IsVisible = false;
         if (_backgroundHost is not null)
-            await _backgroundHost.StopAsync();
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            try { await _backgroundHost.StopAsync(cts.Token); }
+            catch { }
+        }
         desktop.Shutdown();
+        Environment.Exit(0);
     }
 
     private static WindowIcon CreateTrayIcon()
