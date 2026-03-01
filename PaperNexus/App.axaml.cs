@@ -14,6 +14,11 @@ namespace PaperNexus;
 
 public partial class App : Application
 {
+    internal static string AppVersion { get; } =
+        Assembly.GetExecutingAssembly().GetName().Version is { } v
+            ? $"v{v.Major}.{v.Minor}.{v.Build}"
+            : "v0.0.0";
+
     private IHost? _backgroundHost;
     private TrayIcon? _trayIcon;
     private MainWindow? _mainWindow;
