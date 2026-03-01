@@ -274,6 +274,17 @@ public partial class WallpaperConfigViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    private void ReportBug()
+    {
+        var version = App.AppVersion;
+        var body = $"**App Version:** {version}\n\n**Describe the bug:**\n\n\n**Steps to reproduce:**\n\n\n**Expected behavior:**\n\n";
+        var url = "https://github.com/0Keith/PaperNexus/issues/new"
+                + "?assignees=claude&labels=bug&title=Bug+Report"
+                + "&body=" + Uri.EscapeDataString(body);
+        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+    }
+
     private async Task SaveSettingsAsync()
     {
         try
