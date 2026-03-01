@@ -54,6 +54,11 @@ public class WallpaperNexusSettings
         new WallpaperSource { Name = "Bing Daily", Url = "https://peapix.com/bing/feed?country=us" }
     };
 
+    public double? WindowX { get; set; }
+    public double? WindowY { get; set; }
+    public double? WindowWidth { get; set; }
+    public double? WindowHeight { get; set; }
+
     public bool IsConfigured => !string.IsNullOrWhiteSpace(WallpapersFolder);
 
     public static readonly WallpaperSource DefaultBingSource = new()
