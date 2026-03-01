@@ -130,7 +130,7 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
                 del "{backupPath}" 2>nul
                 exit /b 1
             )
-            start "" "{exePath}"
+            start "" "{exePath}" --updated
             timeout /t 8 /nobreak > nul
             tasklist /fi "imagename eq {AssetName}" /fo csv 2>nul | findstr /i "{Path.GetFileNameWithoutExtension(AssetName)}" > nul
             if errorlevel 1 (
