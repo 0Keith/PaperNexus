@@ -25,6 +25,13 @@ public enum WallpaperSwitchPattern
     Never,
 }
 
+public enum SwitchScheduleMode
+{
+    CronExpression,
+    IntervalMinutes,
+    IntervalHours,
+}
+
 public class WallpaperSource
 {
     public string Name { get; set; } = string.Empty;
@@ -39,7 +46,9 @@ public class WallpaperNexusSettings
         AppContext.BaseDirectory, "settings.json");
 
     public string WallpapersFolder { get; set; } = string.Empty;
+    public SwitchScheduleMode SwitchScheduleMode { get; set; } = SwitchScheduleMode.CronExpression;
     public int SwitchIntervalMinutes { get; set; } = 30;
+    public int SwitchIntervalHours { get; set; } = 1;
     public string SwitchCronExpression { get; set; } = "*/30 * * * *";
 
     public int ImageWidth { get; set; } = 0;
