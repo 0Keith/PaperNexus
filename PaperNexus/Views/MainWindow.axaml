@@ -48,7 +48,12 @@
                              BorderThickness="1">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding Name}" Padding="4,2"/>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <CheckBox IsChecked="{Binding IsEnabled, Mode=OneTime}"
+                                              IsHitTestVisible="False"
+                                              VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Name}" Padding="4,2" VerticalAlignment="Center"/>
+                                </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
@@ -76,6 +81,7 @@
                                     <TextBox Grid.Column="1" Text="{Binding EditCronExpression}"
                                              Watermark="e.g. 0 * * * * (every hour)"/>
                                 </Grid>
+                                <CheckBox Content="Source enabled" IsChecked="{Binding EditIsEnabled}"/>
                                 <Button Content="✓ Apply Changes"
                                         Command="{Binding ApplySourceEditCommand}"
                                         HorizontalAlignment="Right"

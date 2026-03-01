@@ -17,7 +17,7 @@ internal class DownloadWallpapers : ScheduledJobService
     {
         var settings = await WallpaperNexusSettings.LoadAsync();
         var earliest = DateTimeOffset.Now.AddHours(1);
-        foreach (var source in settings.Sources)
+        foreach (var source in settings.Sources.Where(s => s.IsEnabled))
         {
             var expression = CronExpression.Parse(source.CronExpression);
             var next = expression.GetNextOccurrence(DateTimeOffset.UtcNow, TimeZoneInfo.Local);
@@ -36,7 +36,7 @@ internal class DownloadWallpapers : ScheduledJobService
             return;
         }
 
-        foreach (var source in settings.Sources)
+        foreach (var source in settings.Sources.Where(s => s.IsEnabled))
         {
             var images = await _sourceService.GetImages(source);
             foreach (var image in images)
