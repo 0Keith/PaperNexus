@@ -2,7 +2,7 @@ name: PR Build Verification
 
 on:
   pull_request:
-    branches: ['*']
+    branches: ['main']
 
 jobs:
   verify-build:
