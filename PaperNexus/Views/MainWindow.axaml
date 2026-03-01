@@ -153,8 +153,8 @@
             <Grid ColumnDefinitions="*,Auto,6,Auto">
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="12" VerticalAlignment="Bottom"/>
                 <TextBlock Grid.Column="1" Text="{x:Static app:App.AppVersion}" FontSize="10" Opacity="0.35" VerticalAlignment="Bottom"/>
-                <Button Grid.Column="3" Content="🐛" Command="{Binding ReportBugCommand}"
-                        ToolTip.Tip="Report a bug on GitHub (assigned to claude)"
+                <Button Grid.Column="3" Content="Leave Feedback" Command="{Binding ReportBugCommand}"
+                        ToolTip.Tip="Leave feedback on GitHub"
                         Padding="5,2" FontSize="12" Opacity="0.6"/>
             </Grid>
             <Grid ColumnDefinitions="*,8,*">
