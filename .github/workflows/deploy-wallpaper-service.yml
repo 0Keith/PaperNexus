@@ -48,13 +48,29 @@ jobs:
       shell: pwsh
       run: |
         $pfxPath = "$env:TEMP\papernexus-sign.pfx"
+        $certPassword = $env:SIGNING_CERTIFICATE_PASSWORD
+        $needsNewCert = $false
 
         if ($env:SIGNING_CERTIFICATE) {
-          # Reuse the persistent cert stored in secrets
+          # Load the stored cert and check whether it is expired or expiring within 30 days
           [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:SIGNING_CERTIFICATE))
-          $certPassword = $env:SIGNING_CERTIFICATE_PASSWORD
+          $pfxPwd = ConvertTo-SecureString -String $certPassword -Force -AsPlainText
+          $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($pfxPath, $pfxPwd)
+          $daysUntilExpiry = ($cert.NotAfter - (Get-Date)).TotalDays
+          $cert.Dispose()
+
+          if ($daysUntilExpiry -le 30) {
+            Write-Host "Certificate expires in $([math]::Floor($daysUntilExpiry)) day(s) — regenerating."
+            $needsNewCert = $true
+          } else {
+            Write-Host "Certificate valid for $([math]::Floor($daysUntilExpiry)) more day(s) — reusing."
+          }
         } else {
-          # First run: generate a cert and store it for all future runs
+          # No cert stored yet — generate on first run
+          $needsNewCert = $true
+        }
+
+        if ($needsNewCert) {
           $certPassword = [System.Guid]::NewGuid().ToString("N")
           $cert = New-SelfSignedCertificate `
             -Subject "CN=PaperNexus" `
