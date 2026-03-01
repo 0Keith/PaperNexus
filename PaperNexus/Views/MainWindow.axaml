@@ -105,13 +105,13 @@
                                FontSize="11" Opacity="0.6"/>
                 </StackPanel>
 
-                <!-- Switching Pattern -->
+                <!-- Slideshow Behavior -->
                 <StackPanel Spacing="4">
-                    <TextBlock Text="Switching Pattern" FontWeight="SemiBold"/>
+                    <TextBlock Text="Slideshow Behavior" FontWeight="SemiBold"/>
                     <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.SwitchPatternOptions}"
                               SelectedItem="{Binding SelectedSwitchPattern}"
                               HorizontalAlignment="Stretch"/>
-                    <TextBlock Text="Sequential/Alphabetical: cycle A→Z  •  Oldest/Newest: cycle by file date  •  Random: pick randomly"
+                    <TextBlock Text="Alphabetical: cycle A→Z  •  Oldest/Newest: cycle by file date  •  Random: pick randomly  •  Never: disable auto-switching"
                                FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
                 </StackPanel>
 

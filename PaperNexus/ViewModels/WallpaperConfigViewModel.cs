@@ -52,6 +52,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         new SwitchPatternOption("Oldest first", WallpaperSwitchPattern.Oldest),
         new SwitchPatternOption("Newest first", WallpaperSwitchPattern.Newest),
         new SwitchPatternOption("Random",       WallpaperSwitchPattern.Random),
+        new SwitchPatternOption("Never",        WallpaperSwitchPattern.Never),
     };
 
     [ObservableProperty]

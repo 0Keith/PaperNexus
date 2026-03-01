@@ -22,6 +22,7 @@ public enum WallpaperSwitchPattern
     Random,
     Oldest,
     Newest,
+    Never,
 }
 
 public class WallpaperSource
