@@ -200,9 +200,7 @@
                 <Button Grid.Column="3" Content="🔄"
                         Command="{Binding CheckForUpdatesCommand}"
                         ToolTip.Tip="Check for updates"
-                        FontSize="10" Opacity="0.35" VerticalAlignment="Bottom"
-                        Padding="2,0" Background="Transparent" BorderThickness="0"
-                        Cursor="Hand"/>
+                        Padding="5,2" FontSize="12" Opacity="0.6"/>
                 <Button Grid.Column="5" Content="💬" Command="{Binding ReportBugCommand}"
                         ToolTip.Tip="Leave feedback on GitHub"
                         Padding="5,2" FontSize="12" Opacity="0.6"/>
