@@ -63,6 +63,47 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private string _switchCronExpression;
 
     [ObservableProperty]
+    private int _switchIntervalMinutes;
+
+    [ObservableProperty]
+    private int _switchIntervalHours;
+
+    private SwitchScheduleMode _selectedScheduleMode;
+
+    public SwitchScheduleMode SelectedScheduleMode
+    {
+        get => _selectedScheduleMode;
+        set
+        {
+            if (SetProperty(ref _selectedScheduleMode, value))
+            {
+                OnPropertyChanged(nameof(IsIntervalMinutesMode));
+                OnPropertyChanged(nameof(IsIntervalHoursMode));
+                OnPropertyChanged(nameof(IsCronMode));
+                TriggerSave();
+            }
+        }
+    }
+
+    public bool IsIntervalMinutesMode
+    {
+        get => _selectedScheduleMode == SwitchScheduleMode.IntervalMinutes;
+        set { if (value) SelectedScheduleMode = SwitchScheduleMode.IntervalMinutes; }
+    }
+
+    public bool IsIntervalHoursMode
+    {
+        get => _selectedScheduleMode == SwitchScheduleMode.IntervalHours;
+        set { if (value) SelectedScheduleMode = SwitchScheduleMode.IntervalHours; }
+    }
+
+    public bool IsCronMode
+    {
+        get => _selectedScheduleMode == SwitchScheduleMode.CronExpression;
+        set { if (value) SelectedScheduleMode = SwitchScheduleMode.CronExpression; }
+    }
+
+    [ObservableProperty]
     private ResolutionOption _selectedResolution;
 
     [ObservableProperty]
@@ -114,6 +155,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
     {
         _wallpapersFolder = string.Empty;
         _switchCronExpression = string.Empty;
+        _switchIntervalMinutes = 30;
+        _switchIntervalHours = 1;
+        _selectedScheduleMode = SwitchScheduleMode.CronExpression;
         _statusMessage = string.Empty;
         _statusForeground = Brushes.White;
         _currentWallpaperPath = string.Empty;
@@ -157,6 +201,8 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
     partial void OnWallpapersFolderChanged(string value) => TriggerSave();
     partial void OnSwitchCronExpressionChanged(string value) => TriggerSave();
+    partial void OnSwitchIntervalMinutesChanged(int value) => TriggerSave();
+    partial void OnSwitchIntervalHoursChanged(int value) => TriggerSave();
     partial void OnSelectedResolutionChanged(ResolutionOption value) => TriggerSave();
     partial void OnSelectedFillStyleChanged(FillStyleOption value) => TriggerSave();
     partial void OnSelectedSwitchPatternChanged(SwitchPatternOption value) => TriggerSave();
@@ -177,6 +223,13 @@ public partial class WallpaperConfigViewModel : ObservableObject
         {
             var settings = await WallpaperNexusSettings.LoadAsync();
             WallpapersFolder = settings.WallpapersFolder;
+            _selectedScheduleMode = settings.SwitchScheduleMode;
+            OnPropertyChanged(nameof(SelectedScheduleMode));
+            OnPropertyChanged(nameof(IsIntervalMinutesMode));
+            OnPropertyChanged(nameof(IsIntervalHoursMode));
+            OnPropertyChanged(nameof(IsCronMode));
+            SwitchIntervalMinutes = settings.SwitchIntervalMinutes > 0 ? settings.SwitchIntervalMinutes : 30;
+            SwitchIntervalHours = settings.SwitchIntervalHours > 0 ? settings.SwitchIntervalHours : 1;
             SwitchCronExpression = settings.SwitchCronExpression;
             SelectedResolution = ResolutionOptions.FirstOrDefault(
                 r => r.Width == settings.ImageWidth && r.Height == settings.ImageHeight)
@@ -319,7 +372,15 @@ public partial class WallpaperConfigViewModel : ObservableObject
         {
             var settings = await WallpaperNexusSettings.LoadAsync();
             settings.WallpapersFolder = WallpapersFolder;
-            settings.SwitchCronExpression = SwitchCronExpression;
+            settings.SwitchScheduleMode = SelectedScheduleMode;
+            settings.SwitchIntervalMinutes = SwitchIntervalMinutes;
+            settings.SwitchIntervalHours = SwitchIntervalHours;
+            settings.SwitchCronExpression = SelectedScheduleMode switch
+            {
+                SwitchScheduleMode.IntervalMinutes => $"*/{SwitchIntervalMinutes} * * * *",
+                SwitchScheduleMode.IntervalHours => $"0 */{SwitchIntervalHours} * * *",
+                _ => SwitchCronExpression,
+            };
             settings.ImageWidth = SelectedResolution.Width;
             settings.ImageHeight = SelectedResolution.Height;
             settings.RetentionDays = RetentionDays;
