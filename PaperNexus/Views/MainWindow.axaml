@@ -149,13 +149,11 @@
         <!-- Footer -->
         <StackPanel Grid.Row="1" Spacing="8" Margin="0,14,0,0">
             <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="12"/>
-            <Grid ColumnDefinitions="*,8,*,8,*">
+            <Grid ColumnDefinitions="*,8,*">
                 <Button Grid.Column="0" Content="⏭ Next Wallpaper" Command="{Binding NextWallpaperCommand}"
                         HorizontalAlignment="Stretch"/>
                 <Button Grid.Column="2" Content="🗑 Delete Wallpaper" Command="{Binding DeleteCurrentWallpaperCommand}"
                         IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                        HorizontalAlignment="Stretch"/>
-                <Button Grid.Column="4" Content="💾 Save Settings" Command="{Binding SaveCommand}"
                         HorizontalAlignment="Stretch"/>
             </Grid>
         </StackPanel>
