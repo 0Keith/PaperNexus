@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write  # Required for SignPath OIDC connector
 
 jobs:
   build:
@@ -39,6 +40,28 @@ jobs:
           -p:PublishTrimmed=false `
           -p:Version=$version `
           --output ./publish/PaperNexus
+
+    - name: Upload unsigned artifact for signing
+      uses: actions/upload-artifact@v4
+      with:
+        name: unsigned-PaperNexus
+        path: ./publish/PaperNexus/PaperNexus.exe
+
+    - name: Sign with SignPath Foundation
+      uses: signpath/github-action-submit-signing-request@v1
+      with:
+        api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+        organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+        signing-policy-slug: release-signing
+        artifact-configuration-slug: papernexus-exe
+        github-artifact-name: unsigned-PaperNexus
+        output-artifact-directory: ./publish/PaperNexus-signed
+        wait-for-completion: true
+
+    - name: Replace unsigned exe with signed
+      shell: pwsh
+      run: |
+        Copy-Item ./publish/PaperNexus-signed/PaperNexus.exe ./publish/PaperNexus/PaperNexus.exe -Force
 
     - name: Create GitHub Release
       shell: pwsh
