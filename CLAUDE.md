@@ -112,41 +112,25 @@ All workflows run on `windows-latest` and use `actions/checkout@v6`.
 
 ### Code Signing (self-signed certificate)
 
-The release workflow signs `PaperNexus.exe` with a self-signed certificate generated inline during CI. No secrets or external services are required.
+The release workflow signs `PaperNexus.exe` with a persistent self-signed certificate. The cert is auto-generated on the first run and stored back as repository secrets so every subsequent release is signed with the same identity, allowing SmartScreen reputation to accumulate.
 
 **How it works in CI:**
-1. The PFX is decoded from the `SIGNING_CERTIFICATE` GitHub secret
-2. `signtool.exe` (from the Windows 10 SDK bundled on `windows-latest`) signs the exe with SHA-256 digest and a DigiCert RFC 3161 timestamp
-3. The PFX is deleted; the signed exe is uploaded to the GitHub Release
-4. If `SIGNING_CERTIFICATE` is not set the signing step is skipped (unsigned build still succeeds)
+1. If `SIGNING_CERTIFICATE` secret exists, the PFX is decoded and reused
+2. Otherwise a new cert is generated, and — if `GH_PAT` is set — written back to `SIGNING_CERTIFICATE` / `SIGNING_CERTIFICATE_PASSWORD` via `gh secret set` for all future runs
+3. `signtool.exe` (Windows 10 SDK, bundled on `windows-latest`) signs the exe with SHA-256 digest and a DigiCert RFC 3161 timestamp
+4. The PFX is deleted; the signed exe is uploaded to the GitHub Release
 
-**Required GitHub secrets** (set once in repo Settings → Secrets and variables → Actions):
-- `SIGNING_CERTIFICATE` — base64-encoded PFX file
-- `SIGNING_CERTIFICATE_PASSWORD` — password chosen when the PFX was exported
+**One-time setup** (only required to enable auto-persistence on first run):
+Add a single secret in repo Settings → Secrets and variables → Actions:
+- `GH_PAT` — a fine-grained PAT with **Read and write** access to **Secrets** for this repository
 
-**One-time cert generation** (run locally on Windows, then store the output as secrets):
-```powershell
-$cert = New-SelfSignedCertificate `
-  -Subject "CN=PaperNexus" `
-  -CertStoreLocation "Cert:\CurrentUser\My" `
-  -Type CodeSigningCert `
-  -HashAlgorithm SHA256 `
-  -NotAfter (Get-Date).AddYears(5)
+On the first workflow run with `GH_PAT` set, the cert is generated automatically and `SIGNING_CERTIFICATE` / `SIGNING_CERTIFICATE_PASSWORD` are written back. `GH_PAT` is the only secret you ever need to add manually.
 
-$password = "your-strong-password-here"
-$pfxPassword = ConvertTo-SecureString -String $password -Force -AsPlainText
-$pfxPath = "$env:USERPROFILE\papernexus-sign.pfx"
-Export-PfxCertificate -Certificate $cert -FilePath $pfxPath -Password $pfxPassword | Out-Null
+Without `GH_PAT`, signing still works but the cert is ephemeral per-run (no reputation accumulation).
 
-# Copy this output into the SIGNING_CERTIFICATE secret
-[Convert]::ToBase64String([IO.File]::ReadAllBytes($pfxPath))
+**Cert renewal:** The cert is valid for 5 years. To force regeneration, delete the `SIGNING_CERTIFICATE` and `SIGNING_CERTIFICATE_PASSWORD` secrets — the next run will create a fresh cert. SmartScreen reputation is tied to the publisher name (`CN=PaperNexus`), so it carries forward after renewal.
 
-# Then delete the local PFX and store $password in SIGNING_CERTIFICATE_PASSWORD
-```
-
-**Cert renewal:** The cert expires after 5 years. Regenerate and update both secrets before expiry. The thumbprint changes on renewal, but SmartScreen reputation is tied to the publisher name, so reputation carries forward.
-
-**Limitations:** The cert is self-signed and not rooted in a trusted CA, so Windows SmartScreen will still warn on first run. Because the same cert is reused across every release, SmartScreen reputation accumulates over time. To eliminate warnings immediately, replace with a purchased OV/EV certificate using the same secret-based approach.
+**Limitations:** Self-signed certs are not rooted in a trusted CA, so SmartScreen warns on first download. Reputation accumulates across releases as long as the same cert is reused. To eliminate warnings immediately, replace with a purchased OV/EV certificate stored using the same `SIGNING_CERTIFICATE` / `SIGNING_CERTIFICATE_PASSWORD` secret names.
 
 ### GitHub Actions Maintenance
 

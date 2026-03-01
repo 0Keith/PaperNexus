@@ -41,25 +41,46 @@ jobs:
           --output ./publish/PaperNexus
 
     - name: Sign executable (self-signed)
-      if: env.SIGNING_CERTIFICATE != ''
       env:
         SIGNING_CERTIFICATE: ${{ secrets.SIGNING_CERTIFICATE }}
         SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
+        GH_TOKEN: ${{ secrets.GH_PAT }}
       shell: pwsh
       run: |
-        # Decode the persistent PFX from the GitHub secret
-        $pfxBytes = [Convert]::FromBase64String($env:SIGNING_CERTIFICATE)
         $pfxPath = "$env:TEMP\papernexus-sign.pfx"
-        [IO.File]::WriteAllBytes($pfxPath, $pfxBytes)
 
-        # Locate signtool from the Windows SDK
+        if ($env:SIGNING_CERTIFICATE) {
+          # Reuse the persistent cert stored in secrets
+          [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:SIGNING_CERTIFICATE))
+          $certPassword = $env:SIGNING_CERTIFICATE_PASSWORD
+        } else {
+          # First run: generate a cert and store it for all future runs
+          $certPassword = [System.Guid]::NewGuid().ToString("N")
+          $cert = New-SelfSignedCertificate `
+            -Subject "CN=PaperNexus" `
+            -CertStoreLocation "Cert:\CurrentUser\My" `
+            -Type CodeSigningCert `
+            -HashAlgorithm SHA256 `
+            -NotAfter (Get-Date).AddYears(5)
+          $pfxPwd = ConvertTo-SecureString -String $certPassword -Force -AsPlainText
+          Export-PfxCertificate -Certificate $cert -FilePath $pfxPath -Password $pfxPwd | Out-Null
+
+          if ($env:GH_TOKEN) {
+            $base64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($pfxPath))
+            gh secret set SIGNING_CERTIFICATE --body $base64 --repo '${{ github.repository }}'
+            gh secret set SIGNING_CERTIFICATE_PASSWORD --body $certPassword --repo '${{ github.repository }}'
+            Write-Host "Signing certificate generated and stored as repository secrets."
+          } else {
+            Write-Warning "GH_PAT not set — cert is ephemeral for this run. Add a GH_PAT secret (secrets:write) to persist it."
+          }
+        }
+
         $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "signtool.exe" -Recurse |
           Where-Object { $_.FullName -match 'x64' } |
           Sort-Object FullName -Descending |
           Select-Object -First 1 -ExpandProperty FullName
 
-        # Sign with SHA-256 digest and a public timestamp authority
-        & $signtool sign /f $pfxPath /p $env:SIGNING_CERTIFICATE_PASSWORD /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /v ./publish/PaperNexus/PaperNexus.exe
+        & $signtool sign /f $pfxPath /p $certPassword /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /v ./publish/PaperNexus/PaperNexus.exe
         if ($LASTEXITCODE -ne 0) { throw "signtool exited with code $LASTEXITCODE" }
 
         Remove-Item $pfxPath -Force
