@@ -3,7 +3,7 @@ using Microsoft.Extensions.Hosting;
 using System.Linq;
 using System.Reflection;
 
-namespace Excogitated.Core;
+namespace PaperNexus.Core;
 
 /// <summary>
 /// Implement this interface on a class to have it automatically registered as

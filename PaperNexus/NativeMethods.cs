@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Excogitated.WallpaperNexus;
+namespace PaperNexus;
 
 internal static class NativeMethods
 {

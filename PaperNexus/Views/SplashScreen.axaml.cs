@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace Excogitated.WallpaperNexus.Views;
+namespace PaperNexus.Views;
 
 public partial class SplashScreen : Window
 {

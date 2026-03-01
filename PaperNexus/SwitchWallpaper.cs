@@ -1,5 +1,5 @@
 using Cronos;
-using Excogitated.Core;
+using PaperNexus.Core;
 using Microsoft.Win32;
 using SixLabors.Fonts;
 using SixLabors.ImageSharp;
@@ -9,7 +9,7 @@ using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Processing;
 using System.Runtime.InteropServices;
 
-namespace Excogitated.WallpaperNexus;
+namespace PaperNexus;
 
 public interface ISwitchWallpaper
 {

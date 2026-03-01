@@ -17,5 +17,5 @@ fi
 
 # Restore NuGet packages
 echo "Restoring NuGet packages..."
-dotnet restore "$CLAUDE_PROJECT_DIR/Excogitated.AppLauncher.sln"
+dotnet restore "$CLAUDE_PROJECT_DIR/PaperNexus.sln"
 echo "✓ NuGet packages restored"

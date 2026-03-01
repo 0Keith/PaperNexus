@@ -1,5 +1,5 @@
-global using Excogitated.Core;
-global using Excogitated.WallpaperNexus;
+global using PaperNexus.Core;
+global using PaperNexus;
 global using Microsoft.Extensions.DependencyInjection;
 global using Microsoft.Extensions.Hosting;
 global using Microsoft.Extensions.Logging;
