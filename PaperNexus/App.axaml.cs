@@ -55,8 +55,8 @@ public partial class App : Application
             _splashScreen = new SplashScreen();
             _splashScreen.Show();
 
-            // Close the splash once the background host has started
-            _ = _backgroundHost.StartAsync().ContinueWith(_ =>
+            // Close the splash once the background host has started, but show it for at least 2 seconds
+            _ = Task.WhenAll(_backgroundHost.StartAsync(), Task.Delay(2000)).ContinueWith(_ =>
                 Dispatcher.UIThread.Post(() =>
                 {
                     _splashScreen?.Close();
