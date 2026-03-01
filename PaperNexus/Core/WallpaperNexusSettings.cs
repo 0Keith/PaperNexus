@@ -30,6 +30,7 @@ public class WallpaperSource
     public string Name { get; set; } = string.Empty;
     public string Url { get; set; } = string.Empty;
     public string CronExpression { get; set; } = "0 * * * *";
+    public bool IsEnabled { get; set; } = true;
 }
 
 public class WallpaperNexusSettings

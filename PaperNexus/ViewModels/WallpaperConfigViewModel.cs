@@ -107,6 +107,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
     [ObservableProperty]
     private string _editCronExpression = "0 * * * *";
 
+    [ObservableProperty]
+    private bool _editIsEnabled = true;
+
     public WallpaperConfigViewModel()
     {
         _wallpapersFolder = string.Empty;
@@ -127,6 +130,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         EditName = value?.Name ?? string.Empty;
         EditUrl = value?.Url ?? string.Empty;
         EditCronExpression = value?.CronExpression ?? "0 * * * *";
+        EditIsEnabled = value?.IsEnabled ?? true;
     }
 
     partial void OnSourcesChanging(ObservableCollection<WallpaperSource> value)
@@ -218,7 +222,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             return;
         var index = Sources.IndexOf(SelectedSource);
         Sources.RemoveAt(index);
-        var updated = new WallpaperSource { Name = EditName, Url = EditUrl, CronExpression = EditCronExpression };
+        var updated = new WallpaperSource { Name = EditName, Url = EditUrl, CronExpression = EditCronExpression, IsEnabled = EditIsEnabled };
         Sources.Insert(index, updated);
         SelectedSource = updated;
     }
