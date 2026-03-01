@@ -104,7 +104,7 @@ public partial class App : Application
 
         _trayIcon = new TrayIcon
         {
-            ToolTipText = "Wallpaper Nexus",
+            ToolTipText = "Paper Nexus",
             Icon = CreateTrayIcon(),
             Menu = menu,
         };
