@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -78,6 +79,12 @@ public class WallpaperNexusSettings
         Url = "https://peapix.com/bing/feed?country=us"
     };
 
+    private static readonly JsonSerializerSettings JsonSettings = new()
+    {
+        Formatting = Formatting.Indented,
+        Converters = { new StringEnumConverter() },
+    };
+
     public static async Task<WallpaperNexusSettings> LoadAsync()
     {
         try
@@ -85,7 +92,7 @@ public class WallpaperNexusSettings
             if (File.Exists(SettingsFilePath))
             {
                 var json = await File.ReadAllTextAsync(SettingsFilePath);
-                var settings = JsonConvert.DeserializeObject<WallpaperNexusSettings>(json) ?? new WallpaperNexusSettings();
+                var settings = JsonConvert.DeserializeObject<WallpaperNexusSettings>(json, JsonSettings) ?? new WallpaperNexusSettings();
                 if (settings.Sources.Count == 0)
                     settings.Sources.Add(new WallpaperSource { Name = DefaultBingSource.Name, Url = DefaultBingSource.Url });
                 return settings;
@@ -98,6 +105,6 @@ public class WallpaperNexusSettings
     public async Task SaveAsync()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(SettingsFilePath));
-        await File.WriteAllTextAsync(SettingsFilePath, JsonConvert.SerializeObject(this, Formatting.Indented));
+        await File.WriteAllTextAsync(SettingsFilePath, JsonConvert.SerializeObject(this, JsonSettings));
     }
 }
