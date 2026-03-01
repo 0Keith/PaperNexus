@@ -106,9 +106,31 @@ Do not add `#nullable` annotations or fix nullable warnings unless explicitly as
 ### GitHub Actions Workflows
 
 1. **`pull-request.yml`** — Runs on all PRs: restore, build (Release), test (continue-on-error)
-2. **`deploy-wallpaper-service.yml`** — Triggered on push to master/version tags/manual: builds win-x64 self-contained single-file publish, creates GitHub Release
+2. **`deploy-wallpaper-service.yml`** — Triggered on push to master/version tags/manual: builds win-x64 self-contained single-file publish, signs exe with a self-signed certificate, creates GitHub Release
 
 All workflows run on `windows-latest` and use `actions/checkout@v6`.
+
+### Code Signing (self-signed certificate)
+
+The release workflow signs `PaperNexus.exe` with a persistent self-signed certificate. The cert is auto-generated on the first run and stored back as repository secrets so every subsequent release is signed with the same identity, allowing SmartScreen reputation to accumulate.
+
+**How it works in CI:**
+1. If `SIGNING_CERTIFICATE` secret exists, the PFX is decoded and reused
+2. Otherwise a new cert is generated, and — if `GH_PAT` is set — written back to `SIGNING_CERTIFICATE` / `SIGNING_CERTIFICATE_PASSWORD` via `gh secret set` for all future runs
+3. `signtool.exe` (Windows 10 SDK, bundled on `windows-latest`) signs the exe with SHA-256 digest and a DigiCert RFC 3161 timestamp
+4. The PFX is deleted; the signed exe is uploaded to the GitHub Release
+
+**One-time setup** (only required to enable auto-persistence on first run):
+Add a single secret in repo Settings → Secrets and variables → Actions:
+- `GH_PAT` — a fine-grained PAT with **Read and write** access to **Secrets** for this repository
+
+On the first workflow run with `GH_PAT` set, the cert is generated automatically and `SIGNING_CERTIFICATE` / `SIGNING_CERTIFICATE_PASSWORD` are written back. `GH_PAT` is the only secret you ever need to add manually.
+
+Without `GH_PAT`, signing still works but the cert is ephemeral per-run (no reputation accumulation).
+
+**Cert renewal:** The cert is valid for 5 years. To force regeneration, delete the `SIGNING_CERTIFICATE` and `SIGNING_CERTIFICATE_PASSWORD` secrets — the next run will create a fresh cert. SmartScreen reputation is tied to the publisher name (`CN=PaperNexus`), so it carries forward after renewal.
+
+**Limitations:** Self-signed certs are not rooted in a trusted CA, so SmartScreen warns on first download. Reputation accumulates across releases as long as the same cert is reused. To eliminate warnings immediately, replace with a purchased OV/EV certificate stored using the same `SIGNING_CERTIFICATE` / `SIGNING_CERTIFICATE_PASSWORD` secret names.
 
 ### GitHub Actions Maintenance
 
