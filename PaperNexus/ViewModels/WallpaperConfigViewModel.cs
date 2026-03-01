@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Avalonia;
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PaperNexus.Core;
@@ -79,6 +80,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private string _statusMessage;
 
     [ObservableProperty]
+    private IBrush _statusForeground;
+
+    [ObservableProperty]
     private string _currentWallpaperPath;
 
     [ObservableProperty]
@@ -107,6 +111,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         _wallpapersFolder = string.Empty;
         _switchCronExpression = string.Empty;
         _statusMessage = string.Empty;
+        _statusForeground = Brushes.White;
         _currentWallpaperPath = string.Empty;
         _currentWallpaperName = string.Empty;
         _selectedResolution = ResolutionOptions[0];
@@ -136,6 +141,13 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private void OnSourcesCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         TriggerSave();
+    }
+
+    partial void OnStatusMessageChanged(string value)
+    {
+        StatusForeground = value.StartsWith("✓") ? new SolidColorBrush(Color.Parse("#4ADE80"))
+            : value.StartsWith("✗") ? new SolidColorBrush(Color.Parse("#F87171"))
+            : Brushes.White;
     }
 
     partial void OnWallpapersFolderChanged(string value) => TriggerSave();
