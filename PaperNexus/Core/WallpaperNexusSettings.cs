@@ -40,6 +40,7 @@ public class SlideshowSettings
     public int IntervalHours { get; set; } = 1;
     public string CronExpression { get; set; } = "*/30 * * * *";
     public WallpaperSwitchPattern Pattern { get; set; } = WallpaperSwitchPattern.NewestFirst;
+    public WallpaperFillStyle FillStyle { get; set; } = WallpaperFillStyle.Fill;
 }
 
 public class WallpaperSource
@@ -62,7 +63,6 @@ public class WallpaperNexusSettings
     public int ResolutionHeight { get; set; } = 0;
     public int RetentionDays { get; set; } = 365;
     public string CurrentWallpaperPath { get; set; } = string.Empty;
-    public WallpaperFillStyle FillStyle { get; set; } = WallpaperFillStyle.Fill;
     public bool AnnotateWallpaper { get; set; } = true;
     public bool RunOnStartup { get; set; } = true;
 

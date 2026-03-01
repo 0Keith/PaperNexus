@@ -100,7 +100,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
         }
 
         if (OperatingSystem.IsWindows())
-            ApplyFillStyle(settings.FillStyle);
+            ApplyFillStyle(settings.Slideshow.FillStyle);
         NativeMethods.SetDesktopWallpaper(currentPath);
         _logger.LogInformation($"Switching wallpaper to: {next}");
 

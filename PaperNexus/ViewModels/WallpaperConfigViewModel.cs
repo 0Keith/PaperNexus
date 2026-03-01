@@ -254,7 +254,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             SelectedResolution = ResolutionOptions.FirstOrDefault(
                 r => r.Width == settings.ResolutionWidth && r.Height == settings.ResolutionHeight)
                 ?? ResolutionOptions[0];
-            SelectedFillStyle = FillStyleOptions.FirstOrDefault(f => f.Style == settings.FillStyle)
+            SelectedFillStyle = FillStyleOptions.FirstOrDefault(f => f.Style == settings.Slideshow.FillStyle)
                 ?? FillStyleOptions[0];
             SelectedSlideshowPattern = SwitchPatternOptions.FirstOrDefault(p => p.Pattern == settings.Slideshow.Pattern)
                 ?? SwitchPatternOptions[0];
@@ -426,7 +426,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             settings.ResolutionWidth = SelectedResolution.Width;
             settings.ResolutionHeight = SelectedResolution.Height;
             settings.RetentionDays = RetentionDays;
-            settings.FillStyle = SelectedFillStyle.Style;
+            settings.Slideshow.FillStyle = SelectedFillStyle.Style;
             settings.Slideshow.Pattern = SelectedSlideshowPattern.Pattern;
             settings.AnnotateWallpaper = AnnotateWallpaper;
             settings.RunOnStartup = RunOnStartup;
