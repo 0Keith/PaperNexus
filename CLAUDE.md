@@ -115,12 +115,38 @@ All workflows run on `windows-latest` and use `actions/checkout@v6`.
 The release workflow signs `PaperNexus.exe` with a self-signed certificate generated inline during CI. No secrets or external services are required.
 
 **How it works in CI:**
-1. `New-SelfSignedCertificate` generates an ephemeral SHA-256 code-signing cert in the runner's `CurrentUser\My` store
-2. The cert is exported to a temporary PFX file
-3. `signtool.exe` (from the Windows 10 SDK bundled on `windows-latest`) signs the exe with SHA-256 digest and a DigiCert RFC 3161 timestamp
-4. The PFX is deleted; the signed exe is uploaded to the GitHub Release
+1. The PFX is decoded from the `SIGNING_CERTIFICATE` GitHub secret
+2. `signtool.exe` (from the Windows 10 SDK bundled on `windows-latest`) signs the exe with SHA-256 digest and a DigiCert RFC 3161 timestamp
+3. The PFX is deleted; the signed exe is uploaded to the GitHub Release
+4. If `SIGNING_CERTIFICATE` is not set the signing step is skipped (unsigned build still succeeds)
 
-**Limitations:** The cert is self-signed and not rooted in a trusted CA, so Windows SmartScreen will still warn on first run. To remove that warning, replace with a purchased OV/EV certificate (stored as a base64 GitHub secret) or use Azure Trusted Signing.
+**Required GitHub secrets** (set once in repo Settings → Secrets and variables → Actions):
+- `SIGNING_CERTIFICATE` — base64-encoded PFX file
+- `SIGNING_CERTIFICATE_PASSWORD` — password chosen when the PFX was exported
+
+**One-time cert generation** (run locally on Windows, then store the output as secrets):
+```powershell
+$cert = New-SelfSignedCertificate `
+  -Subject "CN=PaperNexus" `
+  -CertStoreLocation "Cert:\CurrentUser\My" `
+  -Type CodeSigningCert `
+  -HashAlgorithm SHA256 `
+  -NotAfter (Get-Date).AddYears(5)
+
+$password = "your-strong-password-here"
+$pfxPassword = ConvertTo-SecureString -String $password -Force -AsPlainText
+$pfxPath = "$env:USERPROFILE\papernexus-sign.pfx"
+Export-PfxCertificate -Certificate $cert -FilePath $pfxPath -Password $pfxPassword | Out-Null
+
+# Copy this output into the SIGNING_CERTIFICATE secret
+[Convert]::ToBase64String([IO.File]::ReadAllBytes($pfxPath))
+
+# Then delete the local PFX and store $password in SIGNING_CERTIFICATE_PASSWORD
+```
+
+**Cert renewal:** The cert expires after 5 years. Regenerate and update both secrets before expiry. The thumbprint changes on renewal, but SmartScreen reputation is tied to the publisher name, so reputation carries forward.
+
+**Limitations:** The cert is self-signed and not rooted in a trusted CA, so Windows SmartScreen will still warn on first run. Because the same cert is reused across every release, SmartScreen reputation accumulates over time. To eliminate warnings immediately, replace with a purchased OV/EV certificate using the same secret-based approach.
 
 ### GitHub Actions Maintenance
 

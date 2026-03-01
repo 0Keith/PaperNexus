@@ -41,19 +41,16 @@ jobs:
           --output ./publish/PaperNexus
 
     - name: Sign executable (self-signed)
+      if: env.SIGNING_CERTIFICATE != ''
+      env:
+        SIGNING_CERTIFICATE: ${{ secrets.SIGNING_CERTIFICATE }}
+        SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
       shell: pwsh
       run: |
-        # Generate a self-signed code-signing certificate
-        $cert = New-SelfSignedCertificate `
-          -Subject "CN=PaperNexus" `
-          -CertStoreLocation "Cert:\CurrentUser\My" `
-          -Type CodeSigningCert `
-          -HashAlgorithm SHA256 `
-          -NotAfter (Get-Date).AddYears(5)
-
-        $pfxPassword = ConvertTo-SecureString -String "signing" -Force -AsPlainText
+        # Decode the persistent PFX from the GitHub secret
+        $pfxBytes = [Convert]::FromBase64String($env:SIGNING_CERTIFICATE)
         $pfxPath = "$env:TEMP\papernexus-sign.pfx"
-        Export-PfxCertificate -Certificate $cert -FilePath $pfxPath -Password $pfxPassword | Out-Null
+        [IO.File]::WriteAllBytes($pfxPath, $pfxBytes)
 
         # Locate signtool from the Windows SDK
         $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "signtool.exe" -Recurse |
@@ -62,7 +59,7 @@ jobs:
           Select-Object -First 1 -ExpandProperty FullName
 
         # Sign with SHA-256 digest and a public timestamp authority
-        & $signtool sign /f $pfxPath /p "signing" /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /v ./publish/PaperNexus/PaperNexus.exe
+        & $signtool sign /f $pfxPath /p $env:SIGNING_CERTIFICATE_PASSWORD /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /v ./publish/PaperNexus/PaperNexus.exe
         if ($LASTEXITCODE -ne 0) { throw "signtool exited with code $LASTEXITCODE" }
 
         Remove-Item $pfxPath -Force
