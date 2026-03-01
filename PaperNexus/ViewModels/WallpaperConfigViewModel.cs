@@ -203,7 +203,11 @@ public partial class WallpaperConfigViewModel : ObservableObject
     [RelayCommand]
     private void AddSource()
     {
-        var source = new WallpaperSource { Name = "New Source", Url = string.Empty };
+        var source = new WallpaperSource
+        {
+            Name = "New Source",
+            Url = string.Empty,
+        };
         Sources.Add(source);
         SelectedSource = source;
     }
@@ -222,7 +226,13 @@ public partial class WallpaperConfigViewModel : ObservableObject
             return;
         var index = Sources.IndexOf(SelectedSource);
         Sources.RemoveAt(index);
-        var updated = new WallpaperSource { Name = EditName, Url = EditUrl, CronExpression = EditCronExpression, IsEnabled = EditIsEnabled };
+        var updated = new WallpaperSource
+        {
+            Name = EditName,
+            Url = EditUrl,
+            CronExpression = EditCronExpression,
+            IsEnabled = EditIsEnabled,
+        };
         Sources.Insert(index, updated);
         SelectedSource = updated;
     }
