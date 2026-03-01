@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: write
-  id-token: write  # Required for SignPath OIDC connector
 
 jobs:
   build:
@@ -41,27 +40,32 @@ jobs:
           -p:Version=$version `
           --output ./publish/PaperNexus
 
-    - name: Upload unsigned artifact for signing
-      uses: actions/upload-artifact@v4
-      with:
-        name: unsigned-PaperNexus
-        path: ./publish/PaperNexus/PaperNexus.exe
-
-    - name: Sign with SignPath Foundation
-      uses: signpath/github-action-submit-signing-request@v1
-      with:
-        api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-        organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-        signing-policy-slug: release-signing
-        artifact-configuration-slug: papernexus-exe
-        github-artifact-name: unsigned-PaperNexus
-        output-artifact-directory: ./publish/PaperNexus-signed
-        wait-for-completion: true
-
-    - name: Replace unsigned exe with signed
+    - name: Sign executable (self-signed)
       shell: pwsh
       run: |
-        Copy-Item ./publish/PaperNexus-signed/PaperNexus.exe ./publish/PaperNexus/PaperNexus.exe -Force
+        # Generate a self-signed code-signing certificate
+        $cert = New-SelfSignedCertificate `
+          -Subject "CN=PaperNexus" `
+          -CertStoreLocation "Cert:\CurrentUser\My" `
+          -Type CodeSigningCert `
+          -HashAlgorithm SHA256 `
+          -NotAfter (Get-Date).AddYears(5)
+
+        $pfxPassword = ConvertTo-SecureString -String "signing" -Force -AsPlainText
+        $pfxPath = "$env:TEMP\papernexus-sign.pfx"
+        Export-PfxCertificate -Certificate $cert -FilePath $pfxPath -Password $pfxPassword | Out-Null
+
+        # Locate signtool from the Windows SDK
+        $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "signtool.exe" -Recurse |
+          Where-Object { $_.FullName -match 'x64' } |
+          Sort-Object FullName -Descending |
+          Select-Object -First 1 -ExpandProperty FullName
+
+        # Sign with SHA-256 digest and a public timestamp authority
+        & $signtool sign /f $pfxPath /p "signing" /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /v ./publish/PaperNexus/PaperNexus.exe
+        if ($LASTEXITCODE -ne 0) { throw "signtool exited with code $LASTEXITCODE" }
+
+        Remove-Item $pfxPath -Force
 
     - name: Create GitHub Release
       shell: pwsh

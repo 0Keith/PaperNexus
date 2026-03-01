@@ -106,32 +106,21 @@ Do not add `#nullable` annotations or fix nullable warnings unless explicitly as
 ### GitHub Actions Workflows
 
 1. **`pull-request.yml`** — Runs on all PRs: restore, build (Release), test (continue-on-error)
-2. **`deploy-wallpaper-service.yml`** — Triggered on push to master/version tags/manual: builds win-x64 self-contained single-file publish, signs exe via SignPath Foundation, creates GitHub Release
+2. **`deploy-wallpaper-service.yml`** — Triggered on push to master/version tags/manual: builds win-x64 self-contained single-file publish, signs exe with a self-signed certificate, creates GitHub Release
 
 All workflows run on `windows-latest` and use `actions/checkout@v6`.
 
-### Code Signing (SignPath Foundation)
+### Code Signing (self-signed certificate)
 
-Releases are signed via [SignPath Foundation](https://foundation.signpath.io) (free for open-source) to satisfy Windows Smart App Control / SmartScreen.
+The release workflow signs `PaperNexus.exe` with a self-signed certificate generated inline during CI. No secrets or external services are required.
 
 **How it works in CI:**
-1. The publish step produces `./publish/PaperNexus/PaperNexus.exe`
-2. The unsigned exe is uploaded as a GitHub Actions artifact (`unsigned-PaperNexus`)
-3. `signpath/github-action-submit-signing-request@v1` submits it to SignPath's cloud HSM, waits for the signed result, and writes it to `./publish/PaperNexus-signed/`
-4. The signed exe replaces the unsigned one before the GitHub Release is created
+1. `New-SelfSignedCertificate` generates an ephemeral SHA-256 code-signing cert in the runner's `CurrentUser\My` store
+2. The cert is exported to a temporary PFX file
+3. `signtool.exe` (from the Windows 10 SDK bundled on `windows-latest`) signs the exe with SHA-256 digest and a DigiCert RFC 3161 timestamp
+4. The PFX is deleted; the signed exe is uploaded to the GitHub Release
 
-**Required GitHub secrets/variables** (set once in repo Settings):
-- Secret `SIGNPATH_API_TOKEN` — API token from the SignPath portal
-- Variable `SIGNPATH_ORGANIZATION_ID` — org ID shown in the SignPath portal URL
-
-**SignPath portal setup** (one-time, done by repo owner):
-1. Sign up at foundation.signpath.io with the GitHub account that owns `0Keith/PaperNexus`
-2. Register `0Keith/PaperNexus` as an open-source project and wait for approval
-3. Create an **Artifact Configuration** with slug `papernexus-exe` targeting `PaperNexus.exe` as a PE file
-4. The **Signing Policy** slug used is `release-signing` (created by SignPath automatically for Foundation projects)
-5. Copy the org ID and a new API token into the GitHub repo secrets/variables above
-
-**Permissions required:** The workflow uses `id-token: write` for the SignPath OIDC connector (already set in the workflow).
+**Limitations:** The cert is self-signed and not rooted in a trusted CA, so Windows SmartScreen will still warn on first run. To remove that warning, replace with a purchased OV/EV certificate (stored as a base64 GitHub secret) or use Azure Trusted Signing.
 
 ### GitHub Actions Maintenance
 
