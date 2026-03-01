@@ -5,7 +5,12 @@ using System.Text.Json;
 
 namespace PaperNexus;
 
-internal sealed class AutoUpdateService : IScheduleScopedJob
+internal interface ICheckForUpdates
+{
+    Task CheckAsync();
+}
+
+internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheckForUpdates>
 {
     private const string GitHubRepo = "0Keith/PaperNexus";
     private const string AssetName = "PaperNexus.exe";
@@ -17,12 +22,7 @@ internal sealed class AutoUpdateService : IScheduleScopedJob
         _logger = logger.ThrowIfNull();
     }
 
-    public Task<JobConfig> GetJobConfigAsync() =>
-        Task.FromResult(new JobConfig(
-            CronExpression: CronExpression.Parse("0 3 * * *"),
-            ExecuteOnStartup: true));
-
-    public async Task ExecuteAsync()
+    public async Task CheckAsync()
     {
         var current = typeof(AutoUpdateService).Assembly.GetName().Version;
         if (current is null)
@@ -42,7 +42,7 @@ internal sealed class AutoUpdateService : IScheduleScopedJob
         catch (Exception ex)
         {
             _logger.LogWarning("Update check failed: {Message}", ex.Message);
-            return;
+            throw;
         }
 
         using var doc = JsonDocument.Parse(json);
@@ -103,7 +103,7 @@ internal sealed class AutoUpdateService : IScheduleScopedJob
         catch (Exception ex)
         {
             _logger.LogWarning("Download failed: {Message}", ex.Message);
-            return;
+            throw;
         }
 
         await File.WriteAllBytesAsync(newExePath, bytes);
@@ -150,4 +150,21 @@ internal sealed class AutoUpdateService : IScheduleScopedJob
         _logger.LogInformation("Update downloaded. Restarting to apply {Latest}...", latest);
         Environment.Exit(0);
     }
+}
+
+internal sealed class AutoUpdateJob : IScheduleScopedJob
+{
+    private readonly ICheckForUpdates _checkForUpdates;
+
+    public AutoUpdateJob(ICheckForUpdates checkForUpdates)
+    {
+        _checkForUpdates = checkForUpdates.ThrowIfNull();
+    }
+
+    public Task<JobConfig> GetJobConfigAsync() =>
+        Task.FromResult(new JobConfig(
+            CronExpression: CronExpression.Parse("0 3 * * *"),
+            ExecuteOnStartup: true));
+
+    public Task ExecuteAsync() => _checkForUpdates.CheckAsync();
 }

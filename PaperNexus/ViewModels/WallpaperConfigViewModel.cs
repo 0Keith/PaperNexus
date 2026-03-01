@@ -36,7 +36,8 @@ public partial class WallpaperConfigViewModel : ObservableObject
     };
 
     private readonly ISwitchWallpaper? _switchWallpaper;
-    
+    private readonly ICheckForUpdates? _checkForUpdates;
+
     public static readonly IReadOnlyList<FillStyleOption> FillStyleOptions = new[]
     {
         new FillStyleOption("Fill",    WallpaperFillStyle.Fill),
@@ -164,6 +165,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         _currentWallpaperName = string.Empty;
         _selectedResolution = ResolutionOptions[0];
         _switchWallpaper = (Application.Current as App)?.Services?.GetService<ISwitchWallpaper>();
+        _checkForUpdates = (Application.Current as App)?.Services?.GetService<ICheckForUpdates>();
         _selectedFillStyle = FillStyleOptions[0];
         _selectedSwitchPattern = SwitchPatternOptions.First(p => p.Pattern == WallpaperSwitchPattern.Newest);
         _sources.CollectionChanged += OnSourcesCollectionChanged;
@@ -352,6 +354,27 @@ public partial class WallpaperConfigViewModel : ObservableObject
         catch (Exception ex)
         {
             await ShowTransientStatusAsync($"✗ Error deleting wallpaper: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task CheckForUpdates()
+    {
+        if (_checkForUpdates is null)
+        {
+            await ShowTransientStatusAsync("✗ Update service not available.");
+            return;
+        }
+
+        StatusMessage = "Checking for updates...";
+        try
+        {
+            await Task.Run(_checkForUpdates.CheckAsync);
+            await ShowTransientStatusAsync("✓ Already up to date.");
+        }
+        catch (Exception ex)
+        {
+            await ShowTransientStatusAsync($"✗ Update check failed: {ex.Message}");
         }
     }
 
