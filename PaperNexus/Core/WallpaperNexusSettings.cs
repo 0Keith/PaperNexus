@@ -59,6 +59,7 @@ public class WallpaperNexusSettings
     public WallpaperFillStyle FillStyle { get; set; } = WallpaperFillStyle.Fill;
     public WallpaperSwitchPattern SwitchPattern { get; set; } = WallpaperSwitchPattern.Newest;
     public bool AnnotateWallpaper { get; set; } = true;
+    public bool RunOnStartup { get; set; } = true;
 
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public List<WallpaperSource> Sources { get; set; } = new()
