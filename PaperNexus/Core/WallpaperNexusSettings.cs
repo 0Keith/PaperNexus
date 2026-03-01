@@ -40,12 +40,12 @@ public class WallpaperNexusSettings
     public int SwitchIntervalMinutes { get; set; } = 30;
     public string SwitchCronExpression { get; set; } = "*/30 * * * *";
 
-    public int ImageWidth { get; set; } = 3840;
-    public int ImageHeight { get; set; } = 2160;
+    public int ImageWidth { get; set; } = 0;
+    public int ImageHeight { get; set; } = 0;
     public int RetentionDays { get; set; } = 365;
     public string CurrentWallpaperPath { get; set; } = string.Empty;
     public WallpaperFillStyle FillStyle { get; set; } = WallpaperFillStyle.Fill;
-    public WallpaperSwitchPattern SwitchPattern { get; set; } = WallpaperSwitchPattern.Alphabetical;
+    public WallpaperSwitchPattern SwitchPattern { get; set; } = WallpaperSwitchPattern.Newest;
     public bool AnnotateWallpaper { get; set; } = true;
 
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]

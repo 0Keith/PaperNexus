@@ -109,7 +109,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         _selectedResolution = ResolutionOptions[0];
         _switchWallpaper = (Application.Current as App)?.Services?.GetService<ISwitchWallpaper>();
         _selectedFillStyle = FillStyleOptions[0];
-        _selectedSwitchPattern = SwitchPatternOptions[0];
+        _selectedSwitchPattern = SwitchPatternOptions.First(p => p.Pattern == WallpaperSwitchPattern.Newest);
     }
 
     partial void OnSelectedSourceChanged(WallpaperSource? value)
