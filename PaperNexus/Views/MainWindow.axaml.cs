@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
+using PaperNexus.Core;
 using PaperNexus.ViewModels;
 
 namespace PaperNexus.Views;
@@ -13,11 +14,19 @@ public partial class MainWindow : Window
         DataContext = new WallpaperConfigViewModel();
     }
 
-    protected override void OnOpened(EventArgs e)
+    protected override async void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        var settings = await WallpaperNexusSettings.LoadAsync();
+        if (settings.WindowX.HasValue && settings.WindowY.HasValue)
+            Position = new PixelPoint((int)settings.WindowX.Value, (int)settings.WindowY.Value);
+        if (settings.WindowWidth.HasValue && settings.WindowHeight.HasValue)
+        {
+            Width = settings.WindowWidth.Value;
+            Height = settings.WindowHeight.Value;
+        }
         if (DataContext is WallpaperConfigViewModel vm)
-            _ = vm.LoadAsync();
+            await vm.LoadAsync();
     }
 
     private async void BrowseFolder_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -45,9 +54,24 @@ public partial class MainWindow : Window
         if (Application.Current is App { IsExiting: false })
         {
             e.Cancel = true;
+            _ = SaveWindowPositionAsync();
             Hide();
             return;
         }
         base.OnClosing(e);
+    }
+
+    private async Task SaveWindowPositionAsync()
+    {
+        try
+        {
+            var settings = await WallpaperNexusSettings.LoadAsync();
+            settings.WindowX = Position.X;
+            settings.WindowY = Position.Y;
+            settings.WindowWidth = Width;
+            settings.WindowHeight = Height;
+            await settings.SaveAsync();
+        }
+        catch { }
     }
 }

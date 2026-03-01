@@ -238,18 +238,16 @@ public partial class WallpaperConfigViewModel : ObservableObject
     {
         try
         {
-            var settings = new WallpaperNexusSettings
-            {
-                WallpapersFolder = WallpapersFolder,
-                SwitchCronExpression = SwitchCronExpression,
-                ImageWidth = SelectedResolution.Width,
-                ImageHeight = SelectedResolution.Height,
-                RetentionDays = RetentionDays,
-                FillStyle = SelectedFillStyle.Style,
-                SwitchPattern = SelectedSwitchPattern.Pattern,
-                AnnotateWallpaper = AnnotateWallpaper,
-                Sources = Sources.ToList(),
-            };
+            var settings = await WallpaperNexusSettings.LoadAsync();
+            settings.WallpapersFolder = WallpapersFolder;
+            settings.SwitchCronExpression = SwitchCronExpression;
+            settings.ImageWidth = SelectedResolution.Width;
+            settings.ImageHeight = SelectedResolution.Height;
+            settings.RetentionDays = RetentionDays;
+            settings.FillStyle = SelectedFillStyle.Style;
+            settings.SwitchPattern = SelectedSwitchPattern.Pattern;
+            settings.AnnotateWallpaper = AnnotateWallpaper;
+            settings.Sources = Sources.ToList();
             await settings.SaveAsync();
             StatusMessage = $"✓ Settings saved to {WallpaperNexusSettings.SettingsFilePath}";
         }
