@@ -251,16 +251,16 @@ public partial class WallpaperConfigViewModel : ObservableObject
             var next = await Task.Run(_switchWallpaper.SwitchToNextAsync);
             if (next is null)
             {
-                StatusMessage = "✗ No wallpapers found. Check your wallpapers folder setting.";
+                await ShowTransientStatusAsync("✗ No wallpapers found. Check your wallpapers folder setting.");
                 return;
             }
             CurrentWallpaperPath = next;
             CurrentWallpaperName = Path.GetFileName(next);
-            StatusMessage = $"✓ Switched to: {CurrentWallpaperName}";
+            await ShowTransientStatusAsync($"✓ Switched to: {CurrentWallpaperName}");
         }
         catch (Exception ex)
         {
-            StatusMessage = $"✗ Error switching wallpaper: {ex.Message}";
+            await ShowTransientStatusAsync($"✗ Error switching wallpaper: {ex.Message}");
         }
     }
 
@@ -281,24 +281,24 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
             if (_switchWallpaper is null)
             {
-                StatusMessage = "✓ Wallpaper deleted.";
+                await ShowTransientStatusAsync("✓ Wallpaper deleted.");
                 return;
             }
 
             var next = await Task.Run(_switchWallpaper.SwitchToNextAsync);
             if (next is null)
             {
-                StatusMessage = "✓ Wallpaper deleted. No more wallpapers in folder.";
+                await ShowTransientStatusAsync("✓ Wallpaper deleted. No more wallpapers in folder.");
                 return;
             }
 
             CurrentWallpaperPath = next;
             CurrentWallpaperName = Path.GetFileName(next);
-            StatusMessage = $"✓ Deleted and switched to: {CurrentWallpaperName}";
+            await ShowTransientStatusAsync($"✓ Deleted and switched to: {CurrentWallpaperName}");
         }
         catch (Exception ex)
         {
-            StatusMessage = $"✗ Error deleting wallpaper: {ex.Message}";
+            await ShowTransientStatusAsync($"✗ Error deleting wallpaper: {ex.Message}");
         }
     }
 
