@@ -90,6 +90,8 @@ public partial class WallpaperConfigViewModel : ObservableObject
     [ObservableProperty]
     private WallpaperSource? _selectedSource;
 
+    private bool _isLoading;
+
     [ObservableProperty]
     private string _editName = string.Empty;
 
@@ -110,6 +112,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         _switchWallpaper = (Application.Current as App)?.Services?.GetService<ISwitchWallpaper>();
         _selectedFillStyle = FillStyleOptions[0];
         _selectedSwitchPattern = SwitchPatternOptions.First(p => p.Pattern == WallpaperSwitchPattern.Newest);
+        _sources.CollectionChanged += OnSourcesCollectionChanged;
     }
 
     partial void OnSelectedSourceChanged(WallpaperSource? value)
@@ -119,26 +122,64 @@ public partial class WallpaperConfigViewModel : ObservableObject
         EditCronExpression = value?.CronExpression ?? "0 * * * *";
     }
 
+    partial void OnSourcesChanging(ObservableCollection<WallpaperSource> value)
+    {
+        _sources.CollectionChanged -= OnSourcesCollectionChanged;
+    }
+
+    partial void OnSourcesChanged(ObservableCollection<WallpaperSource> value)
+    {
+        value.CollectionChanged += OnSourcesCollectionChanged;
+    }
+
+    private void OnSourcesCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        TriggerSave();
+    }
+
+    partial void OnWallpapersFolderChanged(string value) => TriggerSave();
+    partial void OnSwitchCronExpressionChanged(string value) => TriggerSave();
+    partial void OnSelectedResolutionChanged(ResolutionOption value) => TriggerSave();
+    partial void OnSelectedFillStyleChanged(FillStyleOption value) => TriggerSave();
+    partial void OnSelectedSwitchPatternChanged(SwitchPatternOption value) => TriggerSave();
+    partial void OnRetentionDaysChanged(int value) => TriggerSave();
+    partial void OnAnnotateWallpaperChanged(bool value) => TriggerSave();
+
+    private void TriggerSave()
+    {
+        if (_isLoading)
+            return;
+        _ = SaveSettingsAsync();
+    }
+
     public async Task LoadAsync()
     {
-        var settings = await WallpaperNexusSettings.LoadAsync();
-        WallpapersFolder = settings.WallpapersFolder;
-        SwitchCronExpression = settings.SwitchCronExpression;
-        SelectedResolution = ResolutionOptions.FirstOrDefault(
-            r => r.Width == settings.ImageWidth && r.Height == settings.ImageHeight)
-            ?? ResolutionOptions[0];
-        SelectedFillStyle = FillStyleOptions.FirstOrDefault(f => f.Style == settings.FillStyle)
-            ?? FillStyleOptions[0];
-        SelectedSwitchPattern = SwitchPatternOptions.FirstOrDefault(p => p.Pattern == settings.SwitchPattern)
-            ?? SwitchPatternOptions[0];
-        RetentionDays = settings.RetentionDays;
-        AnnotateWallpaper = settings.AnnotateWallpaper;
+        _isLoading = true;
+        try
+        {
+            var settings = await WallpaperNexusSettings.LoadAsync();
+            WallpapersFolder = settings.WallpapersFolder;
+            SwitchCronExpression = settings.SwitchCronExpression;
+            SelectedResolution = ResolutionOptions.FirstOrDefault(
+                r => r.Width == settings.ImageWidth && r.Height == settings.ImageHeight)
+                ?? ResolutionOptions[0];
+            SelectedFillStyle = FillStyleOptions.FirstOrDefault(f => f.Style == settings.FillStyle)
+                ?? FillStyleOptions[0];
+            SelectedSwitchPattern = SwitchPatternOptions.FirstOrDefault(p => p.Pattern == settings.SwitchPattern)
+                ?? SwitchPatternOptions[0];
+            RetentionDays = settings.RetentionDays;
+            AnnotateWallpaper = settings.AnnotateWallpaper;
 
-        Sources = new ObservableCollection<WallpaperSource>(settings.Sources);
+            Sources = new ObservableCollection<WallpaperSource>(settings.Sources);
 
-        var path = settings.CurrentWallpaperPath;
-        CurrentWallpaperPath = path;
-        CurrentWallpaperName = string.IsNullOrEmpty(path) ? "(none)" : Path.GetFileName(path);
+            var path = settings.CurrentWallpaperPath;
+            CurrentWallpaperPath = path;
+            CurrentWallpaperName = string.IsNullOrEmpty(path) ? "(none)" : Path.GetFileName(path);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
     }
 
     [RelayCommand]
@@ -233,8 +274,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
-    private async Task Save()
+    private async Task SaveSettingsAsync()
     {
         try
         {
@@ -249,7 +289,6 @@ public partial class WallpaperConfigViewModel : ObservableObject
             settings.AnnotateWallpaper = AnnotateWallpaper;
             settings.Sources = Sources.ToList();
             await settings.SaveAsync();
-            StatusMessage = $"✓ Settings saved to {WallpaperNexusSettings.SettingsFilePath}";
         }
         catch (Exception ex)
         {
