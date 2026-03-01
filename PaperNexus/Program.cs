@@ -13,6 +13,22 @@ internal sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Enforce single instance so concurrent update batch scripts cannot spawn
+        // multiple copies that all download and re-launch, creating an infinite loop.
+        using var mutex = new Mutex(false, "PaperNexus_SingleInstance");
+        bool acquired;
+        try
+        {
+            acquired = mutex.WaitOne(0, exitContext: false);
+        }
+        catch (AbandonedMutexException)
+        {
+            acquired = true; // previous instance crashed; we now own the mutex
+        }
+
+        if (!acquired)
+            return;
+
         using var loggerProvider = new FileLoggerProvider();
         var logger = loggerProvider.CreateLogger(nameof(Program));
 

@@ -112,6 +112,15 @@ internal sealed class AutoUpdateService : IScheduleScopedJob
             @echo off
             timeout /t 2 /nobreak > nul
             move /y "{newExePath}" "{exePath}"
+            if errorlevel 1 (
+                timeout /t 3 /nobreak > nul
+                move /y "{newExePath}" "{exePath}"
+                if errorlevel 1 (
+                    timeout /t 5 /nobreak > nul
+                    move /y "{newExePath}" "{exePath}"
+                    if errorlevel 1 exit /b 1
+                )
+            )
             start "" "{exePath}"
             del "%~f0"
             """);
