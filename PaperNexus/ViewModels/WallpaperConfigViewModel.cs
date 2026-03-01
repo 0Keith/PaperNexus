@@ -196,6 +196,44 @@ public partial class WallpaperConfigViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task DeleteCurrentWallpaper()
+    {
+        var path = CurrentWallpaperPath;
+        if (string.IsNullOrEmpty(path))
+            return;
+
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+
+            CurrentWallpaperPath = string.Empty;
+            CurrentWallpaperName = "(none)";
+
+            if (_switchWallpaper is null)
+            {
+                StatusMessage = "✓ Wallpaper deleted.";
+                return;
+            }
+
+            var next = await Task.Run(_switchWallpaper.SwitchToNextAsync);
+            if (next is null)
+            {
+                StatusMessage = "✓ Wallpaper deleted. No more wallpapers in folder.";
+                return;
+            }
+
+            CurrentWallpaperPath = next;
+            CurrentWallpaperName = Path.GetFileName(next);
+            StatusMessage = $"✓ Deleted and switched to: {CurrentWallpaperName}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"✗ Error deleting wallpaper: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
     private async Task Save()
     {
         try
