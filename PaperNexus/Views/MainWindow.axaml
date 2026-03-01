@@ -168,6 +168,10 @@
                     <CheckBox Content="Show title annotation on wallpaper"
                               IsChecked="{Binding AnnotateWallpaper}"/>
 
+                    <!-- Run on Startup -->
+                    <CheckBox Content="Run on startup"
+                              IsChecked="{Binding RunOnStartup}"/>
+
                     <!-- Retention Days -->
                     <StackPanel Spacing="4">
                         <TextBlock Text="Retention Period (days)" FontWeight="SemiBold"/>

@@ -51,9 +51,10 @@ public partial class App : Application
                 })
                 .Build();
 
-            // Register in Windows startup so the app launches with the OS
+            // Apply startup registration based on the persisted setting
 #pragma warning disable CA1416
-            RegisterStartup();
+            _ = WallpaperNexusSettings.LoadAsync().ContinueWith(t =>
+                UpdateStartupRegistration(t.Result.RunOnStartup));
 #pragma warning restore CA1416
 
             // Show splash screen while background services start
@@ -152,17 +153,24 @@ public partial class App : Application
     }
 
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-    private static void RegisterStartup()
+    internal static void UpdateStartupRegistration(bool enable)
     {
         try
         {
-            var exePath = Environment.ProcessPath
-                ?? Path.ChangeExtension(Assembly.GetEntryAssembly()!.Location, ".exe");
             using var key = Registry.CurrentUser.OpenSubKey(
                 @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", writable: true);
             key?.DeleteValue("Excogitated Wallpaper Service", throwOnMissingValue: false);
             key?.DeleteValue("Wallpaper Nexus", throwOnMissingValue: false);
-            key?.SetValue("PaperNexus", $"\"{exePath}\"");
+            if (enable)
+            {
+                var exePath = Environment.ProcessPath
+                    ?? Path.ChangeExtension(Assembly.GetEntryAssembly()!.Location, ".exe");
+                key?.SetValue("PaperNexus", $"\"{exePath}\"");
+            }
+            else
+            {
+                key?.DeleteValue("PaperNexus", throwOnMissingValue: false);
+            }
         }
         catch { /* Non-critical: startup registration may fail on restricted machines */ }
     }

@@ -119,6 +119,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private bool _annotateWallpaper = true;
 
     [ObservableProperty]
+    private bool _runOnStartup = true;
+
+    [ObservableProperty]
     private string _statusMessage;
 
     [ObservableProperty]
@@ -209,6 +212,14 @@ public partial class WallpaperConfigViewModel : ObservableObject
     partial void OnRetentionDaysChanged(int value) => TriggerSave();
     partial void OnAnnotateWallpaperChanged(bool value) => TriggerSave();
 
+    partial void OnRunOnStartupChanged(bool value)
+    {
+#pragma warning disable CA1416
+        App.UpdateStartupRegistration(value);
+#pragma warning restore CA1416
+        TriggerSave();
+    }
+
     private void TriggerSave()
     {
         if (_isLoading)
@@ -240,6 +251,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
                 ?? SwitchPatternOptions[0];
             RetentionDays = settings.RetentionDays;
             AnnotateWallpaper = settings.AnnotateWallpaper;
+            RunOnStartup = settings.RunOnStartup;
 
             Sources = new ObservableCollection<WallpaperSource>(settings.Sources);
 
@@ -387,6 +399,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             settings.FillStyle = SelectedFillStyle.Style;
             settings.SwitchPattern = SelectedSwitchPattern.Pattern;
             settings.AnnotateWallpaper = AnnotateWallpaper;
+            settings.RunOnStartup = RunOnStartup;
             settings.Sources = Sources.ToList();
             await settings.SaveAsync();
             await ShowTransientStatusAsync("✓ Settings saved.");
