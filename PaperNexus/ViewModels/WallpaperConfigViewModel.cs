@@ -51,8 +51,8 @@ public partial class WallpaperConfigViewModel : ObservableObject
     public static readonly IReadOnlyList<SwitchPatternOption> SwitchPatternOptions = new[]
     {
         new SwitchPatternOption("Alphabetical", WallpaperSwitchPattern.Alphabetical),
-        new SwitchPatternOption("Oldest first", WallpaperSwitchPattern.Oldest),
-        new SwitchPatternOption("Newest first", WallpaperSwitchPattern.Newest),
+        new SwitchPatternOption("Oldest first", WallpaperSwitchPattern.OldestFirst),
+        new SwitchPatternOption("Newest first", WallpaperSwitchPattern.NewestFirst),
         new SwitchPatternOption("Random",       WallpaperSwitchPattern.Random),
         new SwitchPatternOption("Never",        WallpaperSwitchPattern.Never),
     };
@@ -61,22 +61,22 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private string _wallpapersFolder;
 
     [ObservableProperty]
-    private string _switchCronExpression;
+    private string _slideshowCronExpression;
 
     [ObservableProperty]
-    private int _switchIntervalMinutes;
+    private int _slideshowIntervalMinutes;
 
     [ObservableProperty]
-    private int _switchIntervalHours;
+    private int _slideshowIntervalHours;
 
-    private SwitchScheduleMode _selectedScheduleMode;
+    private SlideshowScheduleMode _slideshowScheduleMode;
 
-    public SwitchScheduleMode SelectedScheduleMode
+    public SlideshowScheduleMode SlideshowScheduleMode
     {
-        get => _selectedScheduleMode;
+        get => _slideshowScheduleMode;
         set
         {
-            if (SetProperty(ref _selectedScheduleMode, value))
+            if (SetProperty(ref _slideshowScheduleMode, value))
             {
                 OnPropertyChanged(nameof(IsIntervalMinutesMode));
                 OnPropertyChanged(nameof(IsIntervalHoursMode));
@@ -88,20 +88,20 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
     public bool IsIntervalMinutesMode
     {
-        get => _selectedScheduleMode == SwitchScheduleMode.IntervalMinutes;
-        set { if (value) SelectedScheduleMode = SwitchScheduleMode.IntervalMinutes; }
+        get => _slideshowScheduleMode == SlideshowScheduleMode.IntervalMinutes;
+        set { if (value) SlideshowScheduleMode = SlideshowScheduleMode.IntervalMinutes; }
     }
 
     public bool IsIntervalHoursMode
     {
-        get => _selectedScheduleMode == SwitchScheduleMode.IntervalHours;
-        set { if (value) SelectedScheduleMode = SwitchScheduleMode.IntervalHours; }
+        get => _slideshowScheduleMode == SlideshowScheduleMode.IntervalHours;
+        set { if (value) SlideshowScheduleMode = SlideshowScheduleMode.IntervalHours; }
     }
 
     public bool IsCronMode
     {
-        get => _selectedScheduleMode == SwitchScheduleMode.CronExpression;
-        set { if (value) SelectedScheduleMode = SwitchScheduleMode.CronExpression; }
+        get => _slideshowScheduleMode == SlideshowScheduleMode.CronExpression;
+        set { if (value) SlideshowScheduleMode = SlideshowScheduleMode.CronExpression; }
     }
 
     [ObservableProperty]
@@ -111,7 +111,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private FillStyleOption _selectedFillStyle;
 
     [ObservableProperty]
-    private SwitchPatternOption _selectedSwitchPattern;
+    private SwitchPatternOption _selectedSlideshowPattern;
 
     [ObservableProperty]
     private int _retentionDays;
@@ -158,10 +158,10 @@ public partial class WallpaperConfigViewModel : ObservableObject
     public WallpaperConfigViewModel()
     {
         _wallpapersFolder = string.Empty;
-        _switchCronExpression = string.Empty;
-        _switchIntervalMinutes = 30;
-        _switchIntervalHours = 1;
-        _selectedScheduleMode = SwitchScheduleMode.CronExpression;
+        _slideshowCronExpression = string.Empty;
+        _slideshowIntervalMinutes = 30;
+        _slideshowIntervalHours = 1;
+        _slideshowScheduleMode = SlideshowScheduleMode.CronExpression;
         _statusMessage = string.Empty;
         _statusForeground = Brushes.White;
         _currentWallpaperPath = string.Empty;
@@ -170,7 +170,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         _switchWallpaper = (Application.Current as App)?.Services?.GetService<ISwitchWallpaper>();
         _checkForUpdates = (Application.Current as App)?.Services?.GetService<ICheckForUpdates>();
         _selectedFillStyle = FillStyleOptions[0];
-        _selectedSwitchPattern = SwitchPatternOptions.First(p => p.Pattern == WallpaperSwitchPattern.Newest);
+        _selectedSlideshowPattern = SwitchPatternOptions.First(p => p.Pattern == WallpaperSwitchPattern.NewestFirst);
         _sources.CollectionChanged += OnSourcesCollectionChanged;
     }
 
@@ -205,12 +205,12 @@ public partial class WallpaperConfigViewModel : ObservableObject
     }
 
     partial void OnWallpapersFolderChanged(string value) => TriggerSave();
-    partial void OnSwitchCronExpressionChanged(string value) => TriggerSave();
-    partial void OnSwitchIntervalMinutesChanged(int value) => TriggerSave();
-    partial void OnSwitchIntervalHoursChanged(int value) => TriggerSave();
+    partial void OnSlideshowCronExpressionChanged(string value) => TriggerSave();
+    partial void OnSlideshowIntervalMinutesChanged(int value) => TriggerSave();
+    partial void OnSlideshowIntervalHoursChanged(int value) => TriggerSave();
     partial void OnSelectedResolutionChanged(ResolutionOption value) => TriggerSave();
     partial void OnSelectedFillStyleChanged(FillStyleOption value) => TriggerSave();
-    partial void OnSelectedSwitchPatternChanged(SwitchPatternOption value) => TriggerSave();
+    partial void OnSelectedSlideshowPatternChanged(SwitchPatternOption value) => TriggerSave();
     partial void OnRetentionDaysChanged(int value) => TriggerSave();
     partial void OnAnnotateWallpaperChanged(bool value) => TriggerSave();
 
@@ -243,20 +243,20 @@ public partial class WallpaperConfigViewModel : ObservableObject
         {
             var settings = await WallpaperNexusSettings.LoadAsync();
             WallpapersFolder = settings.WallpapersFolder;
-            _selectedScheduleMode = settings.SwitchScheduleMode;
-            OnPropertyChanged(nameof(SelectedScheduleMode));
+            _slideshowScheduleMode = settings.Slideshow.ScheduleMode;
+            OnPropertyChanged(nameof(SlideshowScheduleMode));
             OnPropertyChanged(nameof(IsIntervalMinutesMode));
             OnPropertyChanged(nameof(IsIntervalHoursMode));
             OnPropertyChanged(nameof(IsCronMode));
-            SwitchIntervalMinutes = settings.SwitchIntervalMinutes > 0 ? settings.SwitchIntervalMinutes : 30;
-            SwitchIntervalHours = settings.SwitchIntervalHours > 0 ? settings.SwitchIntervalHours : 1;
-            SwitchCronExpression = settings.SwitchCronExpression;
+            SlideshowIntervalMinutes = settings.Slideshow.IntervalMinutes > 0 ? settings.Slideshow.IntervalMinutes : 30;
+            SlideshowIntervalHours = settings.Slideshow.IntervalHours > 0 ? settings.Slideshow.IntervalHours : 1;
+            SlideshowCronExpression = settings.Slideshow.CronExpression;
             SelectedResolution = ResolutionOptions.FirstOrDefault(
-                r => r.Width == settings.ImageWidth && r.Height == settings.ImageHeight)
+                r => r.Width == settings.ResolutionWidth && r.Height == settings.ResolutionHeight)
                 ?? ResolutionOptions[0];
-            SelectedFillStyle = FillStyleOptions.FirstOrDefault(f => f.Style == settings.FillStyle)
+            SelectedFillStyle = FillStyleOptions.FirstOrDefault(f => f.Style == settings.Slideshow.FillStyle)
                 ?? FillStyleOptions[0];
-            SelectedSwitchPattern = SwitchPatternOptions.FirstOrDefault(p => p.Pattern == settings.SwitchPattern)
+            SelectedSlideshowPattern = SwitchPatternOptions.FirstOrDefault(p => p.Pattern == settings.Slideshow.Pattern)
                 ?? SwitchPatternOptions[0];
             RetentionDays = settings.RetentionDays;
             AnnotateWallpaper = settings.AnnotateWallpaper;
@@ -414,20 +414,20 @@ public partial class WallpaperConfigViewModel : ObservableObject
         {
             var settings = await WallpaperNexusSettings.LoadAsync();
             settings.WallpapersFolder = WallpapersFolder;
-            settings.SwitchScheduleMode = SelectedScheduleMode;
-            settings.SwitchIntervalMinutes = SwitchIntervalMinutes;
-            settings.SwitchIntervalHours = SwitchIntervalHours;
-            settings.SwitchCronExpression = SelectedScheduleMode switch
+            settings.Slideshow.ScheduleMode = SlideshowScheduleMode;
+            settings.Slideshow.IntervalMinutes = SlideshowIntervalMinutes;
+            settings.Slideshow.IntervalHours = SlideshowIntervalHours;
+            settings.Slideshow.CronExpression = SlideshowScheduleMode switch
             {
-                SwitchScheduleMode.IntervalMinutes => $"*/{SwitchIntervalMinutes} * * * *",
-                SwitchScheduleMode.IntervalHours => $"0 */{SwitchIntervalHours} * * *",
-                _ => SwitchCronExpression,
+                SlideshowScheduleMode.IntervalMinutes => $"*/{SlideshowIntervalMinutes} * * * *",
+                SlideshowScheduleMode.IntervalHours => $"0 */{SlideshowIntervalHours} * * *",
+                _ => SlideshowCronExpression,
             };
-            settings.ImageWidth = SelectedResolution.Width;
-            settings.ImageHeight = SelectedResolution.Height;
+            settings.ResolutionWidth = SelectedResolution.Width;
+            settings.ResolutionHeight = SelectedResolution.Height;
             settings.RetentionDays = RetentionDays;
-            settings.FillStyle = SelectedFillStyle.Style;
-            settings.SwitchPattern = SelectedSwitchPattern.Pattern;
+            settings.Slideshow.FillStyle = SelectedFillStyle.Style;
+            settings.Slideshow.Pattern = SelectedSlideshowPattern.Pattern;
             settings.AnnotateWallpaper = AnnotateWallpaper;
             settings.RunOnStartup = RunOnStartup;
             settings.Sources = Sources.ToList();
