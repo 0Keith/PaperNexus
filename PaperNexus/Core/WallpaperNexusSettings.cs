@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -20,16 +21,26 @@ public enum WallpaperSwitchPattern
 {
     Alphabetical,
     Random,
-    Oldest,
-    Newest,
+    OldestFirst,
+    NewestFirst,
     Never,
 }
 
-public enum SwitchScheduleMode
+public enum SlideshowScheduleMode
 {
     CronExpression,
     IntervalMinutes,
     IntervalHours,
+}
+
+public class SlideshowSettings
+{
+    public SlideshowScheduleMode ScheduleMode { get; set; } = SlideshowScheduleMode.CronExpression;
+    public int IntervalMinutes { get; set; } = 30;
+    public int IntervalHours { get; set; } = 1;
+    public string CronExpression { get; set; } = "*/30 * * * *";
+    public WallpaperSwitchPattern Pattern { get; set; } = WallpaperSwitchPattern.NewestFirst;
+    public WallpaperFillStyle FillStyle { get; set; } = WallpaperFillStyle.Fill;
 }
 
 public class WallpaperSource
@@ -46,18 +57,14 @@ public class WallpaperNexusSettings
         AppContext.BaseDirectory, "settings.json");
 
     public string WallpapersFolder { get; set; } = string.Empty;
-    public SwitchScheduleMode SwitchScheduleMode { get; set; } = SwitchScheduleMode.CronExpression;
-    public int SwitchIntervalMinutes { get; set; } = 30;
-    public int SwitchIntervalHours { get; set; } = 1;
-    public string SwitchCronExpression { get; set; } = "*/30 * * * *";
+    public SlideshowSettings Slideshow { get; set; } = new();
 
-    public int ImageWidth { get; set; } = 0;
-    public int ImageHeight { get; set; } = 0;
+    public int ResolutionWidth { get; set; } = 0;
+    public int ResolutionHeight { get; set; } = 0;
     public int RetentionDays { get; set; } = 365;
     public string CurrentWallpaperPath { get; set; } = string.Empty;
-    public WallpaperFillStyle FillStyle { get; set; } = WallpaperFillStyle.Fill;
-    public WallpaperSwitchPattern SwitchPattern { get; set; } = WallpaperSwitchPattern.Newest;
     public bool AnnotateWallpaper { get; set; } = true;
+    public bool RunOnStartup { get; set; } = true;
 
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public List<WallpaperSource> Sources { get; set; } = new()
@@ -78,6 +85,12 @@ public class WallpaperNexusSettings
         Url = "https://peapix.com/bing/feed?country=us"
     };
 
+    private static readonly JsonSerializerSettings JsonSettings = new()
+    {
+        Formatting = Formatting.Indented,
+        Converters = { new StringEnumConverter() },
+    };
+
     public static async Task<WallpaperNexusSettings> LoadAsync()
     {
         try
@@ -85,7 +98,7 @@ public class WallpaperNexusSettings
             if (File.Exists(SettingsFilePath))
             {
                 var json = await File.ReadAllTextAsync(SettingsFilePath);
-                var settings = JsonConvert.DeserializeObject<WallpaperNexusSettings>(json) ?? new WallpaperNexusSettings();
+                var settings = JsonConvert.DeserializeObject<WallpaperNexusSettings>(json, JsonSettings) ?? new WallpaperNexusSettings();
                 if (settings.Sources.Count == 0)
                     settings.Sources.Add(new WallpaperSource { Name = DefaultBingSource.Name, Url = DefaultBingSource.Url });
                 return settings;
@@ -98,6 +111,6 @@ public class WallpaperNexusSettings
     public async Task SaveAsync()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(SettingsFilePath));
-        await File.WriteAllTextAsync(SettingsFilePath, JsonConvert.SerializeObject(this, Formatting.Indented));
+        await File.WriteAllTextAsync(SettingsFilePath, JsonConvert.SerializeObject(this, JsonSettings));
     }
 }

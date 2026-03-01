@@ -128,16 +128,16 @@
                                          GroupName="ScheduleMode"
                                          IsChecked="{Binding IsCronMode}"/>
                         </StackPanel>
-                        <NumericUpDown Value="{Binding SwitchIntervalMinutes}"
+                        <NumericUpDown Value="{Binding SlideshowIntervalMinutes}"
                                        Minimum="1" Maximum="1440" Increment="5"
                                        FormatString="0"
                                        IsVisible="{Binding IsIntervalMinutesMode}"/>
-                        <NumericUpDown Value="{Binding SwitchIntervalHours}"
+                        <NumericUpDown Value="{Binding SlideshowIntervalHours}"
                                        Minimum="1" Maximum="23" Increment="1"
                                        FormatString="0"
                                        IsVisible="{Binding IsIntervalHoursMode}"/>
                         <StackPanel IsVisible="{Binding IsCronMode}" Spacing="2">
-                            <TextBox Text="{Binding SwitchCronExpression}"
+                            <TextBox Text="{Binding SlideshowCronExpression}"
                                      Watermark="e.g. */30 * * * *"/>
                             <TextBlock Text="5-field cron: min hour day month weekday"
                                        FontSize="11" Opacity="0.6"/>
@@ -148,7 +148,7 @@
                     <StackPanel Spacing="4">
                         <TextBlock Text="Slideshow Behavior" FontWeight="SemiBold"/>
                         <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.SwitchPatternOptions}"
-                                  SelectedItem="{Binding SelectedSwitchPattern}"
+                                  SelectedItem="{Binding SelectedSlideshowPattern}"
                                   HorizontalAlignment="Stretch"/>
                         <TextBlock Text="Alphabetical: cycle A→Z  •  Oldest/Newest: cycle by file date  •  Random: pick randomly  •  Never: disable auto-switching"
                                    FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
@@ -175,6 +175,10 @@
                     <!-- Annotate Wallpaper -->
                     <CheckBox Content="Show title annotation on wallpaper"
                               IsChecked="{Binding AnnotateWallpaper}"/>
+
+                    <!-- Run on Startup -->
+                    <CheckBox Content="Run on startup"
+                              IsChecked="{Binding RunOnStartup}"/>
 
                     <!-- Retention Days -->
                     <StackPanel Spacing="4">
