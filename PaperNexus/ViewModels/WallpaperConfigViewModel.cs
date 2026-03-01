@@ -2,9 +2,9 @@ using System.Collections.ObjectModel;
 using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Excogitated.Core;
+using PaperNexus.Core;
 
-namespace Excogitated.WallpaperNexus.ViewModels;
+namespace PaperNexus.ViewModels;
 
 public record ResolutionOption(string Label, int Width, int Height)
 {

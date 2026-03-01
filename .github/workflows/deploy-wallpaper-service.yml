@@ -1,4 +1,4 @@
-name: Build Wallpaper Nexus
+name: Build Paper Nexus
 
 on:
   push:
@@ -26,14 +26,14 @@ jobs:
       run: |
         $tag = '${{ github.ref_name }}'
         $version = if ($tag -match '^v') { $tag.TrimStart('v') } else { '1.0.0' }
-        dotnet publish Excogitated.WallpaperNexus/Excogitated.WallpaperNexus.csproj `
+        dotnet publish PaperNexus/PaperNexus.csproj `
           --configuration Release `
           --runtime win-x64 `
           --self-contained true `
           -p:PublishSingleFile=true `
           -p:PublishTrimmed=false `
           -p:Version=$version `
-          --output ./publish/WallpaperNexus
+          --output ./publish/PaperNexus
 
     - name: Create GitHub Release
       shell: pwsh
@@ -42,7 +42,7 @@ jobs:
       run: |
         $isTag = '${{ github.ref }}' -match '^refs/tags/'
         $releaseTag = if ($isTag) { '${{ github.ref_name }}' } else { 'latest' }
-        $releaseTitle = if ($isTag) { "Wallpaper Nexus ${{ github.ref_name }}" } else { 'Wallpaper Nexus (latest)' }
+        $releaseTitle = if ($isTag) { "Paper Nexus ${{ github.ref_name }}" } else { 'Paper Nexus (latest)' }
         $notes = if ($isTag) { '--generate-notes' } else { '--notes "Automated build from master."' }
         gh release delete $releaseTag --yes 2>&1 | Out-Null
-        Invoke-Expression "gh release create '$releaseTag' --title '$releaseTitle' $notes ./publish/WallpaperNexus/WallpaperNexus.exe"
+        Invoke-Expression "gh release create '$releaseTag' --title '$releaseTitle' $notes ./publish/PaperNexus/PaperNexus.exe"

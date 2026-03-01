@@ -1,6 +1,6 @@
-using Excogitated.Core;
+using PaperNexus.Core;
 
-namespace Excogitated.WallpaperNexus;
+namespace PaperNexus;
 
 internal class HttpWallpaperSourceService
 {

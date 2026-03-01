@@ -1,6 +1,6 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="Excogitated.WallpaperNexus.App"
+             x:Class="PaperNexus.App"
              RequestedThemeVariant="Dark">
 
     <Application.Styles>

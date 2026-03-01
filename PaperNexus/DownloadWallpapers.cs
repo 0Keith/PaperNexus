@@ -1,6 +1,6 @@
 using Cronos;
 
-namespace Excogitated.WallpaperNexus;
+namespace PaperNexus;
 
 internal class DownloadWallpapers : ScheduledJobService
 {

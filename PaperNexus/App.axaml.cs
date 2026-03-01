@@ -5,12 +5,12 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
-using Excogitated.WallpaperNexus.Views;
+using PaperNexus.Views;
 using Microsoft.Win32;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 
-namespace Excogitated.WallpaperNexus;
+namespace PaperNexus;
 
 public partial class App : Application
 {
@@ -132,7 +132,7 @@ public partial class App : Application
 
     private static WindowIcon CreateTrayIcon()
     {
-        using var stream = AssetLoader.Open(new Uri("avares://WallpaperNexus/Assets/logo.png"));
+        using var stream = AssetLoader.Open(new Uri("avares://PaperNexus/Assets/logo.png"));
         using var image = SixLabors.ImageSharp.Image.Load(stream);
         image.Mutate(ctx => ctx.Resize(32, 32));
         using var ms = new MemoryStream();
@@ -151,7 +151,8 @@ public partial class App : Application
             using var key = Registry.CurrentUser.OpenSubKey(
                 @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", writable: true);
             key?.DeleteValue("Excogitated Wallpaper Service", throwOnMissingValue: false);
-            key?.SetValue("Wallpaper Nexus", $"\"{exePath}\"");
+            key?.DeleteValue("Wallpaper Nexus", throwOnMissingValue: false);
+            key?.SetValue("PaperNexus", $"\"{exePath}\"");
         }
         catch { /* Non-critical: startup registration may fail on restricted machines */ }
     }

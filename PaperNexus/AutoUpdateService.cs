@@ -1,14 +1,14 @@
 using Cronos;
-using Excogitated.Core;
+using PaperNexus.Core;
 using System.Diagnostics;
 using System.Text.Json;
 
-namespace Excogitated.WallpaperNexus;
+namespace PaperNexus;
 
 internal sealed class AutoUpdateService : IScheduleScopedJob
 {
-    private const string GitHubRepo = "0Keith/Excogitated.AppManager";
-    private const string AssetName = "WallpaperNexus.exe";
+    private const string GitHubRepo = "0Keith/PaperNexus";
+    private const string AssetName = "PaperNexus.exe";
 
     private readonly ILogger<AutoUpdateService> _logger;
 
@@ -31,7 +31,7 @@ internal sealed class AutoUpdateService : IScheduleScopedJob
         _logger.LogInformation("Checking for updates. Current version: {Version}", current);
 
         using var client = new HttpClient();
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("WallpaperNexus-AutoUpdater");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("PaperNexus-AutoUpdater");
 
         string json;
         try

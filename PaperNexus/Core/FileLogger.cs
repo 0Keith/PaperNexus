@@ -6,7 +6,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Excogitated.Core;
+namespace PaperNexus.Core;
 
 public class FileLoggerProvider : ILoggerProvider, IAsyncDisposable
 {

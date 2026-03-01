@@ -11,7 +11,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Excogitated.Core;
+namespace PaperNexus.Core;
 
 public record struct JobExecutionContext()
 {

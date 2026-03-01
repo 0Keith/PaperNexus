@@ -1,9 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
-using Excogitated.WallpaperNexus.ViewModels;
+using PaperNexus.ViewModels;
 
-namespace Excogitated.WallpaperNexus.Views;
+namespace PaperNexus.Views;
 
 public partial class MainWindow : Window
 {
