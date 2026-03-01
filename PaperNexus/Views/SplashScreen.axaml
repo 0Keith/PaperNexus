@@ -1,13 +1,14 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="PaperNexus.Views.SplashScreen"
-        Width="380" Height="420"
-        WindowStartupLocation="CenterScreen"
-        SystemDecorations="None"
-        CanResize="False"
-        Background="#1E1E1E">
+       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       x:Class="PaperNexus.Views.SplashScreen"
+       Width="380" Height="420"
+       WindowStartupLocation="CenterScreen"
+       SystemDecorations="None"
+       CanResize="False"
+       Topmost="True"
+       Background="#1E1E1E">
 
-    <Grid RowDefinitions="*,Auto,Auto">
+    <Grid RowDefinitions="*,Auto,Auto,Auto">
 
         <Image Grid.Row="0"
                Source="avares://PaperNexus/Assets/logo.png"
@@ -20,9 +21,16 @@
                    FontWeight="Bold"
                    Foreground="#E0E0E0"
                    HorizontalAlignment="Center"
-                   Margin="0,0,0,8" />
+                   Margin="0,0,0,4" />
 
         <TextBlock Grid.Row="2"
+                   x:Name="VersionText"
+                   FontSize="12"
+                   Foreground="#505050"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,8" />
+
+        <TextBlock Grid.Row="3"
                    Text="Starting up..."
                    FontSize="13"
                    Foreground="#707070"
