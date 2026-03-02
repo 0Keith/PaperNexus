@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using PaperNexus.Core;
 using PaperNexus.ViewModels;
@@ -65,6 +67,46 @@ public partial class MainWindow : Window
             vm.Sources.Insert(index, dialog.Result);
             vm.SelectedSource = dialog.Result;
         }
+    }
+
+    private async void DeleteWallpaper_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var cancelBtn = new Button { Content = "Cancel" };
+        var deleteBtn = new Button
+        {
+            Content = "Delete",
+            Foreground = new SolidColorBrush(Color.Parse("#E06C75")),
+        };
+        var dialog = new Window
+        {
+            Title = "Delete Wallpaper",
+            Width = 300,
+            Height = 130,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = new SolidColorBrush(Color.Parse("#2B2B2B")),
+            Content = new StackPanel
+            {
+                Margin = new Thickness(20),
+                Spacing = 16,
+                Children =
+                {
+                    new TextBlock { Text = "Delete this wallpaper file from disk?", TextWrapping = TextWrapping.Wrap },
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing = 8,
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        Children = { cancelBtn, deleteBtn },
+                    },
+                },
+            },
+        };
+        cancelBtn.Click += (_, _) => dialog.Close(false);
+        deleteBtn.Click += (_, _) => dialog.Close(true);
+        var confirmed = await dialog.ShowDialog<bool>(this);
+        if (confirmed && DataContext is WallpaperConfigViewModel vm)
+            vm.DeleteCurrentWallpaperCommand.Execute(null);
     }
 
     private async void BrowseFolder_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
