@@ -111,13 +111,7 @@ public class WallpaperNexusSettings
             if (File.Exists(SettingsFilePath))
             {
                 var json = await File.ReadAllTextAsync(SettingsFilePath);
-                // Migration: Pattern "Never" was replaced by Slideshow.Enabled = false
-                var migrated = json.Contains("\"Never\"");
-                if (migrated)
-                    json = json.Replace("\"Never\"", "\"NewestFirst\"");
                 var settings = JsonConvert.DeserializeObject<WallpaperNexusSettings>(json, JsonSettings) ?? new WallpaperNexusSettings();
-                if (migrated)
-                    settings.Slideshow.Enabled = false;
                 if (settings.Sources.Count == 0)
                     settings.Sources.Add(new WallpaperSource { Name = DefaultBingSource.Name, Url = DefaultBingSource.Url });
                 return settings;
