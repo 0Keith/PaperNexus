@@ -349,6 +349,22 @@ public partial class WallpaperConfigViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenWallpapersFolder()
+    {
+        var folder = WallpapersFolder;
+        if (string.IsNullOrEmpty(folder))
+            return;
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", folder) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            _ = ShowTransientStatusAsync($"✗ Could not open folder: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
     private void ReportBug()
     {
         var version = App.AppVersion;
