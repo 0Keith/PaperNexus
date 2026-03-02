@@ -111,8 +111,6 @@
                         </StackPanel>
                         <TextBlock Text="{Binding CurrentWallpaperName}" FontSize="13"
                                    TextWrapping="Wrap" Foreground="SteelBlue"/>
-                        <TextBlock Text="{Binding CurrentWallpaperPath}" FontSize="11"
-                                   TextWrapping="Wrap" Opacity="0.6"/>
                     </StackPanel>
 
                     <!-- Wallpapers Folder -->
