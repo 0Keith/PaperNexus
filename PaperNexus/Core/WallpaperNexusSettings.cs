@@ -23,7 +23,6 @@ public enum WallpaperSwitchPattern
     Random,
     OldestFirst,
     NewestFirst,
-    Never,
 }
 
 public enum SlideshowScheduleMode
@@ -35,6 +34,7 @@ public enum SlideshowScheduleMode
 
 public class SlideshowSettings
 {
+    public bool Enabled { get; set; } = true;
     public SlideshowScheduleMode ScheduleMode { get; set; } = SlideshowScheduleMode.CronExpression;
     public int IntervalMinutes { get; set; } = 30;
     public int IntervalHours { get; set; } = 1;
@@ -111,7 +111,13 @@ public class WallpaperNexusSettings
             if (File.Exists(SettingsFilePath))
             {
                 var json = await File.ReadAllTextAsync(SettingsFilePath);
+                // Migration: Pattern "Never" was replaced by Slideshow.Enabled = false
+                var migrated = json.Contains("\"Never\"");
+                if (migrated)
+                    json = json.Replace("\"Never\"", "\"NewestFirst\"");
                 var settings = JsonConvert.DeserializeObject<WallpaperNexusSettings>(json, JsonSettings) ?? new WallpaperNexusSettings();
+                if (migrated)
+                    settings.Slideshow.Enabled = false;
                 if (settings.Sources.Count == 0)
                     settings.Sources.Add(new WallpaperSource { Name = DefaultBingSource.Name, Url = DefaultBingSource.Url });
                 return settings;

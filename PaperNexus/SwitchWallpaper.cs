@@ -147,7 +147,7 @@ internal sealed class SwitchWallpaperJob : IScheduleScopedJob
     public async Task<JobConfig> GetJobConfigAsync()
     {
         var settings = await WallpaperNexusSettings.LoadAsync();
-        if (settings.Slideshow.Pattern == WallpaperSwitchPattern.Never)
+        if (!settings.Slideshow.Enabled)
             return new JobConfig();
         var cronExpression = CronExpression.Parse(settings.Slideshow.CronExpression);
         return new JobConfig(CronExpression: cronExpression);

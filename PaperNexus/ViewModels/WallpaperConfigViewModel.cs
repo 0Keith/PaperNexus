@@ -54,7 +54,6 @@ public partial class WallpaperConfigViewModel : ObservableObject
         new SwitchPatternOption("Oldest first", WallpaperSwitchPattern.OldestFirst),
         new SwitchPatternOption("Newest first", WallpaperSwitchPattern.NewestFirst),
         new SwitchPatternOption("Random",       WallpaperSwitchPattern.Random),
-        new SwitchPatternOption("Never",        WallpaperSwitchPattern.Never),
     };
 
     [ObservableProperty]
@@ -121,6 +120,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _runOnStartup = true;
+
+    [ObservableProperty]
+    private bool _slideshowEnabled = true;
 
     [ObservableProperty]
     private string _statusMessage;
@@ -194,6 +196,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
     partial void OnSelectedSlideshowPatternChanged(SwitchPatternOption value) => TriggerSave();
     partial void OnRetentionDaysChanged(int value) => TriggerSave();
     partial void OnAnnotateWallpaperChanged(bool value) => TriggerSave();
+    partial void OnSlideshowEnabledChanged(bool value) => TriggerSave();
 
     partial void OnRunOnStartupChanged(bool value)
     {
@@ -242,6 +245,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             RetentionDays = settings.Download.RetentionDays;
             AnnotateWallpaper = settings.AnnotateWallpaper;
             RunOnStartup = settings.RunOnStartup;
+            SlideshowEnabled = settings.Slideshow.Enabled;
 
             Sources = new ObservableCollection<WallpaperSource>(settings.Sources);
 
@@ -395,6 +399,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             settings.Download.RetentionDays = RetentionDays;
             settings.Slideshow.FillStyle = SelectedFillStyle.Style;
             settings.Slideshow.Pattern = SelectedSlideshowPattern.Pattern;
+            settings.Slideshow.Enabled = SlideshowEnabled;
             settings.AnnotateWallpaper = AnnotateWallpaper;
             settings.RunOnStartup = RunOnStartup;
             settings.Sources = Sources.ToList();
