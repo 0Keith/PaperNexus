@@ -81,7 +81,7 @@ PaperNexus/
 - **Scheduled Jobs — Two Patterns:**
   1. **`IScheduleScopedJob` (newer):** Separate business logic interfaces (e.g., `ISwitchWallpaper`, `ICheckForUpdates`) from scheduling infrastructure. A separate job wrapper class (e.g., `SwitchWallpaperJob`, `AutoUpdateJob`) implements `IScheduleScopedJob` and delegates to the injected interface. Business logic registers as singleton via `IAddSingleton<T>`; job wrappers are auto-discovered and registered by `AddServicesFrom()` in `Bootstrapper.cs`.
   2. **`ScheduledJobService` (older base class):** `DownloadWallpapers` directly extends `ScheduledJobService` and overrides `Execute()` / `GetNextExecutionAsync()`. It is registered manually via `services.AddHostedService<DownloadWallpapers>()`.
-- **Silent Auto-Update:** `AutoUpdateJob` runs with `ExecuteOnStartup: true` and a daily cron (`0 3 * * *`). It delegates to `AutoUpdateService.CheckAsync()`, which queries the GitHub Releases API (`0Keith/PaperNexus`), compares the release tag's build number against `Assembly.Version.Build` as integers (tags use simplified `vN` format), downloads `PaperNexus.exe`, removes the `Zone.Identifier` ADS to avoid SmartScreen blocking, writes a self-deleting batch script to swap the file after exit, then calls `Environment.Exit(0)`. The batch script relaunches with `--updated` flag, which triggers the settings window to open. If the new exe fails to start, the batch script rolls back from the `.bak` copy.
+- **Silent Auto-Update:** `AutoUpdateJob` runs with `ExecuteOnStartup: true` and a daily cron (`0 3 * * *`). It delegates to `AutoUpdateService.CheckAsync()`, which queries the GitHub Releases API (`0Keith/PaperNexus`), compares the release tag's build number against `Assembly.Version.Major` as integers (tags use simplified `vN` format), downloads `PaperNexus.exe`, removes the `Zone.Identifier` ADS to avoid SmartScreen blocking, writes a self-deleting batch script to swap the file after exit, then calls `Environment.Exit(0)`. The batch script relaunches with `--updated` flag, which triggers the settings window to open. If the new exe fails to start, the batch script rolls back from the `.bak` copy.
 - **Single Instance Enforcement:** `Program.cs` uses a named `Mutex` (`PaperNexus_SingleInstance`) to prevent concurrent instances, which protects against update batch scripts spawning multiple copies.
 - **Tray-only startup:** App runs as a system tray icon with no window on startup. `ShutdownMode.OnExplicitShutdown` keeps it alive when the settings window is closed. The tray menu provides "Open Settings", "Next Wallpaper", and "Exit".
 - **Windows Startup Registration:** `UpdateStartupRegistration()` in `App.axaml.cs` writes the exe path to `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` under the key `PaperNexus` (cleaning up old keys `Excogitated Wallpaper Service` and `Wallpaper Nexus` on first run).
@@ -143,10 +143,10 @@ All workflows run on `windows-latest` and use `actions/checkout@v6`.
 ### Version Strategy
 
 - Default version: `0.0.0` in csproj `<Version>`
-- CI override: `-p:Version=0.0.$buildNum` where `$buildNum` is either the number from a `vN` git tag or `{run_number}`
+- CI override: `-p:Version=$buildNum.0.0` where `$buildNum` is either the number from a `vN` git tag or `{run_number}`
 - GitHub release tags use simplified `vN` format (e.g., `v69` not `v1.0.69`)
-- Runtime access: `Assembly.GetExecutingAssembly().GetName().Version.Build` formatted as `v{Build}` in `App.AppVersion`
-- Auto-updater compares build numbers as integers (not full `System.Version` objects)
+- Runtime access: `Assembly.GetExecutingAssembly().GetName().Version.Major` formatted as `v{Major}` in `App.AppVersion`
+- Auto-updater compares build numbers as integers via `Version.Major` (not full `System.Version` objects)
 
 ### Code Signing (self-signed certificate)
 

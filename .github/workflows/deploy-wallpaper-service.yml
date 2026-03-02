@@ -37,7 +37,7 @@ jobs:
           -p:PublishSingleFile=true `
           -p:IncludeNativeLibrariesForSelfExtract=true `
           -p:PublishTrimmed=false `
-          -p:Version="0.0.$buildNum" `
+          -p:Version="$buildNum.0.0" `
           --output ./publish/PaperNexus
 
     - name: Sign executable (self-signed)

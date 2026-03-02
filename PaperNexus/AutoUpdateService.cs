@@ -28,7 +28,7 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         if (currentVersion is null)
             return;
 
-        var currentBuild = currentVersion.Build;
+        var currentBuild = currentVersion.Major;
         _logger.LogInformation("Checking for updates. Current build: {Build}", currentBuild);
         progress?.Report("Checking for updates...");
 
