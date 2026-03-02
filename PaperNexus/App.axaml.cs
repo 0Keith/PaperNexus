@@ -17,7 +17,7 @@ public partial class App : Application
 {
     public static string AppVersion { get; } =
         Assembly.GetExecutingAssembly().GetName().Version is Version v
-            ? $"v{v.Major}.{v.Minor}.{v.Build}"
+            ? $"v{v.Build}"
             : "v0.0.0";
 
     private IHost? _backgroundHost;
