@@ -31,7 +31,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
         if (!settings.IsConfigured)
             return null;
 
-        var allFiles = new DirectoryInfo(settings.Download.WallpapersFolder)
+        var allFiles = new DirectoryInfo(settings.Download.Folder)
             .EnumerateFiles()
             .Where(f => f.Extension.Equals(".png", StringComparison.OrdinalIgnoreCase)
                      || f.Extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase)

@@ -58,7 +58,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
     };
 
     [ObservableProperty]
-    private string _wallpapersFolder;
+    private string _folder;
 
     [ObservableProperty]
     private string _slideshowCronExpression;
@@ -146,7 +146,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
     public WallpaperConfigViewModel()
     {
-        _wallpapersFolder = string.Empty;
+        _folder = string.Empty;
         _slideshowCronExpression = string.Empty;
         _slideshowIntervalMinutes = 30;
         _slideshowIntervalHours = 1;
@@ -185,7 +185,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             : Brushes.White;
     }
 
-    partial void OnWallpapersFolderChanged(string value) => TriggerSave();
+    partial void OnFolderChanged(string value) => TriggerSave();
     partial void OnSlideshowCronExpressionChanged(string value) => TriggerSave();
     partial void OnSlideshowIntervalMinutesChanged(int value) => TriggerSave();
     partial void OnSlideshowIntervalHoursChanged(int value) => TriggerSave();
@@ -223,7 +223,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         try
         {
             var settings = await WallpaperNexusSettings.LoadAsync();
-            WallpapersFolder = settings.Download.WallpapersFolder;
+            Folder = settings.Download.Folder;
             _slideshowScheduleMode = settings.Slideshow.ScheduleMode;
             OnPropertyChanged(nameof(SlideshowScheduleMode));
             OnPropertyChanged(nameof(IsIntervalMinutesMode));
@@ -349,9 +349,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenWallpapersFolder()
+    private void OpenFolder()
     {
-        var folder = WallpapersFolder;
+        var folder = Folder;
         if (string.IsNullOrEmpty(folder))
             return;
         try
@@ -380,7 +380,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         try
         {
             var settings = await WallpaperNexusSettings.LoadAsync();
-            settings.Download.WallpapersFolder = WallpapersFolder;
+            settings.Download.Folder = Folder;
             settings.Slideshow.ScheduleMode = SlideshowScheduleMode;
             settings.Slideshow.IntervalMinutes = SlideshowIntervalMinutes;
             settings.Slideshow.IntervalHours = SlideshowIntervalHours;

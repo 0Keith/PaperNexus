@@ -119,7 +119,7 @@ public partial class MainWindow : Window
                 AllowMultiple = false,
             });
             if (result.Count > 0 && DataContext is WallpaperConfigViewModel vm)
-                vm.WallpapersFolder = result[0].Path.LocalPath;
+                vm.Folder = result[0].Path.LocalPath;
         }
         catch (Exception ex)
         {
