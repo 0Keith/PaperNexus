@@ -55,7 +55,6 @@ public class WallpaperSource
     public string Url { get; set; } = string.Empty;
     public string ImageUrlJPath { get; set; } = "$[*].imageUrl";
     public string TitleJPath { get; set; } = "$[*].title";
-    public string ImageUrlRegex { get; set; } = string.Empty;
     public string CronExpression { get; set; } = "0 * * * *";
     public bool IsEnabled { get; set; } = true;
 }
@@ -83,7 +82,7 @@ public class WallpaperNexusSettings
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public List<WallpaperSource> Sources { get; set; } = new()
     {
-        new WallpaperSource { Name = "Bing Daily", Url = "https://peapix.com/bing/feed?country=us" }
+        new WallpaperSource { Name = "Peapix Bing Daily 4k", Url = "https://peapix.com/bing/feed?country=us" }
     };
 
     public double? WindowX { get; set; }
@@ -95,7 +94,7 @@ public class WallpaperNexusSettings
 
     public static readonly WallpaperSource DefaultBingSource = new()
     {
-        Name = "Bing Daily",
+        Name = "Peapix Bing Daily 4k",
         Url = "https://peapix.com/bing/feed?country=us"
     };
 
