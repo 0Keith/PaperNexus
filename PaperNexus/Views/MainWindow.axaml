@@ -53,6 +53,9 @@
                                       Foreground="#E06C75"/>
                         </Button>
                     </Grid>
+                    <TextBlock Text="{Binding CurrentWallpaperName}" FontSize="13"
+                               TextWrapping="Wrap" Foreground="SteelBlue"
+                               DoubleTapped="OnWallpaperNameDoubleTapped"/>
                     <Button Command="{Binding OpenCurrentWallpaperCommand}"
                             IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                             ToolTip.Tip="Open wallpaper file"
@@ -269,8 +272,10 @@
         <StackPanel Grid.Row="1" Spacing="8" Margin="0,14,0,0">
             <Grid ColumnDefinitions="*,Auto,4,Auto,6,Auto">
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" Foreground="{Binding StatusForeground}" TextWrapping="Wrap" FontSize="12" VerticalAlignment="Bottom"/>
-                <TextBlock Grid.Column="1" Text="{x:Static app:App.AppVersion}"
-                           FontSize="10" Opacity="0.35" VerticalAlignment="Bottom"/>
+                <TextBlock Grid.Column="1" x:Name="VersionLabel"
+                           Text="{x:Static app:App.AppVersion}"
+                           FontSize="10" Opacity="0.35" VerticalAlignment="Bottom"
+                           PointerPressed="OnVersionLabelPointerPressed"/>
                 <Button Grid.Column="3"
                         x:Name="UpdateButton"
                         Command="{Binding CheckForUpdatesCommand}"

@@ -12,11 +12,57 @@ namespace PaperNexus.Views;
 
 public partial class MainWindow : Window
 {
+    private int _versionClickCount;
+    private DateTime _lastVersionClick = DateTime.MinValue;
+
+    private static readonly string[] WallpaperCompliments =
+    [
+        "🎨 Excellent taste in wallpapers!",
+        "🖼️ A true connoisseur of desktop aesthetics.",
+        "✨ Your monitor is very lucky.",
+        "🌅 You really know how to set the mood.",
+        "🏆 Best wallpaper picker of the year award: you.",
+        "👀 Someone's got an eye for beauty.",
+        "🌟 This wallpaper? Chef's kiss.",
+    ];
+
+    private static readonly Key[] KonamiCode =
+    [
+        Key.Up, Key.Up, Key.Down, Key.Down,
+        Key.Left, Key.Right, Key.Left, Key.Right,
+        Key.B, Key.A,
+    ];
+    private int _konamiIndex;
+
     public MainWindow()
     {
         InitializeComponent();
         DataContext = new WallpaperConfigViewModel();
         UpdateButton.AddHandler(InputElement.PointerPressedEvent, OnUpdateButtonPointerPressed, RoutingStrategies.Tunnel);
+    }
+
+    private async void OnWallpaperNameDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is not WallpaperConfigViewModel vm)
+            return;
+        var msg = WallpaperCompliments[Random.Shared.Next(WallpaperCompliments.Length)];
+        await vm.ShowTransientStatusAsync(msg, 4000);
+    }
+
+    private async void OnVersionLabelPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var now = DateTime.UtcNow;
+        if ((now - _lastVersionClick).TotalSeconds > 3)
+            _versionClickCount = 0;
+        _lastVersionClick = now;
+        _versionClickCount++;
+
+        if (_versionClickCount >= 5)
+        {
+            _versionClickCount = 0;
+            if (DataContext is WallpaperConfigViewModel vm)
+                await vm.ShowTransientStatusAsync("🥚 You found the easter egg! No wallpapers were harmed.", 5000);
+        }
     }
 
     private void OnUpdateButtonPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -27,6 +73,26 @@ public partial class MainWindow : Window
         e.Handled = true;
         if (DataContext is WallpaperConfigViewModel vm)
             vm.CheckForUpdatesForceCommand.Execute(null);
+    }
+
+    protected override async void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+
+        if (e.Key == KonamiCode[_konamiIndex])
+        {
+            _konamiIndex++;
+            if (_konamiIndex == KonamiCode.Length)
+            {
+                _konamiIndex = 0;
+                if (DataContext is WallpaperConfigViewModel vm)
+                    await vm.ShowTransientStatusAsync("🎮 +30 lives granted! (wallpaper edition)", 5000);
+            }
+        }
+        else
+        {
+            _konamiIndex = e.Key == KonamiCode[0] ? 1 : 0;
+        }
     }
 
     protected override async void OnOpened(EventArgs e)
