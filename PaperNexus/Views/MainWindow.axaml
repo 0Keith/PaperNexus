@@ -90,12 +90,15 @@
                     <StackPanel Spacing="4">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <TextBlock Text="Current Wallpaper" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <Button Content="🗑"
-                                    Command="{Binding DeleteCurrentWallpaperCommand}"
+                            <Button Command="{Binding DeleteCurrentWallpaperCommand}"
                                     IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                     ToolTip.Tip="Delete current wallpaper"
-                                    Padding="4,2" FontSize="12"
-                                    Background="Transparent" BorderThickness="0"/>
+                                    Padding="4,2"
+                                    Background="Transparent" BorderThickness="0">
+                                <PathIcon Data="M9 3H15L16 4H20V6H4V4H8L9 3ZM5 7H19L18.1 20.1C18 21.2 17.1 22 16 22H8C6.9 22 6 21.2 5.9 20.1L5 7ZM10 10V19H12V10H10ZM14 10V19H16V10H14Z"
+                                          Width="14" Height="14"
+                                          Foreground="#E06C75"/>
+                            </Button>
                         </StackPanel>
                         <TextBlock Text="{Binding CurrentWallpaperName}" FontSize="13"
                                    TextWrapping="Wrap" Foreground="SteelBlue"/>
