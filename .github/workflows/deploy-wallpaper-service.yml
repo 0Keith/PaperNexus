@@ -29,7 +29,7 @@ jobs:
       run: |
         $tag = '${{ github.ref_name }}'
         $runNumber = '${{ github.run_number }}'
-        $version = if ($tag -match '^v') { $tag.TrimStart('v') } else { "1.0.$runNumber" }
+        $buildNum = if ($tag -match '^v(\d+)') { $Matches[1] } else { $runNumber }
         dotnet publish PaperNexus/PaperNexus.csproj `
           --configuration Release `
           --runtime win-x64 `
@@ -37,7 +37,7 @@ jobs:
           -p:PublishSingleFile=true `
           -p:IncludeNativeLibrariesForSelfExtract=true `
           -p:PublishTrimmed=false `
-          -p:Version=$version `
+          -p:Version="0.0.$buildNum" `
           --output ./publish/PaperNexus
 
     - name: Sign executable (self-signed)
@@ -108,7 +108,7 @@ jobs:
       run: |
         $isTag = '${{ github.ref }}' -match '^refs/tags/'
         $runNumber = '${{ github.run_number }}'
-        $releaseTag = if ($isTag) { '${{ github.ref_name }}' } else { "v1.0.$runNumber" }
-        $releaseTitle = if ($isTag) { "Paper Nexus ${{ github.ref_name }}" } else { "Paper Nexus v1.0.$runNumber" }
+        $releaseTag = if ($isTag) { '${{ github.ref_name }}' } else { "v$runNumber" }
+        $releaseTitle = if ($isTag) { "Paper Nexus ${{ github.ref_name }}" } else { "Paper Nexus v$runNumber" }
         $notes = if ($isTag) { '--generate-notes' } else { '--notes "Automated build from main."' }
         Invoke-Expression "gh release create '$releaseTag' --title '$releaseTitle' $notes ./publish/PaperNexus/PaperNexus.exe"

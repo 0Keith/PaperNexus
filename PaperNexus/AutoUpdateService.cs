@@ -24,11 +24,12 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
 
     public async Task CheckAsync(bool forceUpdate = false, IProgress<string>? progress = null)
     {
-        var current = typeof(AutoUpdateService).Assembly.GetName().Version;
-        if (current is null)
+        var currentVersion = typeof(AutoUpdateService).Assembly.GetName().Version;
+        if (currentVersion is null)
             return;
 
-        _logger.LogInformation("Checking for updates. Current version: {Version}", current);
+        var currentBuild = currentVersion.Build;
+        _logger.LogInformation("Checking for updates. Current build: {Build}", currentBuild);
         progress?.Report("Checking for updates...");
 
         using var client = new HttpClient();
@@ -57,19 +58,19 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
             return;
 
         var versionStr = tag.TrimStart('v');
-        if (!Version.TryParse(versionStr, out var latest))
+        if (!int.TryParse(versionStr, out var latestBuild))
             return;
 
-        if (latest <= current && !forceUpdate)
+        if (latestBuild <= currentBuild && !forceUpdate)
         {
-            _logger.LogInformation("Already up to date ({Version})", current);
+            _logger.LogInformation("Already up to date (v{Build})", currentBuild);
             return;
         }
 
-        if (forceUpdate && latest <= current)
-            _logger.LogInformation("Forcing re-install of current version ({Version})", current);
+        if (forceUpdate && latestBuild <= currentBuild)
+            _logger.LogInformation("Forcing re-install of current version (v{Build})", currentBuild);
 
-        _logger.LogInformation("Update available: {Latest} (current: {Current})", latest, current);
+        _logger.LogInformation("Update available: v{Latest} (current: v{Current})", latestBuild, currentBuild);
 
         if (!root.TryGetProperty("assets", out var assetsElement))
             return;
@@ -97,7 +98,7 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         var backupPath = exePath + ".bak";
         var batchPath = Path.Combine(Path.GetDirectoryName(exePath)!, "update.bat");
 
-        _logger.LogInformation("Downloading {Latest} from {Url}", latest, downloadUrl);
+        _logger.LogInformation("Downloading v{Latest} from {Url}", latestBuild, downloadUrl);
         progress?.Report($"Downloading {tag}...");
 
         byte[] bytes;
@@ -152,7 +153,7 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
             UseShellExecute = false,
         });
 
-        _logger.LogInformation("Update downloaded. Restarting to apply {Latest}...", latest);
+        _logger.LogInformation("Update downloaded. Restarting to apply v{Latest}...", latestBuild);
         progress?.Report("Restarting...");
         await Task.Delay(500); // brief pause so the UI can display "Restarting..." before exit
         Environment.Exit(0);
