@@ -312,6 +312,34 @@ public partial class WallpaperConfigViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task RandomWallpaper()
+    {
+        try
+        {
+            if (_switchWallpaper is null)
+            {
+                StatusMessage = "✗ Wallpaper switcher not available.";
+                return;
+            }
+
+            StatusMessage = "Picking random wallpaper...";
+            var next = await Task.Run(_switchWallpaper.SwitchToRandomAsync);
+            if (next is null)
+            {
+                await ShowTransientStatusAsync("✗ No wallpapers found. Check your wallpapers folder setting.");
+                return;
+            }
+            CurrentWallpaperPath = next;
+            CurrentWallpaperName = GetDisplayName(next);
+            await ShowTransientStatusAsync($"✓ Switched to: {CurrentWallpaperName}");
+        }
+        catch (Exception ex)
+        {
+            await ShowTransientStatusAsync($"✗ Error switching wallpaper: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
     private async Task DeleteCurrentWallpaper()
     {
         var path = CurrentWallpaperPath;
@@ -404,6 +432,22 @@ public partial class WallpaperConfigViewModel : ObservableObject
         catch (Exception ex)
         {
             _ = ShowTransientStatusAsync($"✗ Could not open folder: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private void OpenCurrentWallpaper()
+    {
+        var path = CurrentWallpaperPath;
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            _ = ShowTransientStatusAsync($"✗ Could not open wallpaper: {ex.Message}");
         }
     }
 
