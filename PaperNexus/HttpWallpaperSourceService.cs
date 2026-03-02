@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using PaperNexus.Core;
 
@@ -37,17 +36,9 @@ internal class HttpWallpaperSourceService
         var imageUrls = token.SelectTokens(source.ImageUrlJPath).Select(t => t.Value<string>() ?? string.Empty).ToList();
         var titles = token.SelectTokens(source.TitleJPath).Select(t => t.Value<string>() ?? string.Empty).ToList();
 
-        var images = imageUrls
+        return imageUrls
             .Zip(titles, (url, title) => new WallpaperImage { ImageUrl = url, Title = title })
             .ToList();
-
-        if (!string.IsNullOrEmpty(source.ImageUrlRegex))
-        {
-            var regex = new Regex(source.ImageUrlRegex);
-            images = images.Where(img => regex.IsMatch(img.ImageUrl)).ToList();
-        }
-
-        return images;
     }
 }
 

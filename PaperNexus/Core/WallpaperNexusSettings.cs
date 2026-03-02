@@ -55,7 +55,6 @@ public class WallpaperSource
     public string Url { get; set; } = string.Empty;
     public string ImageUrlJPath { get; set; } = "$[*].imageUrl";
     public string TitleJPath { get; set; } = "$[*].title";
-    public string ImageUrlRegex { get; set; } = string.Empty;
     public string CronExpression { get; set; } = "0 * * * *";
     public bool IsEnabled { get; set; } = true;
 }
