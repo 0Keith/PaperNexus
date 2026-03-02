@@ -13,7 +13,11 @@
        Background="#2B2B2B">
 
     <StackPanel Margin="20" Spacing="14">
-        <TextBlock x:Name="DialogTitle" Text="Add Wallpaper Source" FontWeight="SemiBold" FontSize="16"/>
+        <Grid ColumnDefinitions="*,Auto">
+            <TextBlock x:Name="DialogTitle" Text="Add Wallpaper Source" FontWeight="SemiBold" FontSize="16"
+                       VerticalAlignment="Center"/>
+            <CheckBox x:Name="EnabledBox" Grid.Column="1" Content="Enabled" IsChecked="True"/>
+        </Grid>
 
         <StackPanel Spacing="4">
             <TextBlock Text="Name" FontSize="12" Opacity="0.8"/>
@@ -52,8 +56,6 @@
             <TextBlock Text="5-field cron: min hour day month weekday"
                        FontSize="11" Opacity="0.5"/>
         </StackPanel>
-
-        <CheckBox x:Name="EnabledBox" Content="Source enabled" IsChecked="True"/>
 
         <TextBlock x:Name="ErrorText" FontSize="12" Foreground="#F87171"
                    TextWrapping="Wrap" IsVisible="False"/>
