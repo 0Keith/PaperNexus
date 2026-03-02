@@ -143,17 +143,6 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private bool _isLoading;
     private CancellationTokenSource _statusCts = new();
 
-    [ObservableProperty]
-    private string _editName = string.Empty;
-
-    [ObservableProperty]
-    private string _editUrl = string.Empty;
-
-    [ObservableProperty]
-    private string _editCronExpression = "0 * * * *";
-
-    [ObservableProperty]
-    private bool _editIsEnabled = true;
 
     public WallpaperConfigViewModel()
     {
@@ -172,14 +161,6 @@ public partial class WallpaperConfigViewModel : ObservableObject
         _selectedFillStyle = FillStyleOptions[0];
         _selectedSlideshowPattern = SwitchPatternOptions.First(p => p.Pattern == WallpaperSwitchPattern.NewestFirst);
         _sources.CollectionChanged += OnSourcesCollectionChanged;
-    }
-
-    partial void OnSelectedSourceChanged(WallpaperSource? value)
-    {
-        EditName = value?.Name ?? string.Empty;
-        EditUrl = value?.Url ?? string.Empty;
-        EditCronExpression = value?.CronExpression ?? "0 * * * *";
-        EditIsEnabled = value?.IsEnabled ?? true;
     }
 
     partial void OnSourcesChanging(ObservableCollection<WallpaperSource> value)
@@ -275,40 +256,10 @@ public partial class WallpaperConfigViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void AddSource()
-    {
-        var source = new WallpaperSource
-        {
-            Name = "New Source",
-            Url = string.Empty,
-        };
-        Sources.Add(source);
-        SelectedSource = source;
-    }
-
-    [RelayCommand]
     private void DeleteSource()
     {
         if (SelectedSource is not null)
             Sources.Remove(SelectedSource);
-    }
-
-    [RelayCommand]
-    private void ApplySourceEdit()
-    {
-        if (SelectedSource is null)
-            return;
-        var index = Sources.IndexOf(SelectedSource);
-        Sources.RemoveAt(index);
-        var updated = new WallpaperSource
-        {
-            Name = EditName,
-            Url = EditUrl,
-            CronExpression = EditCronExpression,
-            IsEnabled = EditIsEnabled,
-        };
-        Sources.Insert(index, updated);
-        SelectedSource = updated;
     }
 
     [RelayCommand]

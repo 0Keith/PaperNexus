@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using PaperNexus.Core;
 using PaperNexus.ViewModels;
@@ -27,6 +28,43 @@ public partial class MainWindow : Window
         }
         if (DataContext is WallpaperConfigViewModel vm)
             await vm.LoadAsync();
+    }
+
+    private async void AddSource_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var dialog = new WallpaperSourceDialog();
+        var saved = await dialog.ShowDialog<bool>(this);
+        if (saved && dialog.Result is not null && DataContext is WallpaperConfigViewModel vm)
+        {
+            vm.Sources.Add(dialog.Result);
+            vm.SelectedSource = dialog.Result;
+        }
+    }
+
+    private async void EditSource_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        await OpenEditDialog();
+    }
+
+    private async void SourceList_DoubleTapped(object? sender, TappedEventArgs e)
+    {
+        await OpenEditDialog();
+    }
+
+    private async Task OpenEditDialog()
+    {
+        if (DataContext is not WallpaperConfigViewModel vm || vm.SelectedSource is null)
+            return;
+
+        var dialog = new WallpaperSourceDialog(vm.SelectedSource);
+        var saved = await dialog.ShowDialog<bool>(this);
+        if (saved && dialog.Result is not null)
+        {
+            var index = vm.Sources.IndexOf(vm.SelectedSource);
+            vm.Sources.RemoveAt(index);
+            vm.Sources.Insert(index, dialog.Result);
+            vm.SelectedSource = dialog.Result;
+        }
     }
 
     private async void BrowseFolder_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

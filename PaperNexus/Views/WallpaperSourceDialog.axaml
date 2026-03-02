@@ -1,0 +1,53 @@
+<Window xmlns="https://github.com/avaloniaui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+       mc:Ignorable="d" d:DesignWidth="440" d:DesignHeight="320"
+       x:Class="PaperNexus.Views.WallpaperSourceDialog"
+       Title="Wallpaper Source"
+       Icon="avares://PaperNexus/Assets/logo.png"
+       Width="440"
+       SizeToContent="Height"
+       CanResize="False"
+       WindowStartupLocation="CenterOwner"
+       Background="#2B2B2B">
+
+    <StackPanel Margin="20" Spacing="14">
+        <TextBlock x:Name="DialogTitle" Text="Add Wallpaper Source" FontWeight="SemiBold" FontSize="16"/>
+
+        <StackPanel Spacing="4">
+            <TextBlock Text="Name" FontSize="12" Opacity="0.8"/>
+            <TextBox x:Name="NameBox" Watermark="e.g. Bing Daily"/>
+        </StackPanel>
+
+        <StackPanel Spacing="4">
+            <TextBlock Text="URL" FontSize="12" Opacity="0.8"/>
+            <TextBox x:Name="UrlBox" Watermark="https://example.com/feed.json"/>
+        </StackPanel>
+
+        <StackPanel Spacing="4">
+            <TextBlock Text="Download Schedule (Cron)" FontSize="12" Opacity="0.8"/>
+            <TextBox x:Name="CronBox" Watermark="e.g. 0 * * * * (every hour)"/>
+            <TextBlock Text="5-field cron: min hour day month weekday"
+                       FontSize="11" Opacity="0.5"/>
+        </StackPanel>
+
+        <CheckBox x:Name="EnabledBox" Content="Source enabled" IsChecked="True"/>
+
+        <TextBlock x:Name="ErrorText" FontSize="12" Foreground="#F87171"
+                   TextWrapping="Wrap" IsVisible="False"/>
+
+        <Grid ColumnDefinitions="*,8,Auto" Margin="0,6,0,0">
+            <Button Grid.Column="0" Content="Cancel" Click="Cancel_Click"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+            <Button Grid.Column="2" Click="Save_Click"
+                    HorizontalAlignment="Stretch" Padding="24,6">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <PathIcon Data="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59Z"
+                              Width="12" Height="12"/>
+                    <TextBlock Text="Save" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+        </Grid>
+    </StackPanel>
+</Window>
