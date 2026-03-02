@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using System;
@@ -48,7 +49,7 @@ public enum WallpaperSourceType
     HttpJson,
 }
 
-public class WallpaperSource
+public class WallpaperSource : ObservableObject
 {
     public string Name { get; set; } = string.Empty;
     public WallpaperSourceType Type { get; set; } = WallpaperSourceType.HttpJson;
@@ -56,7 +57,14 @@ public class WallpaperSource
     public string ImageUrlJPath { get; set; } = "$[*].imageUrl";
     public string TitleJPath { get; set; } = "$[*].title";
     public string CronExpression { get; set; } = "0 * * * *";
-    public bool IsEnabled { get; set; } = true;
+
+    private bool _isEnabled = true;
+
+    public bool IsEnabled
+    {
+        get => _isEnabled;
+        set => SetProperty(ref _isEnabled, value);
+    }
 }
 
 public class DownloadSettings
