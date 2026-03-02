@@ -2,6 +2,7 @@
        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
        xmlns:vm="using:PaperNexus.ViewModels"
        xmlns:app="using:PaperNexus"
+       xmlns:v="using:PaperNexus.Views"
        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="720"
@@ -150,7 +151,7 @@
                             <!-- Saved Resolution -->
                             <StackPanel Spacing="4">
                                 <TextBlock Text="Saved Resolution" FontSize="12" Opacity="0.6"/>
-                                <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.ResolutionOptions}"
+                                <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.ResolutionOptions}"
                                           SelectedItem="{Binding SelectedResolution}"
                                           HorizontalAlignment="Stretch"/>
                             </StackPanel>
@@ -212,7 +213,7 @@
                             <!-- Slideshow Pattern -->
                             <StackPanel Spacing="4" IsEnabled="{Binding SlideshowEnabled}">
                                 <TextBlock Text="Pattern" FontSize="12" Opacity="0.6"/>
-                                <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.SwitchPatternOptions}"
+                                <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.SwitchPatternOptions}"
                                           SelectedItem="{Binding SelectedSlideshowPattern}"
                                           HorizontalAlignment="Stretch"/>
                                 <TextBlock Text="Alphabetical: cycle A→Z  •  Oldest/Newest: cycle by file date  •  Random: pick randomly"
@@ -225,7 +226,7 @@
                             <!-- Fill Style -->
                             <StackPanel Spacing="4">
                                 <TextBlock Text="Fill Style" FontSize="12" Opacity="0.6"/>
-                                <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.FillStyleOptions}"
+                                <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.FillStyleOptions}"
                                           SelectedItem="{Binding SelectedFillStyle}"
                                           HorizontalAlignment="Stretch"/>
                                 <TextBlock Text="Fill: crop to fill screen  •  Fit: letterbox  •  Stretch: distort to fit  •  Tile: repeat  •  Center: no scaling  •  Span: stretch across monitors"

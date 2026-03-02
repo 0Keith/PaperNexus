@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:v="using:PaperNexus.Views"
        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
        mc:Ignorable="d" d:DesignWidth="440" d:DesignHeight="420"
@@ -26,9 +27,9 @@
 
         <StackPanel Spacing="4">
             <TextBlock Text="Type" FontSize="12" Opacity="0.8"/>
-            <ComboBox x:Name="TypeBox" HorizontalAlignment="Stretch">
+            <v:NonScrollableComboBox x:Name="TypeBox" HorizontalAlignment="Stretch">
                 <ComboBoxItem Content="HTTP JSON" Tag="HttpJson"/>
-            </ComboBox>
+            </v:NonScrollableComboBox>
         </StackPanel>
 
         <StackPanel Spacing="4">
