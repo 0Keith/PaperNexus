@@ -247,7 +247,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
             var path = settings.CurrentWallpaperPath;
             CurrentWallpaperPath = path;
-            CurrentWallpaperName = string.IsNullOrEmpty(path) ? "(none)" : Path.GetFileName(path);
+            CurrentWallpaperName = string.IsNullOrEmpty(path) ? "(none)" : GetDisplayName(path);
         }
         finally
         {
@@ -280,7 +280,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
                 return;
             }
             CurrentWallpaperPath = next;
-            CurrentWallpaperName = Path.GetFileName(next);
+            CurrentWallpaperName = GetDisplayName(next);
             await ShowTransientStatusAsync($"✓ Switched to: {CurrentWallpaperName}");
         }
         catch (Exception ex)
@@ -318,7 +318,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             }
 
             CurrentWallpaperPath = next;
-            CurrentWallpaperName = Path.GetFileName(next);
+            CurrentWallpaperName = GetDisplayName(next);
             await ShowTransientStatusAsync($"✓ Deleted and switched to: {CurrentWallpaperName}");
         }
         catch (Exception ex)
@@ -405,6 +405,13 @@ public partial class WallpaperConfigViewModel : ObservableObject
         {
             StatusMessage = $"✗ Error saving settings: {ex.Message}";
         }
+    }
+
+    private static string GetDisplayName(string path)
+    {
+        var nameWithoutExt = Path.GetFileNameWithoutExtension(path);
+        var lastSep = nameWithoutExt.LastIndexOf(" - ", StringComparison.Ordinal);
+        return lastSep > 0 ? nameWithoutExt[..lastSep] : Path.GetFileName(path);
     }
 
     internal async Task ShowTransientStatusAsync(string message, int durationMs = 3000)
