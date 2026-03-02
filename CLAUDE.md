@@ -25,30 +25,32 @@ dotnet test --configuration Release
 ```
 PaperNexus/
 ├── PaperNexus.sln                       # Solution file
-├── .editorconfig                         # C# code style rules
+├── CLAUDE.md                            # AI assistant guide (this file)
+├── .editorconfig                         # C# code style rules & diagnostics
+├── .gitignore                            # Standard Visual Studio .gitignore
 ├── .claude/                              # Claude Code configuration
 │   ├── settings.json                     # SessionStart hook
 │   └── hooks/session-start.sh            # Installs .NET 10 SDK remotely
 ├── .github/
 │   └── workflows/
 │       ├── pull-request.yml              # PR build verification
-│       └── deploy-wallpaper-service.yml  # Release builds
+│       └── deploy-wallpaper-service.yml  # Release builds + code signing
 │
 └── PaperNexus/                           # Main project
     ├── PaperNexus.csproj
-    ├── App.axaml / App.axaml.cs          # Avalonia application root
-    ├── Program.cs                         # Entry point, global usings
-    ├── AutoUpdateService.cs              # Silent auto-update via GitHub Releases
-    ├── DownloadWallpapers.cs             # Scheduled wallpaper downloader
-    ├── HttpWallpaperSourceService.cs     # HTTP feed client
+    ├── App.axaml / App.axaml.cs          # Avalonia application root, tray icon, startup
+    ├── Program.cs                         # Entry point, global usings, single-instance mutex
+    ├── AutoUpdateService.cs              # Silent auto-update via GitHub Releases + job wrapper
+    ├── DownloadWallpapers.cs             # Scheduled wallpaper downloader (extends ScheduledJobService)
+    ├── HttpWallpaperSourceService.cs     # HTTP feed client + WallpaperImage DTO
     ├── NativeMethods.cs                  # P/Invoke for Windows wallpaper API
     ├── SwitchWallpaper.cs                # Wallpaper switching logic + job wrapper
     ├── Assets/                            # logo.ico, logo.png
     ├── Core/                              # Shared infrastructure (inlined)
-    │   ├── Bootstrapper.cs               # DI helpers, IAddSingleton<T>
-    │   ├── Extensions.cs                 # Utility extension methods
-    │   ├── FileLogger.cs                 # File-based ILogger implementation
-    │   ├── ScheduledService.cs           # IScheduleScopedJob, ScheduledJobHostedService
+    │   ├── Bootstrapper.cs               # DI helpers, IAddSingleton<T>, AddServicesFrom()
+    │   ├── Extensions.cs                 # Utility extension methods (ThrowIfNull, EnterAsync, etc.)
+    │   ├── FileLogger.cs                 # File-based ILogger implementation (async queue)
+    │   ├── ScheduledService.cs           # ScheduledJobService base, IScheduleScopedJob, ScheduledJobHostedService<T>
     │   └── WallpaperNexusSettings.cs     # Settings model, enums, LoadAsync/SaveAsync
     ├── ViewModels/
     │   └── WallpaperConfigViewModel.cs   # MVVM ViewModel (CommunityToolkit.Mvvm)
@@ -63,17 +65,45 @@ PaperNexus/
 - **Namespace root:** `PaperNexus` (main code), `PaperNexus.Core` (infrastructure in `Core/`)
 - **Assembly name:** `PaperNexus` (produces `PaperNexus.exe`)
 - **MVVM architecture** using `CommunityToolkit.Mvvm`
-- **Key dependencies:** Cronos (scheduling), SixLabors.ImageSharp (image processing), Avalonia 11.3.12, Newtonsoft.Json, Microsoft.Extensions.Hosting
+- **Key dependencies:**
+  - Avalonia 11.3.12 (`Avalonia`, `Avalonia.Desktop`, `Avalonia.Themes.Fluent`, `Avalonia.Fonts.Inter`, `Avalonia.Diagnostics` debug-only)
+  - CommunityToolkit.Mvvm 8.4.0 (MVVM source generators)
+  - Cronos 0.11.1 (cron scheduling)
+  - Microsoft.Extensions.Hosting 10.0.3 (DI, hosted services)
+  - Newtonsoft.Json 13.0.4 (JSON serialization for settings/feeds)
+  - SixLabors.ImageSharp 3.1.12 + SixLabors.ImageSharp.Drawing 2.1.7 (image processing, title overlay)
 - **Platform:** Windows (tray icon, registry startup, P/Invoke wallpaper API); Avalonia UI itself is cross-platform but wallpaper-setting is Windows-only at runtime
+- **MSBuild properties:** `ImplicitUsings=enable`, `Nullable=enable`, `AvaloniaUseCompiledBindingsByDefault=true`
 
 ### Key Architectural Patterns
 
 - **MVVM:** `WallpaperConfigViewModel` + `Views/MainWindow.axaml` with `CommunityToolkit.Mvvm` (`[ObservableProperty]`, `[RelayCommand]`)
-- **Scheduled Jobs Pattern:** Separate business logic interfaces (e.g., `ISwitchWallpaper`) from scheduling infrastructure (`IScheduleScopedJob`). Business logic implements its domain interface only. A separate job wrapper class implements `IScheduleScopedJob` and delegates to the injected interface. Register business logic as singleton via `IAddSingleton<T>`; use `AddServicesFrom()` for automatic registration.
-- **Silent Auto-Update:** `AutoUpdateService` implements `IScheduleScopedJob` with `ExecuteOnStartup: true` and a daily cron (`0 3 * * *`). It queries the GitHub Releases API (`0Keith/PaperNexus`), compares the release tag version against the embedded assembly version (`<Version>` in csproj, overridden by git tag via `-p:Version=` in CI), downloads `PaperNexus.exe`, writes a self-deleting batch script to swap the file after exit, then calls `Environment.Exit(0)`. The deploy workflow creates a public GitHub Release when a `v*` tag is pushed.
-- **Tray-only startup:** App runs as a system tray icon with no window on startup. `ShutdownMode.OnExplicitShutdown` keeps it alive when the settings window is closed.
-- **Windows Startup Registration:** `RegisterStartup()` in `App.axaml.cs` writes the exe path to `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` under the key `PaperNexus` (cleaning up old keys `Excogitated Wallpaper Service` and `Wallpaper Nexus` on first run).
+- **Scheduled Jobs — Two Patterns:**
+  1. **`IScheduleScopedJob` (newer):** Separate business logic interfaces (e.g., `ISwitchWallpaper`, `ICheckForUpdates`) from scheduling infrastructure. A separate job wrapper class (e.g., `SwitchWallpaperJob`, `AutoUpdateJob`) implements `IScheduleScopedJob` and delegates to the injected interface. Business logic registers as singleton via `IAddSingleton<T>`; job wrappers are auto-discovered and registered by `AddServicesFrom()` in `Bootstrapper.cs`.
+  2. **`ScheduledJobService` (older base class):** `DownloadWallpapers` directly extends `ScheduledJobService` and overrides `Execute()` / `GetNextExecutionAsync()`. It is registered manually via `services.AddHostedService<DownloadWallpapers>()`.
+- **Silent Auto-Update:** `AutoUpdateJob` runs with `ExecuteOnStartup: true` and a daily cron (`0 3 * * *`). It delegates to `AutoUpdateService.CheckAsync()`, which queries the GitHub Releases API (`0Keith/PaperNexus`), compares the release tag against the embedded assembly version (`v{Major}.{Minor}.{Build}` format, overridden by `-p:Version=` in CI), downloads `PaperNexus.exe`, removes the `Zone.Identifier` ADS to avoid SmartScreen blocking, writes a self-deleting batch script to swap the file after exit, then calls `Environment.Exit(0)`. The batch script relaunches with `--updated` flag, which triggers the settings window to open. If the new exe fails to start, the batch script rolls back from the `.bak` copy.
+- **Single Instance Enforcement:** `Program.cs` uses a named `Mutex` (`PaperNexus_SingleInstance`) to prevent concurrent instances, which protects against update batch scripts spawning multiple copies.
+- **Tray-only startup:** App runs as a system tray icon with no window on startup. `ShutdownMode.OnExplicitShutdown` keeps it alive when the settings window is closed. The tray menu provides "Open Settings", "Next Wallpaper", and "Exit".
+- **Windows Startup Registration:** `UpdateStartupRegistration()` in `App.axaml.cs` writes the exe path to `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` under the key `PaperNexus` (cleaning up old keys `Excogitated Wallpaper Service` and `Wallpaper Nexus` on first run).
+- **Wallpaper Processing:** `SwitchWallpaper` writes to a fixed `current.png` (or `current.jpg`) in the app directory. Title overlay is applied at switch time (not download time) using SixLabors with `MS Gothic` font. PNG format is preferred; falls back to JPEG with quality stepping from 97% if the image exceeds 16 MB. Fill style is applied via `WallpaperStyle` and `TileWallpaper` registry keys under `HKCU\Control Panel\Desktop`.
 - **Self-contained distribution:** Published as a single-file, self-contained exe.
+
+### DI Registration Summary
+
+In `App.OnFrameworkInitializationCompleted()`:
+- `FileLoggerProvider` — added as logging provider
+- `HttpWallpaperSourceService` — registered as singleton manually
+- `DownloadWallpapers` — registered as hosted service manually
+- `AddServicesFrom(assembly)` — auto-discovers `IAddSingleton<T>` implementations (registers `SwitchWallpaper` as `ISwitchWallpaper`, `AutoUpdateService` as `ICheckForUpdates`) and `IScheduleScopedJob` implementations (registers `ScheduledJobHostedService<SwitchWallpaperJob>`, `ScheduledJobHostedService<AutoUpdateJob>`)
+
+### Settings
+
+`WallpaperNexusSettings` in `Core/WallpaperNexusSettings.cs` — JSON file at `{AppContext.BaseDirectory}/settings.json`:
+- `SlideshowSettings` — schedule mode (cron/interval minutes/interval hours), pattern (alphabetical/random/oldest/newest/never), fill style
+- `DownloadSettings` — wallpapers folder path, resolution, retention days
+- `List<WallpaperSource>` — name, URL, cron expression, enabled flag; default: Bing Daily via peapix.com
+- Window position/size persistence (`WindowX`, `WindowY`, `WindowWidth`, `WindowHeight`)
+- `AnnotateWallpaper`, `RunOnStartup`, `CurrentWallpaperPath`
 
 ## Code Style & Conventions
 
@@ -95,20 +125,26 @@ All rules are enforced via `.editorconfig`. Key conventions:
 
 ### Suppressed Diagnostics
 
-Nullable reference type warnings are globally suppressed:
+Nullable reference type warnings are globally suppressed via `.editorconfig`:
 - CS8601, CS8602, CS8603, CS8604, CS8618, CS8619 — all set to `severity: none`
 - CA1806 (ignore method results), CA1835 (Memory-based overloads), CA1848 (LoggerMessage delegates) — also suppressed
 
-Do not add `#nullable` annotations or fix nullable warnings unless explicitly asked.
+Note: `<Nullable>enable</Nullable>` is set in the csproj (enabling the compiler analysis), but the above diagnostics are silenced. Do not add `#nullable` annotations or fix nullable warnings unless explicitly asked.
 
 ## Build & CI/CD
 
 ### GitHub Actions Workflows
 
-1. **`pull-request.yml`** — Runs on all PRs: restore, build (Release), test (continue-on-error)
-2. **`deploy-wallpaper-service.yml`** — Triggered on push to master/version tags/manual: builds win-x64 self-contained single-file publish, signs exe with a self-signed certificate, creates GitHub Release
+1. **`pull-request.yml`** — Runs on PRs targeting `main`: restore, build (Release), test (continue-on-error). Read-only permissions.
+2. **`deploy-wallpaper-service.yml`** — Triggered on push to `main`, version tags (`v*`), or `workflow_dispatch` (manual): builds win-x64 self-contained single-file publish, signs exe with a self-signed certificate, creates GitHub Release. Write permissions for contents.
 
 All workflows run on `windows-latest` and use `actions/checkout@v6`.
+
+### Version Strategy
+
+- Default version: `1.0.0` in csproj `<Version>`
+- CI override: `-p:Version=$version` where `$version` is either the git tag (trimmed `v` prefix) or `1.0.{run_number}`
+- Runtime access: `Assembly.GetExecutingAssembly().GetName().Version` formatted as `v{Major}.{Minor}.{Build}` in `App.AppVersion`
 
 ### Code Signing (self-signed certificate)
 
@@ -123,7 +159,7 @@ The release workflow signs `PaperNexus.exe` with a persistent self-signed certif
 6. The PFX is deleted; the signed exe is uploaded to the GitHub Release
 
 **One-time setup** (only required to enable auto-persistence on first run):
-Add a single secret in repo Settings → Secrets and variables → Actions:
+Add a single secret in repo Settings > Secrets and variables > Actions:
 - `GH_PAT` — a fine-grained PAT with **Read and write** access to **Secrets** for this repository
 
 On the first workflow run with `GH_PAT` set, the cert is generated automatically and `SIGNING_CERTIFICATE` / `SIGNING_CERTIFICATE_PASSWORD` are written back. `GH_PAT` is the only secret you ever need to add manually.
@@ -164,6 +200,7 @@ The `.claude/hooks/session-start.sh` script runs when Claude Code starts a remot
 - Asset references in AXAML use `avares://PaperNexus/Assets/...`
 - Maintain Windows compatibility for wallpaper/tray/registry features
 - Keep self-contained, single-file executables for distribution
+- For new scheduled jobs, prefer the `IScheduleScopedJob` pattern with a separate job wrapper class; avoid extending `ScheduledJobService` directly
 - Never commit secrets or credentials
 - Check for vulnerable packages with `dotnet list package --vulnerable`
 - **Always update `CLAUDE.md`** after any task that changes the project structure, adds patterns, or migrates code
