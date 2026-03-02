@@ -18,8 +18,36 @@
         <!-- Two-column layout -->
         <Grid Grid.Row="0" ColumnDefinitions="*,16,*">
 
-            <!-- Left column: Wallpaper Sources -->
+            <!-- Left column: Current Wallpaper + Wallpaper Sources -->
             <DockPanel Grid.Column="0">
+
+                <!-- Current Wallpaper -->
+                <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
+                    <Grid ColumnDefinitions="*,Auto,4,Auto">
+                        <TextBlock Grid.Column="0" Text="Current Wallpaper" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1"
+                                Command="{Binding NextWallpaperCommand}"
+                                ToolTip.Tip="Switch to next wallpaper"
+                                Padding="4,2"
+                                Background="Transparent" BorderThickness="0">
+                            <PathIcon Data="M6 18L14.5 12L6 6V18ZM16 6V18H18V6H16Z"
+                                      Width="14" Height="14"/>
+                        </Button>
+                        <Button Grid.Column="3"
+                                Click="DeleteWallpaper_Click"
+                                IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                ToolTip.Tip="Delete current wallpaper"
+                                Padding="4,2"
+                                Background="Transparent" BorderThickness="0">
+                            <PathIcon Data="M9 3H15L16 4H20V6H4V4H8L9 3ZM5 7H19L18.1 20.1C18 21.2 17.1 22 16 22H8C6.9 22 6 21.2 5.9 20.1L5 7ZM10 10V19H12V10H10ZM14 10V19H16V10H14Z"
+                                      Width="14" Height="14"
+                                      Foreground="#E06C75"/>
+                        </Button>
+                    </Grid>
+                    <TextBlock Text="{Binding CurrentWallpaperName}" FontSize="13"
+                               TextWrapping="Wrap" Foreground="SteelBlue"/>
+                </StackPanel>
+
                 <Grid DockPanel.Dock="Top" ColumnDefinitions="*,8,Auto,4,Auto,4,Auto" Margin="0,0,0,6">
                     <TextBlock Grid.Column="0" Text="Wallpaper Sources" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <Button Grid.Column="2"
@@ -87,33 +115,6 @@
             <!-- Right column: All other settings -->
             <ScrollViewer Grid.Column="2">
                 <StackPanel Spacing="14" Margin="0,0,16,0">
-
-                    <!-- Current Wallpaper -->
-                    <StackPanel Spacing="4">
-                        <Grid ColumnDefinitions="*,Auto,4,Auto">
-                            <TextBlock Grid.Column="0" Text="Current Wallpaper" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <Button Grid.Column="1"
-                                    Command="{Binding NextWallpaperCommand}"
-                                    ToolTip.Tip="Switch to next wallpaper"
-                                    Padding="4,2"
-                                    Background="Transparent" BorderThickness="0">
-                                <PathIcon Data="M6 18L14.5 12L6 6V18ZM16 6V18H18V6H16Z"
-                                          Width="14" Height="14"/>
-                            </Button>
-                            <Button Grid.Column="3"
-                                    Click="DeleteWallpaper_Click"
-                                    IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                    ToolTip.Tip="Delete current wallpaper"
-                                    Padding="4,2"
-                                    Background="Transparent" BorderThickness="0">
-                                <PathIcon Data="M9 3H15L16 4H20V6H4V4H8L9 3ZM5 7H19L18.1 20.1C18 21.2 17.1 22 16 22H8C6.9 22 6 21.2 5.9 20.1L5 7ZM10 10V19H12V10H10ZM14 10V19H16V10H14Z"
-                                          Width="14" Height="14"
-                                          Foreground="#E06C75"/>
-                            </Button>
-                        </Grid>
-                        <TextBlock Text="{Binding CurrentWallpaperName}" FontSize="13"
-                                   TextWrapping="Wrap" Foreground="SteelBlue"/>
-                    </StackPanel>
 
                     <!-- Wallpapers Folder -->
                     <StackPanel Spacing="4">
