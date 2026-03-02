@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using PaperNexus.Core;
@@ -11,6 +12,9 @@ public partial class WallpaperSourceDialog : Window
     public WallpaperSourceDialog()
     {
         InitializeComponent();
+        TypeBox.SelectedIndex = 0;
+        ImageUrlJPathBox.Text = "$[*].imageUrl";
+        TitleJPathBox.Text = "$[*].title";
     }
 
     public WallpaperSourceDialog(WallpaperSource source) : this()
@@ -18,6 +22,9 @@ public partial class WallpaperSourceDialog : Window
         DialogTitle.Text = "Edit Wallpaper Source";
         NameBox.Text = source.Name;
         UrlBox.Text = source.Url;
+        ImageUrlJPathBox.Text = source.ImageUrlJPath;
+        TitleJPathBox.Text = source.TitleJPath;
+        ImageUrlRegexBox.Text = source.ImageUrlRegex;
         CronBox.Text = source.CronExpression;
         EnabledBox.IsChecked = source.IsEnabled;
     }
@@ -26,6 +33,9 @@ public partial class WallpaperSourceDialog : Window
     {
         var name = NameBox.Text?.Trim() ?? string.Empty;
         var url = UrlBox.Text?.Trim() ?? string.Empty;
+        var imageUrlJPath = ImageUrlJPathBox.Text?.Trim() ?? "$[*].imageUrl";
+        var titleJPath = TitleJPathBox.Text?.Trim() ?? "$[*].title";
+        var imageUrlRegex = ImageUrlRegexBox.Text?.Trim() ?? string.Empty;
         var cron = CronBox.Text?.Trim();
 
         if (string.IsNullOrEmpty(name))
@@ -40,13 +50,42 @@ public partial class WallpaperSourceDialog : Window
             return;
         }
 
+        if (string.IsNullOrEmpty(imageUrlJPath))
+        {
+            ShowError("Image URL JPath is required.");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(titleJPath))
+        {
+            ShowError("Title JPath is required.");
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(imageUrlRegex))
+        {
+            try
+            {
+                _ = new Regex(imageUrlRegex);
+            }
+            catch (ArgumentException)
+            {
+                ShowError("Image URL Regex is not a valid regular expression.");
+                return;
+            }
+        }
+
         if (string.IsNullOrEmpty(cron))
             cron = "0 * * * *";
 
         Result = new WallpaperSource
         {
             Name = name,
+            Type = WallpaperSourceType.HttpJson,
             Url = url,
+            ImageUrlJPath = imageUrlJPath,
+            TitleJPath = titleJPath,
+            ImageUrlRegex = imageUrlRegex,
             CronExpression = cron,
             IsEnabled = EnabledBox.IsChecked ?? true,
         };

@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+using Newtonsoft.Json.Linq;
 using PaperNexus.Core;
 
 namespace PaperNexus;
@@ -24,13 +26,28 @@ internal class HttpWallpaperSourceService
         }
 
         var json = await getResponse.Content.ReadAsStringAsync();
-        var response = JsonConvert.DeserializeObject<List<WallpaperImage>>(json);
-        if (response is null)
-        {
-            throw new Exception($"Source '{source.Name}' did not return valid json: " + json);
-        }
+        var images = ParseImages(source, json);
         _logger.LogInformation("Complete: " + new { watch.Elapsed });
-        return response;
+        return images;
+    }
+
+    private static List<WallpaperImage> ParseImages(WallpaperSource source, string json)
+    {
+        var token = JToken.Parse(json);
+        var imageUrls = token.SelectTokens(source.ImageUrlJPath).Select(t => t.Value<string>() ?? string.Empty).ToList();
+        var titles = token.SelectTokens(source.TitleJPath).Select(t => t.Value<string>() ?? string.Empty).ToList();
+
+        var images = imageUrls
+            .Zip(titles, (url, title) => new WallpaperImage { ImageUrl = url, Title = title })
+            .ToList();
+
+        if (!string.IsNullOrEmpty(source.ImageUrlRegex))
+        {
+            var regex = new Regex(source.ImageUrlRegex);
+            images = images.Where(img => regex.IsMatch(img.ImageUrl)).ToList();
+        }
+
+        return images;
     }
 }
 
