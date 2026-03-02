@@ -12,11 +12,30 @@ namespace PaperNexus.Views;
 
 public partial class MainWindow : Window
 {
+    private int _versionClickCount;
+    private DateTime _lastVersionClick = DateTime.MinValue;
+
     public MainWindow()
     {
         InitializeComponent();
         DataContext = new WallpaperConfigViewModel();
         UpdateButton.AddHandler(InputElement.PointerPressedEvent, OnUpdateButtonPointerPressed, RoutingStrategies.Tunnel);
+    }
+
+    private async void OnVersionLabelPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var now = DateTime.UtcNow;
+        if ((now - _lastVersionClick).TotalSeconds > 3)
+            _versionClickCount = 0;
+        _lastVersionClick = now;
+        _versionClickCount++;
+
+        if (_versionClickCount >= 5)
+        {
+            _versionClickCount = 0;
+            if (DataContext is WallpaperConfigViewModel vm)
+                await vm.ShowTransientStatusAsync("🥚 You found the easter egg! No wallpapers were harmed.", 5000);
+        }
     }
 
     private void OnUpdateButtonPointerPressed(object? sender, PointerPressedEventArgs e)
