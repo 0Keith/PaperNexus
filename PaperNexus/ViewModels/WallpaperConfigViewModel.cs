@@ -277,6 +277,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
                 return;
             }
 
+            StatusMessage = "Switching wallpaper...";
             var next = await Task.Run(_switchWallpaper.SwitchToNextAsync);
             if (next is null)
             {
