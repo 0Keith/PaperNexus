@@ -5,6 +5,8 @@ namespace PaperNexus.Views;
 
 public class NonScrollableComboBox : ComboBox
 {
+    protected override Type StyleKeyOverride => typeof(ComboBox);
+
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
         if (IsDropDownOpen)
