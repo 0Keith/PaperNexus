@@ -408,6 +408,22 @@ public partial class WallpaperConfigViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenCurrentWallpaper()
+    {
+        var path = CurrentWallpaperPath;
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            _ = ShowTransientStatusAsync($"✗ Could not open wallpaper: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
     private void ReportBug()
     {
         var version = App.AppVersion;
