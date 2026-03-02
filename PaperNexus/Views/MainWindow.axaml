@@ -22,13 +22,25 @@
             <DockPanel Grid.Column="0">
                 <TextBlock DockPanel.Dock="Top" Text="Wallpaper Sources" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <Grid DockPanel.Dock="Top" ColumnDefinitions="*,8,Auto,4,Auto" Margin="0,0,0,6">
-                    <Button Grid.Column="2" Content="+ Add"
+                    <Button Grid.Column="2"
                             Command="{Binding AddSourceCommand}"
-                            Padding="8,4"/>
-                    <Button Grid.Column="4" Content="✕ Delete"
+                            Padding="8,4">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <PathIcon Data="M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z"
+                                      Width="12" Height="12"/>
+                            <TextBlock Text="Add" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="4"
                             Command="{Binding DeleteSourceCommand}"
                             IsEnabled="{Binding SelectedSource, Converter={x:Static ObjectConverters.IsNotNull}}"
-                            Padding="8,4"/>
+                            Padding="8,4">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <PathIcon Data="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12Z"
+                                      Width="12" Height="12"/>
+                            <TextBlock Text="Delete" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                 </Grid>
                 <ListBox DockPanel.Dock="Top"
                          ItemsSource="{Binding Sources}"
@@ -73,10 +85,15 @@
                                          Watermark="e.g. 0 * * * * (every hour)"/>
                             </Grid>
                             <CheckBox Content="Source enabled" IsChecked="{Binding EditIsEnabled}"/>
-                            <Button Content="✓ Apply Changes"
-                                    Command="{Binding ApplySourceEditCommand}"
+                            <Button Command="{Binding ApplySourceEditCommand}"
                                     HorizontalAlignment="Right"
-                                    Padding="12,4"/>
+                                    Padding="12,4">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <PathIcon Data="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59Z"
+                                              Width="12" Height="12"/>
+                                    <TextBlock Text="Apply Changes" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -112,8 +129,13 @@
                         <Grid ColumnDefinitions="*,8,Auto">
                             <TextBox Grid.Column="0" Text="{Binding WallpapersFolder}"
                                      Watermark="e.g. C:/Users/YourName/Wallpapers"/>
-                            <Button Grid.Column="2" Content="📁 Browse..."
-                                    Click="BrowseFolder_Click"/>
+                            <Button Grid.Column="2" Click="BrowseFolder_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <PathIcon Data="M10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6H12L10 4Z"
+                                              Width="14" Height="14"/>
+                                    <TextBlock Text="Browse..." VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
                         </Grid>
                     </StackPanel>
 
@@ -200,16 +222,28 @@
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" Foreground="{Binding StatusForeground}" TextWrapping="Wrap" FontSize="12" VerticalAlignment="Bottom"/>
                 <TextBlock Grid.Column="1" Text="{x:Static app:App.AppVersion}"
                            FontSize="10" Opacity="0.35" VerticalAlignment="Bottom"/>
-                <Button Grid.Column="3" Content="🔄"
+                <Button Grid.Column="3"
                         Command="{Binding CheckForUpdatesCommand}"
                         ToolTip.Tip="Check for updates"
-                        Padding="5,2" FontSize="12" Opacity="0.6"/>
-                <Button Grid.Column="5" Content="💬" Command="{Binding ReportBugCommand}"
+                        Padding="5,2" Opacity="0.6">
+                    <PathIcon Data="M12 6V9L16 5L12 1V4C7.58 4 4 7.58 4 12C4 13.57 4.46 15.03 5.24 16.26L6.7 14.8C6.25 13.97 6 13.01 6 12C6 8.69 8.69 6 12 6ZM18.76 7.74L17.3 9.2C17.74 10.04 18 10.99 18 12C18 15.31 15.31 18 12 18V15L8 19L12 23V20C16.42 20 20 16.42 20 12C20 10.43 19.54 8.97 18.76 7.74Z"
+                              Width="14" Height="14"/>
+                </Button>
+                <Button Grid.Column="5" Command="{Binding ReportBugCommand}"
                         ToolTip.Tip="Leave feedback on GitHub"
-                        Padding="5,2" FontSize="12" Opacity="0.6"/>
+                        Padding="5,2" Opacity="0.6">
+                    <PathIcon Data="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H5.17L4 17.17V4H20V16Z"
+                              Width="14" Height="14"/>
+                </Button>
             </Grid>
-            <Button Content="⏭ Next Wallpaper" Command="{Binding NextWallpaperCommand}"
-                    HorizontalAlignment="Stretch"/>
+            <Button Command="{Binding NextWallpaperCommand}"
+                    HorizontalAlignment="Stretch">
+                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                    <PathIcon Data="M6 18L14.5 12L6 6V18ZM16 6V18H18V6H16Z"
+                              Width="16" Height="16"/>
+                    <TextBlock Text="Next Wallpaper" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
         </StackPanel>
     </Grid>
 </Window>
