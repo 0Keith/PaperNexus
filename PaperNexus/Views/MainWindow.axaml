@@ -116,6 +116,58 @@
             <ScrollViewer Grid.Column="2">
                 <StackPanel Spacing="10" Margin="0,0,16,0">
 
+                    <!-- Download group -->
+                    <Border Background="#1E1E1E" BorderBrush="#444" BorderThickness="1" CornerRadius="6" Padding="12">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Download" FontWeight="SemiBold" FontSize="13" Opacity="0.85"/>
+
+                            <!-- Wallpapers Folder -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Wallpapers Folder" FontSize="12" Opacity="0.6"/>
+                                <Grid ColumnDefinitions="*,8,Auto,4,Auto">
+                                    <TextBox Grid.Column="0" Text="{Binding WallpapersFolder}"
+                                             Watermark="e.g. C:/Users/YourName/Wallpapers"/>
+                                    <Button Grid.Column="2" Click="BrowseFolder_Click">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <PathIcon Data="M10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6H12L10 4Z"
+                                                      Width="14" Height="14"/>
+                                            <TextBlock Text="Browse..." VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Grid.Column="4"
+                                            Command="{Binding OpenWallpapersFolderCommand}"
+                                            IsEnabled="{Binding WallpapersFolder, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                            ToolTip.Tip="Open wallpapers folder in Explorer">
+                                        <PathIcon Data="M20 6H12L10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6ZM15 15H13V17H11V15H9V13H11V11H13V13H15V15Z"
+                                                  Width="14" Height="14"/>
+                                    </Button>
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Separator -->
+                            <Border Height="1" Background="#333"/>
+
+                            <!-- Saved Resolution -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Saved Resolution" FontSize="12" Opacity="0.6"/>
+                                <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.ResolutionOptions}"
+                                          SelectedItem="{Binding SelectedResolution}"
+                                          HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+
+                            <!-- Separator -->
+                            <Border Height="1" Background="#333"/>
+
+                            <!-- Retention Days -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Retention Period (days)" FontSize="12" Opacity="0.6"/>
+                                <NumericUpDown Value="{Binding RetentionDays}"
+                                               Minimum="1" Maximum="3650" Increment="30"
+                                               FormatString="0"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
                     <!-- Slideshow group -->
                     <Border Background="#1E1E1E" BorderBrush="#444" BorderThickness="1" CornerRadius="6" Padding="12">
                         <StackPanel Spacing="12">
@@ -175,58 +227,6 @@
                                           HorizontalAlignment="Stretch"/>
                                 <TextBlock Text="Fill: crop to fill screen  •  Fit: letterbox  •  Stretch: distort to fit  •  Tile: repeat  •  Center: no scaling  •  Span: stretch across monitors"
                                            FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Download group -->
-                    <Border Background="#1E1E1E" BorderBrush="#444" BorderThickness="1" CornerRadius="6" Padding="12">
-                        <StackPanel Spacing="12">
-                            <TextBlock Text="Download" FontWeight="SemiBold" FontSize="13" Opacity="0.85"/>
-
-                            <!-- Wallpapers Folder -->
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Wallpapers Folder" FontSize="12" Opacity="0.6"/>
-                                <Grid ColumnDefinitions="*,8,Auto,4,Auto">
-                                    <TextBox Grid.Column="0" Text="{Binding WallpapersFolder}"
-                                             Watermark="e.g. C:/Users/YourName/Wallpapers"/>
-                                    <Button Grid.Column="2" Click="BrowseFolder_Click">
-                                        <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <PathIcon Data="M10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6H12L10 4Z"
-                                                      Width="14" Height="14"/>
-                                            <TextBlock Text="Browse..." VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-                                    <Button Grid.Column="4"
-                                            Command="{Binding OpenWallpapersFolderCommand}"
-                                            IsEnabled="{Binding WallpapersFolder, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                            ToolTip.Tip="Open wallpapers folder in Explorer">
-                                        <PathIcon Data="M20 6H12L10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6ZM15 15H13V17H11V15H9V13H11V11H13V13H15V15Z"
-                                                  Width="14" Height="14"/>
-                                    </Button>
-                                </Grid>
-                            </StackPanel>
-
-                            <!-- Separator -->
-                            <Border Height="1" Background="#333"/>
-
-                            <!-- Saved Resolution -->
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Saved Resolution" FontSize="12" Opacity="0.6"/>
-                                <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.ResolutionOptions}"
-                                          SelectedItem="{Binding SelectedResolution}"
-                                          HorizontalAlignment="Stretch"/>
-                            </StackPanel>
-
-                            <!-- Separator -->
-                            <Border Height="1" Background="#333"/>
-
-                            <!-- Retention Days -->
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Retention Period (days)" FontSize="12" Opacity="0.6"/>
-                                <NumericUpDown Value="{Binding RetentionDays}"
-                                               Minimum="1" Maximum="3650" Increment="30"
-                                               FormatString="0"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
