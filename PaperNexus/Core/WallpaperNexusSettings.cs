@@ -53,6 +53,7 @@ public class WallpaperSource
 
 public class DownloadSettings
 {
+    public string WallpapersFolder { get; set; } = string.Empty;
     public int ResolutionWidth { get; set; } = 0;
     public int ResolutionHeight { get; set; } = 0;
     public int RetentionDays { get; set; } = 365;
@@ -63,7 +64,6 @@ public class WallpaperNexusSettings
     public static readonly string SettingsFilePath = Path.Combine(
         AppContext.BaseDirectory, "settings.json");
 
-    public string WallpapersFolder { get; set; } = string.Empty;
     public SlideshowSettings Slideshow { get; set; } = new();
     public DownloadSettings Download { get; set; } = new();
 
@@ -82,7 +82,7 @@ public class WallpaperNexusSettings
     public double? WindowWidth { get; set; }
     public double? WindowHeight { get; set; }
 
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(WallpapersFolder);
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(Download.WallpapersFolder);
 
     public static readonly WallpaperSource DefaultBingSource = new()
     {

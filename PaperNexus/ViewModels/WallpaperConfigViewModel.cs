@@ -242,7 +242,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         try
         {
             var settings = await WallpaperNexusSettings.LoadAsync();
-            WallpapersFolder = settings.WallpapersFolder;
+            WallpapersFolder = settings.Download.WallpapersFolder;
             _slideshowScheduleMode = settings.Slideshow.ScheduleMode;
             OnPropertyChanged(nameof(SlideshowScheduleMode));
             OnPropertyChanged(nameof(IsIntervalMinutesMode));
@@ -413,7 +413,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         try
         {
             var settings = await WallpaperNexusSettings.LoadAsync();
-            settings.WallpapersFolder = WallpapersFolder;
+            settings.Download.WallpapersFolder = WallpapersFolder;
             settings.Slideshow.ScheduleMode = SlideshowScheduleMode;
             settings.Slideshow.IntervalMinutes = SlideshowIntervalMinutes;
             settings.Slideshow.IntervalHours = SlideshowIntervalHours;
