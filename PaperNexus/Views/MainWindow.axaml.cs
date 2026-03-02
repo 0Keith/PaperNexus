@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
@@ -15,6 +16,17 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = new WallpaperConfigViewModel();
+        UpdateButton.AddHandler(InputElement.PointerPressedEvent, OnUpdateButtonPointerPressed, RoutingStrategies.Tunnel);
+    }
+
+    private void OnUpdateButtonPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+            return;
+
+        e.Handled = true;
+        if (DataContext is WallpaperConfigViewModel vm)
+            vm.CheckForUpdatesForceCommand.Execute(null);
     }
 
     protected override async void OnOpened(EventArgs e)

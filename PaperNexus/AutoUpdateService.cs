@@ -7,7 +7,7 @@ namespace PaperNexus;
 
 internal interface ICheckForUpdates
 {
-    Task CheckAsync(IProgress<string>? progress = null);
+    Task CheckAsync(bool forceUpdate = false, IProgress<string>? progress = null);
 }
 
 internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheckForUpdates>
@@ -22,7 +22,7 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         _logger = logger.ThrowIfNull();
     }
 
-    public async Task CheckAsync(IProgress<string>? progress = null)
+    public async Task CheckAsync(bool forceUpdate = false, IProgress<string>? progress = null)
     {
         var current = typeof(AutoUpdateService).Assembly.GetName().Version;
         if (current is null)
@@ -60,11 +60,14 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         if (!Version.TryParse(versionStr, out var latest))
             return;
 
-        if (latest <= current)
+        if (latest <= current && !forceUpdate)
         {
             _logger.LogInformation("Already up to date ({Version})", current);
             return;
         }
+
+        if (forceUpdate && latest <= current)
+            _logger.LogInformation("Forcing re-install of current version ({Version})", current);
 
         _logger.LogInformation("Update available: {Latest} (current: {Current})", latest, current);
 
@@ -170,5 +173,5 @@ internal sealed class AutoUpdateJob : IScheduleScopedJob
             CronExpression: CronExpression.Parse("0 3 * * *"),
             ExecuteOnStartup: true));
 
-    public Task ExecuteAsync() => _checkForUpdates.CheckAsync(progress: null);
+    public Task ExecuteAsync() => _checkForUpdates.CheckAsync(forceUpdate: false, progress: null);
 }
