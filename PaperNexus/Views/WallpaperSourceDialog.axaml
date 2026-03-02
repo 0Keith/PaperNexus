@@ -60,8 +60,11 @@
 
         <TextBlock x:Name="ErrorText" FontSize="12" Foreground="#F87171"
                    TextWrapping="Wrap" IsVisible="False"/>
-        <TextBlock x:Name="TestResultText" FontSize="12" Foreground="#86EFAC"
-                   TextWrapping="Wrap" IsVisible="False"/>
+        <TextBox x:Name="TestResultText" FontSize="12" Foreground="#86EFAC"
+                 IsReadOnly="True" AcceptsReturn="True"
+                 TextWrapping="Wrap" MaxHeight="160"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 IsVisible="False"/>
 
         <Grid ColumnDefinitions="*,8,Auto,8,Auto" Margin="0,6,0,0">
             <Button Grid.Column="0" Content="Cancel" Click="Cancel_Click"
