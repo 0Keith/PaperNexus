@@ -191,6 +191,10 @@ No dedicated test projects exist yet. The PR workflow runs `dotnet test` with `c
 
 The `.claude/hooks/session-start.sh` script runs when Claude Code starts a remote session (`CLAUDE_CODE_REMOTE=true`). It installs the .NET 10 SDK via `apt-get` and restores NuGet packages for the solution.
 
+## Memory Convention
+
+When the user asks you to "remember" something, that means update `CLAUDE.md` with the relevant information so it persists across sessions.
+
 ## Guidelines for AI Assistants
 
 - Use .NET 10.0 for all new development
