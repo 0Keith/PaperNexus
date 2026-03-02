@@ -114,104 +114,135 @@
 
             <!-- Right column: All other settings -->
             <ScrollViewer Grid.Column="2">
-                <StackPanel Spacing="14" Margin="0,0,16,0">
+                <StackPanel Spacing="10" Margin="0,0,16,0">
 
-                    <!-- Wallpapers Folder -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Wallpapers Folder" FontWeight="SemiBold"/>
-                        <Grid ColumnDefinitions="*,8,Auto,4,Auto">
-                            <TextBox Grid.Column="0" Text="{Binding WallpapersFolder}"
-                                     Watermark="e.g. C:/Users/YourName/Wallpapers"/>
-                            <Button Grid.Column="2" Click="BrowseFolder_Click">
-                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <PathIcon Data="M10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6H12L10 4Z"
-                                              Width="14" Height="14"/>
-                                    <TextBlock Text="Browse..." VerticalAlignment="Center"/>
+                    <!-- Slideshow group -->
+                    <Border Background="#1E1E1E" BorderBrush="#444" BorderThickness="1" CornerRadius="6" Padding="12">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Slideshow" FontWeight="SemiBold" FontSize="13" Opacity="0.85"/>
+
+                            <!-- Slideshow Schedule -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Schedule" FontSize="12" Opacity="0.6"/>
+                                <StackPanel Orientation="Horizontal" Spacing="16">
+                                    <RadioButton Content="Interval (mins)"
+                                                 GroupName="ScheduleMode"
+                                                 IsChecked="{Binding IsIntervalMinutesMode}"/>
+                                    <RadioButton Content="Interval (hours)"
+                                                 GroupName="ScheduleMode"
+                                                 IsChecked="{Binding IsIntervalHoursMode}"/>
+                                    <RadioButton Content="Cron Expression"
+                                                 GroupName="ScheduleMode"
+                                                 IsChecked="{Binding IsCronMode}"/>
                                 </StackPanel>
-                            </Button>
-                            <Button Grid.Column="4"
-                                    Command="{Binding OpenWallpapersFolderCommand}"
-                                    IsEnabled="{Binding WallpapersFolder, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                    ToolTip.Tip="Open wallpapers folder in Explorer">
-                                <PathIcon Data="M20 6H12L10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6ZM15 15H13V17H11V15H9V13H11V11H13V13H15V15Z"
-                                          Width="14" Height="14"/>
-                            </Button>
-                        </Grid>
-                    </StackPanel>
+                                <NumericUpDown Value="{Binding SlideshowIntervalMinutes}"
+                                               Minimum="1" Maximum="1440" Increment="5"
+                                               FormatString="0"
+                                               IsVisible="{Binding IsIntervalMinutesMode}"/>
+                                <NumericUpDown Value="{Binding SlideshowIntervalHours}"
+                                               Minimum="1" Maximum="23" Increment="1"
+                                               FormatString="0"
+                                               IsVisible="{Binding IsIntervalHoursMode}"/>
+                                <StackPanel IsVisible="{Binding IsCronMode}" Spacing="2">
+                                    <TextBox Text="{Binding SlideshowCronExpression}"
+                                             Watermark="e.g. */30 * * * *"/>
+                                    <TextBlock Text="5-field cron: min hour day month weekday"
+                                               FontSize="11" Opacity="0.6"/>
+                                </StackPanel>
+                            </StackPanel>
 
-                    <!-- Slideshow Schedule -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Slideshow Schedule" FontWeight="SemiBold"/>
-                        <StackPanel Orientation="Horizontal" Spacing="16">
-                            <RadioButton Content="Interval (mins)"
-                                         GroupName="ScheduleMode"
-                                         IsChecked="{Binding IsIntervalMinutesMode}"/>
-                            <RadioButton Content="Interval (hours)"
-                                         GroupName="ScheduleMode"
-                                         IsChecked="{Binding IsIntervalHoursMode}"/>
-                            <RadioButton Content="Cron Expression"
-                                         GroupName="ScheduleMode"
-                                         IsChecked="{Binding IsCronMode}"/>
+                            <!-- Separator -->
+                            <Border Height="1" Background="#333"/>
+
+                            <!-- Slideshow Pattern -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Pattern" FontSize="12" Opacity="0.6"/>
+                                <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.SwitchPatternOptions}"
+                                          SelectedItem="{Binding SelectedSlideshowPattern}"
+                                          HorizontalAlignment="Stretch"/>
+                                <TextBlock Text="Alphabetical: cycle A→Z  •  Oldest/Newest: cycle by file date  •  Random: pick randomly  •  Never: disable auto-switching"
+                                           FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+                            </StackPanel>
+
+                            <!-- Separator -->
+                            <Border Height="1" Background="#333"/>
+
+                            <!-- Fill Style -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Fill Style" FontSize="12" Opacity="0.6"/>
+                                <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.FillStyleOptions}"
+                                          SelectedItem="{Binding SelectedFillStyle}"
+                                          HorizontalAlignment="Stretch"/>
+                                <TextBlock Text="Fill: crop to fill screen  •  Fit: letterbox  •  Stretch: distort to fit  •  Tile: repeat  •  Center: no scaling  •  Span: stretch across monitors"
+                                           FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+                            </StackPanel>
                         </StackPanel>
-                        <NumericUpDown Value="{Binding SlideshowIntervalMinutes}"
-                                       Minimum="1" Maximum="1440" Increment="5"
-                                       FormatString="0"
-                                       IsVisible="{Binding IsIntervalMinutesMode}"/>
-                        <NumericUpDown Value="{Binding SlideshowIntervalHours}"
-                                       Minimum="1" Maximum="23" Increment="1"
-                                       FormatString="0"
-                                       IsVisible="{Binding IsIntervalHoursMode}"/>
-                        <StackPanel IsVisible="{Binding IsCronMode}" Spacing="2">
-                            <TextBox Text="{Binding SlideshowCronExpression}"
-                                     Watermark="e.g. */30 * * * *"/>
-                            <TextBlock Text="5-field cron: min hour day month weekday"
-                                       FontSize="11" Opacity="0.6"/>
+                    </Border>
+
+                    <!-- Download group -->
+                    <Border Background="#1E1E1E" BorderBrush="#444" BorderThickness="1" CornerRadius="6" Padding="12">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Download" FontWeight="SemiBold" FontSize="13" Opacity="0.85"/>
+
+                            <!-- Wallpapers Folder -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Wallpapers Folder" FontSize="12" Opacity="0.6"/>
+                                <Grid ColumnDefinitions="*,8,Auto,4,Auto">
+                                    <TextBox Grid.Column="0" Text="{Binding WallpapersFolder}"
+                                             Watermark="e.g. C:/Users/YourName/Wallpapers"/>
+                                    <Button Grid.Column="2" Click="BrowseFolder_Click">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <PathIcon Data="M10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6H12L10 4Z"
+                                                      Width="14" Height="14"/>
+                                            <TextBlock Text="Browse..." VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Grid.Column="4"
+                                            Command="{Binding OpenWallpapersFolderCommand}"
+                                            IsEnabled="{Binding WallpapersFolder, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                            ToolTip.Tip="Open wallpapers folder in Explorer">
+                                        <PathIcon Data="M20 6H12L10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6ZM15 15H13V17H11V15H9V13H11V11H13V13H15V15Z"
+                                                  Width="14" Height="14"/>
+                                    </Button>
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Separator -->
+                            <Border Height="1" Background="#333"/>
+
+                            <!-- Saved Resolution -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Saved Resolution" FontSize="12" Opacity="0.6"/>
+                                <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.ResolutionOptions}"
+                                          SelectedItem="{Binding SelectedResolution}"
+                                          HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+
+                            <!-- Separator -->
+                            <Border Height="1" Background="#333"/>
+
+                            <!-- Retention Days -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Retention Period (days)" FontSize="12" Opacity="0.6"/>
+                                <NumericUpDown Value="{Binding RetentionDays}"
+                                               Minimum="1" Maximum="3650" Increment="30"
+                                               FormatString="0"/>
+                            </StackPanel>
                         </StackPanel>
-                    </StackPanel>
+                    </Border>
 
-                    <!-- Slideshow Behavior -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Slideshow Behavior" FontWeight="SemiBold"/>
-                        <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.SwitchPatternOptions}"
-                                  SelectedItem="{Binding SelectedSlideshowPattern}"
-                                  HorizontalAlignment="Stretch"/>
-                        <TextBlock Text="Alphabetical: cycle A→Z  •  Oldest/Newest: cycle by file date  •  Random: pick randomly  •  Never: disable auto-switching"
-                                   FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
-                    </StackPanel>
+                    <!-- General group -->
+                    <Border Background="#1E1E1E" BorderBrush="#444" BorderThickness="1" CornerRadius="6" Padding="12">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="General" FontWeight="SemiBold" FontSize="13" Opacity="0.85"/>
+                            <CheckBox Content="Run on startup"
+                                      IsChecked="{Binding RunOnStartup}"/>
+                            <Border Height="1" Background="#333"/>
+                            <CheckBox Content="Show title annotation on wallpaper"
+                                      IsChecked="{Binding AnnotateWallpaper}"/>
+                        </StackPanel>
+                    </Border>
 
-                    <!-- Saved Resolution -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Saved Resolution" FontWeight="SemiBold"/>
-                        <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.ResolutionOptions}"
-                                  SelectedItem="{Binding SelectedResolution}"
-                                  HorizontalAlignment="Stretch"/>
-                    </StackPanel>
-
-                    <!-- Wallpaper Fill Style -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Wallpaper Fill Style" FontWeight="SemiBold"/>
-                        <ComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.FillStyleOptions}"
-                                  SelectedItem="{Binding SelectedFillStyle}"
-                                  HorizontalAlignment="Stretch"/>
-                        <TextBlock Text="Fill: crop to fill screen  •  Fit: letterbox  •  Stretch: distort to fit  •  Tile: repeat  •  Center: no scaling  •  Span: stretch across monitors"
-                                   FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
-                    </StackPanel>
-
-                    <!-- Annotate Wallpaper -->
-                    <CheckBox Content="Show title annotation on wallpaper"
-                              IsChecked="{Binding AnnotateWallpaper}"/>
-
-                    <!-- Run on Startup -->
-                    <CheckBox Content="Run on startup"
-                              IsChecked="{Binding RunOnStartup}"/>
-
-                    <!-- Retention Days -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Retention Period (days)" FontWeight="SemiBold"/>
-                        <NumericUpDown Value="{Binding RetentionDays}"
-                                       Minimum="1" Maximum="3650" Increment="30"
-                                       FormatString="0"/>
-                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
