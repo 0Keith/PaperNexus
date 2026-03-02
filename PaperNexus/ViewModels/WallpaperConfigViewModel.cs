@@ -344,7 +344,28 @@ public partial class WallpaperConfigViewModel : ObservableObject
         var progress = new Progress<string>(msg => StatusMessage = msg);
         try
         {
-            await Task.Run(() => _checkForUpdates.CheckAsync(progress));
+            await Task.Run(() => _checkForUpdates.CheckAsync(forceUpdate: false, progress: progress));
+            await ShowTransientStatusAsync("✓ Already up to date.");
+        }
+        catch (Exception ex)
+        {
+            await ShowTransientStatusAsync($"✗ Update check failed: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task CheckForUpdatesForce()
+    {
+        if (_checkForUpdates is null)
+        {
+            await ShowTransientStatusAsync("✗ Update service not available.");
+            return;
+        }
+
+        var progress = new Progress<string>(msg => StatusMessage = msg);
+        try
+        {
+            await Task.Run(() => _checkForUpdates.CheckAsync(forceUpdate: true, progress: progress));
             await ShowTransientStatusAsync("✓ Already up to date.");
         }
         catch (Exception ex)
