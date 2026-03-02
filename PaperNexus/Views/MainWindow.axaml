@@ -20,8 +20,8 @@
 
             <!-- Left column: Wallpaper Sources -->
             <DockPanel Grid.Column="0">
-                <TextBlock DockPanel.Dock="Top" Text="Wallpaper Sources" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <Grid DockPanel.Dock="Top" ColumnDefinitions="*,8,Auto,4,Auto,4,Auto" Margin="0,0,0,6">
+                    <TextBlock Grid.Column="0" Text="Wallpaper Sources" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <Button Grid.Column="2"
                             Click="AddSource_Click"
                             Padding="8,4">
@@ -52,17 +52,19 @@
                         </StackPanel>
                     </Button>
                 </Grid>
-                <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="0,10,0,0">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="Current Wallpaper" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                        <Button Command="{Binding NextWallpaperCommand}"
+                <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,6">
+                    <Grid ColumnDefinitions="*,Auto,4,Auto">
+                        <TextBlock Grid.Column="0" Text="Current Wallpaper" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1"
+                                Command="{Binding NextWallpaperCommand}"
                                 ToolTip.Tip="Switch to next wallpaper"
                                 Padding="4,2"
                                 Background="Transparent" BorderThickness="0">
                             <PathIcon Data="M6 18L14.5 12L6 6V18ZM16 6V18H18V6H16Z"
                                       Width="14" Height="14"/>
                         </Button>
-                        <Button Click="DeleteWallpaper_Click"
+                        <Button Grid.Column="3"
+                                Click="DeleteWallpaper_Click"
                                 IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                 ToolTip.Tip="Delete current wallpaper"
                                 Padding="4,2"
@@ -71,7 +73,7 @@
                                       Width="14" Height="14"
                                       Foreground="#E06C75"/>
                         </Button>
-                    </StackPanel>
+                    </Grid>
                     <TextBlock Text="{Binding CurrentWallpaperName}" FontSize="13"
                                TextWrapping="Wrap" Foreground="SteelBlue"/>
                 </StackPanel>
