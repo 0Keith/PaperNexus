@@ -121,9 +121,9 @@
                         <StackPanel Spacing="12">
                             <TextBlock Text="Download" FontWeight="SemiBold" FontSize="13" Opacity="0.85"/>
 
-                            <!-- Wallpapers Folder -->
+                            <!-- Folder -->
                             <StackPanel Spacing="4">
-                                <TextBlock Text="Wallpapers Folder" FontSize="12" Opacity="0.6"/>
+                                <TextBlock Text="Folder" FontSize="12" Opacity="0.6"/>
                                 <Grid ColumnDefinitions="*,8,Auto,4,Auto">
                                     <TextBox Grid.Column="0" Text="{Binding Folder}"
                                              Watermark="e.g. C:/Users/YourName/Wallpapers"/>
@@ -137,7 +137,7 @@
                                     <Button Grid.Column="4"
                                             Command="{Binding OpenFolderCommand}"
                                             IsEnabled="{Binding Folder, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                            ToolTip.Tip="Open wallpapers folder in Explorer">
+                                            ToolTip.Tip="Open folder in Explorer">
                                         <PathIcon Data="M20 6H12L10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6ZM15 15H13V17H11V15H9V13H11V11H13V13H15V15Z"
                                                   Width="14" Height="14"/>
                                     </Button>
