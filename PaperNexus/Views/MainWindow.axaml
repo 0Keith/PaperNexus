@@ -267,7 +267,7 @@
 
         <!-- Footer -->
         <StackPanel Grid.Row="1" Spacing="8" Margin="0,14,0,0">
-            <Grid ColumnDefinitions="*,Auto,4,Auto,6,Auto">
+            <Grid ColumnDefinitions="*,Auto,4,Auto,6,Auto,6,Auto">
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" Foreground="{Binding StatusForeground}" TextWrapping="Wrap" FontSize="12" VerticalAlignment="Bottom"/>
                 <TextBlock Grid.Column="1" Text="{x:Static app:App.AppVersion}"
                            FontSize="10" Opacity="0.35" VerticalAlignment="Bottom"/>
@@ -283,6 +283,12 @@
                         ToolTip.Tip="Leave feedback on GitHub"
                         Padding="5,2" Opacity="0.6">
                     <PathIcon Data="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H5.17L4 17.17V4H20V16Z"
+                              Width="14" Height="14"/>
+                </Button>
+                <Button Grid.Column="7" Command="{Binding OpenHomepageCommand}"
+                        ToolTip.Tip="Open PaperNexus on GitHub"
+                        Padding="5,2" Opacity="0.6">
+                    <PathIcon Data="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM11 19.93C7.05 19.44 4 16.08 4 12C4 11.38 4.08 10.79 4.21 10.21L9 15V16C9 17.1 9.9 18 11 18V19.93ZM17.9 17.39C17.64 16.58 16.9 16 16 16H15V13C15 12.45 14.55 12 14 12H8V10H10C10.55 10 11 9.55 11 9V7H13C14.1 7 15 6.1 15 5V4.59C17.93 5.77 20 8.65 20 12C20 14.08 19.19 15.98 17.9 17.39Z"
                               Width="14" Height="14"/>
                 </Button>
             </Grid>

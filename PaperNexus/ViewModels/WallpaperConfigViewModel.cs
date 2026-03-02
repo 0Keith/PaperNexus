@@ -462,6 +462,12 @@ public partial class WallpaperConfigViewModel : ObservableObject
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 
+    [RelayCommand]
+    private void OpenHomepage()
+    {
+        Process.Start(new ProcessStartInfo("https://github.com/0Keith/PaperNexus") { UseShellExecute = true });
+    }
+
     private async Task SaveSettingsAsync()
     {
         try
