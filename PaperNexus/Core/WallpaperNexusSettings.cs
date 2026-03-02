@@ -23,7 +23,6 @@ public enum WallpaperSwitchPattern
     Random,
     OldestFirst,
     NewestFirst,
-    Never,
 }
 
 public enum SlideshowScheduleMode
@@ -35,6 +34,7 @@ public enum SlideshowScheduleMode
 
 public class SlideshowSettings
 {
+    public bool Enabled { get; set; } = true;
     public SlideshowScheduleMode ScheduleMode { get; set; } = SlideshowScheduleMode.CronExpression;
     public int IntervalMinutes { get; set; } = 30;
     public int IntervalHours { get; set; } = 1;
