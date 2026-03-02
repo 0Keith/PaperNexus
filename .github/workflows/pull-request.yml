@@ -8,9 +8,19 @@ permissions:
   contents: read
 
 jobs:
-  status-check:
-    runs-on: ubuntu-latest
-    if: always()
+  verify-build:
+    runs-on: windows-latest
+
     steps:
-    - name: Check build result
-      run: echo "All required checks passed"
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+
+    - name: Test
+      run: dotnet test --configuration Release --no-build --verbosity normal
+      continue-on-error: true
