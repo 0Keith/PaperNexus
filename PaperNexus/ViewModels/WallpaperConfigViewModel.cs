@@ -336,10 +336,10 @@ public partial class WallpaperConfigViewModel : ObservableObject
             return;
         }
 
-        StatusMessage = "Checking for updates...";
+        var progress = new Progress<string>(msg => StatusMessage = msg);
         try
         {
-            await Task.Run(_checkForUpdates.CheckAsync);
+            await Task.Run(() => _checkForUpdates.CheckAsync(progress));
             await ShowTransientStatusAsync("✓ Already up to date.");
         }
         catch (Exception ex)
