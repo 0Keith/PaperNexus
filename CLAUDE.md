@@ -144,7 +144,7 @@ All workflows run on `windows-latest` and use `actions/checkout@v6`.
 
 - Default version: `1.0.0` in csproj `<Version>`
 - CI override: `-p:Version=$version` where `$version` is either the git tag (trimmed `v` prefix) or `1.0.{run_number}`
-- Runtime access: `Assembly.GetExecutingAssembly().GetName().Version` formatted as `v{Major}.{Minor}.{Build}` in `App.AppVersion`
+- Runtime access: `Assembly.GetExecutingAssembly().GetName().Version` formatted as `v{Build}` in `App.AppVersion`
 
 ### Code Signing (self-signed certificate)
 
