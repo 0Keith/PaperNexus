@@ -52,9 +52,11 @@ public partial class WallpaperSourceDialog : Window
                 TitleJPath = titleJPath,
             };
             var images = await service.GetImages(source);
-            var preview = images.Take(5).Select(img =>
+            var previewImages = images.Take(5).ToList();
+            var preview = previewImages.Select(img =>
                 $"Title: {img.Title}\nImage: {img.ImageUrl}");
-            ShowTestResult($"Success — {images.Count} image(s) found.\n\n{string.Join("\n\n", preview)}");
+            var previewNote = images.Count > previewImages.Count ? $" (showing first {previewImages.Count})" : string.Empty;
+            ShowTestResult($"Success — {images.Count} image(s) found{previewNote}.\n\n{string.Join("\n\n", preview)}");
         }
         catch (Exception ex)
         {
