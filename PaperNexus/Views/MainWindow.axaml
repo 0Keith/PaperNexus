@@ -53,8 +53,15 @@
                                       Foreground="#E06C75"/>
                         </Button>
                     </Grid>
-                    <TextBlock Text="{Binding CurrentWallpaperName}" FontSize="13"
-                               TextWrapping="Wrap" Foreground="SteelBlue"/>
+                    <Button Command="{Binding OpenCurrentWallpaperCommand}"
+                            IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                            ToolTip.Tip="Open wallpaper file"
+                            Padding="0" Background="Transparent" BorderThickness="0"
+                            HorizontalAlignment="Left" HorizontalContentAlignment="Left"
+                            Cursor="Hand">
+                        <TextBlock Text="{Binding CurrentWallpaperName}" FontSize="13"
+                                   TextWrapping="Wrap" Foreground="SteelBlue"/>
+                    </Button>
                 </StackPanel>
 
                 <Grid DockPanel.Dock="Top" ColumnDefinitions="*,8,Auto,4,Auto,4,Auto" Margin="0,0,0,6">
