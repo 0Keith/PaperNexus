@@ -43,10 +43,19 @@ public class SlideshowSettings
     public WallpaperFillStyle FillStyle { get; set; } = WallpaperFillStyle.Fill;
 }
 
+public enum WallpaperSourceType
+{
+    HttpJson,
+}
+
 public class WallpaperSource
 {
     public string Name { get; set; } = string.Empty;
+    public WallpaperSourceType Type { get; set; } = WallpaperSourceType.HttpJson;
     public string Url { get; set; } = string.Empty;
+    public string ImageUrlJPath { get; set; } = "$[*].imageUrl";
+    public string TitleJPath { get; set; } = "$[*].title";
+    public string ImageUrlRegex { get; set; } = string.Empty;
     public string CronExpression { get; set; } = "0 * * * *";
     public bool IsEnabled { get; set; } = true;
 }

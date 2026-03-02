@@ -2,7 +2,7 @@
        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-       mc:Ignorable="d" d:DesignWidth="440" d:DesignHeight="320"
+       mc:Ignorable="d" d:DesignWidth="440" d:DesignHeight="460"
        x:Class="PaperNexus.Views.WallpaperSourceDialog"
        Title="Wallpaper Source"
        Icon="avares://PaperNexus/Assets/logo.png"
@@ -21,8 +21,36 @@
         </StackPanel>
 
         <StackPanel Spacing="4">
+            <TextBlock Text="Type" FontSize="12" Opacity="0.8"/>
+            <ComboBox x:Name="TypeBox" HorizontalAlignment="Stretch">
+                <ComboBoxItem Content="HTTP JSON" Tag="HttpJson"/>
+            </ComboBox>
+        </StackPanel>
+
+        <StackPanel Spacing="4">
             <TextBlock Text="URL" FontSize="12" Opacity="0.8"/>
             <TextBox x:Name="UrlBox" Watermark="https://example.com/feed.json"/>
+        </StackPanel>
+
+        <StackPanel Spacing="4">
+            <TextBlock Text="Image URL JPath" FontSize="12" Opacity="0.8"/>
+            <TextBox x:Name="ImageUrlJPathBox" Watermark="e.g. $[*].imageUrl"/>
+            <TextBlock Text="JPath expression to locate image URLs in the JSON response"
+                       FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <StackPanel Spacing="4">
+            <TextBlock Text="Title JPath" FontSize="12" Opacity="0.8"/>
+            <TextBox x:Name="TitleJPathBox" Watermark="e.g. $[*].title"/>
+            <TextBlock Text="JPath expression to locate image titles in the JSON response"
+                       FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <StackPanel Spacing="4">
+            <TextBlock Text="Image URL Regex (optional)" FontSize="12" Opacity="0.8"/>
+            <TextBox x:Name="ImageUrlRegexBox" Watermark="e.g. \.jpg$"/>
+            <TextBlock Text="Only images whose URL matches this regex will be downloaded"
+                       FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
         </StackPanel>
 
         <StackPanel Spacing="4">
