@@ -7,7 +7,7 @@ namespace PaperNexus;
 
 internal interface ICheckForUpdates
 {
-    Task CheckAsync();
+    Task CheckAsync(IProgress<string>? progress = null);
 }
 
 internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheckForUpdates>
@@ -22,13 +22,14 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         _logger = logger.ThrowIfNull();
     }
 
-    public async Task CheckAsync()
+    public async Task CheckAsync(IProgress<string>? progress = null)
     {
         var current = typeof(AutoUpdateService).Assembly.GetName().Version;
         if (current is null)
             return;
 
         _logger.LogInformation("Checking for updates. Current version: {Version}", current);
+        progress?.Report("Checking for updates...");
 
         using var client = new HttpClient();
         client.DefaultRequestHeaders.UserAgent.ParseAdd("PaperNexus-AutoUpdater");
@@ -94,6 +95,7 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         var batchPath = Path.Combine(Path.GetDirectoryName(exePath)!, "update.bat");
 
         _logger.LogInformation("Downloading {Latest} from {Url}", latest, downloadUrl);
+        progress?.Report($"Downloading {tag}...");
 
         byte[] bytes;
         try
@@ -148,6 +150,8 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         });
 
         _logger.LogInformation("Update downloaded. Restarting to apply {Latest}...", latest);
+        progress?.Report("Restarting...");
+        await Task.Delay(500); // brief pause so the UI can display "Restarting..." before exit
         Environment.Exit(0);
     }
 }
@@ -166,5 +170,5 @@ internal sealed class AutoUpdateJob : IScheduleScopedJob
             CronExpression: CronExpression.Parse("0 3 * * *"),
             ExecuteOnStartup: true));
 
-    public Task ExecuteAsync() => _checkForUpdates.CheckAsync();
+    public Task ExecuteAsync() => _checkForUpdates.CheckAsync(progress: null);
 }
