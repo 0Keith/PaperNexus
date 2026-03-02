@@ -92,7 +92,14 @@
                     <StackPanel Spacing="4">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <TextBlock Text="Current Wallpaper" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            <Button Command="{Binding DeleteCurrentWallpaperCommand}"
+                            <Button Command="{Binding NextWallpaperCommand}"
+                                    ToolTip.Tip="Switch to next wallpaper"
+                                    Padding="4,2"
+                                    Background="Transparent" BorderThickness="0">
+                                <PathIcon Data="M6 18L14.5 12L6 6V18ZM16 6V18H18V6H16Z"
+                                          Width="14" Height="14"/>
+                            </Button>
+                            <Button Click="DeleteWallpaper_Click"
                                     IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                     ToolTip.Tip="Delete current wallpaper"
                                     Padding="4,2"
@@ -104,8 +111,6 @@
                         </StackPanel>
                         <TextBlock Text="{Binding CurrentWallpaperName}" FontSize="13"
                                    TextWrapping="Wrap" Foreground="SteelBlue"/>
-                        <TextBlock Text="{Binding CurrentWallpaperPath}" FontSize="11"
-                                   TextWrapping="Wrap" Opacity="0.6"/>
                     </StackPanel>
 
                     <!-- Wallpapers Folder -->
@@ -228,14 +233,6 @@
                               Width="14" Height="14"/>
                 </Button>
             </Grid>
-            <Button Command="{Binding NextWallpaperCommand}"
-                    HorizontalAlignment="Stretch">
-                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-                    <PathIcon Data="M6 18L14.5 12L6 6V18ZM16 6V18H18V6H16Z"
-                              Width="16" Height="16"/>
-                    <TextBlock Text="Next Wallpaper" VerticalAlignment="Center"/>
-                </StackPanel>
-            </Button>
         </StackPanel>
     </Grid>
 </Window>
