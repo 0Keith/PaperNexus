@@ -15,6 +15,17 @@ public partial class MainWindow : Window
     private int _versionClickCount;
     private DateTime _lastVersionClick = DateTime.MinValue;
 
+    private static readonly string[] WallpaperCompliments =
+    [
+        "🎨 Excellent taste in wallpapers!",
+        "🖼️ A true connoisseur of desktop aesthetics.",
+        "✨ Your monitor is very lucky.",
+        "🌅 You really know how to set the mood.",
+        "🏆 Best wallpaper picker of the year award: you.",
+        "👀 Someone's got an eye for beauty.",
+        "🌟 This wallpaper? Chef's kiss.",
+    ];
+
     private static readonly Key[] KonamiCode =
     [
         Key.Up, Key.Up, Key.Down, Key.Down,
@@ -28,6 +39,14 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = new WallpaperConfigViewModel();
         UpdateButton.AddHandler(InputElement.PointerPressedEvent, OnUpdateButtonPointerPressed, RoutingStrategies.Tunnel);
+    }
+
+    private async void OnWallpaperNameDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is not WallpaperConfigViewModel vm)
+            return;
+        var msg = WallpaperCompliments[Random.Shared.Next(WallpaperCompliments.Length)];
+        await vm.ShowTransientStatusAsync(msg, 4000);
     }
 
     private async void OnVersionLabelPointerPressed(object? sender, PointerPressedEventArgs e)
