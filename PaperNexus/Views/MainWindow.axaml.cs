@@ -15,6 +15,14 @@ public partial class MainWindow : Window
     private int _versionClickCount;
     private DateTime _lastVersionClick = DateTime.MinValue;
 
+    private static readonly Key[] KonamiCode =
+    [
+        Key.Up, Key.Up, Key.Down, Key.Down,
+        Key.Left, Key.Right, Key.Left, Key.Right,
+        Key.B, Key.A,
+    ];
+    private int _konamiIndex;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -46,6 +54,26 @@ public partial class MainWindow : Window
         e.Handled = true;
         if (DataContext is WallpaperConfigViewModel vm)
             vm.CheckForUpdatesForceCommand.Execute(null);
+    }
+
+    protected override async void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+
+        if (e.Key == KonamiCode[_konamiIndex])
+        {
+            _konamiIndex++;
+            if (_konamiIndex == KonamiCode.Length)
+            {
+                _konamiIndex = 0;
+                if (DataContext is WallpaperConfigViewModel vm)
+                    await vm.ShowTransientStatusAsync("🎮 +30 lives granted! (wallpaper edition)", 5000);
+            }
+        }
+        else
+        {
+            _konamiIndex = e.Key == KonamiCode[0] ? 1 : 0;
+        }
     }
 
     protected override async void OnOpened(EventArgs e)
