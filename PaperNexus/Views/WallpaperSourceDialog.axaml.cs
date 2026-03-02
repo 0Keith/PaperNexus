@@ -52,8 +52,8 @@ public partial class WallpaperSourceDialog : Window
                 TitleJPath = titleJPath,
             };
             var images = await service.GetImages(source);
-            var preview = images.Take(5).Select((img, i) =>
-                $"{i + 1}. {img.Title}\n   {img.ImageUrl}");
+            var preview = images.Take(5).Select(img =>
+                $"Title: {img.Title}\nImage: {img.ImageUrl}");
             ShowTestResult($"Success — {images.Count} image(s) found.\n\n{string.Join("\n\n", preview)}");
         }
         catch (Exception ex)
