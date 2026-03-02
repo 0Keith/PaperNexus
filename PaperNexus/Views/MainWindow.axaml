@@ -24,7 +24,7 @@
 
                 <!-- Current Wallpaper -->
                 <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
-                    <Grid ColumnDefinitions="*,Auto,4,Auto">
+                    <Grid ColumnDefinitions="*,Auto,4,Auto,4,Auto">
                         <TextBlock Grid.Column="0" Text="Current Wallpaper" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         <Button Grid.Column="1"
                                 Command="{Binding NextWallpaperCommand}"
@@ -35,6 +35,14 @@
                                       Width="14" Height="14"/>
                         </Button>
                         <Button Grid.Column="3"
+                                Command="{Binding RandomWallpaperCommand}"
+                                ToolTip.Tip="Switch to random wallpaper"
+                                Padding="4,2"
+                                Background="Transparent" BorderThickness="0">
+                            <PathIcon Data="M10.59 9.17L5.41 4L4 5.41L9.17 10.59L10.59 9.17ZM14.5 4L16.54 6.04L4 18.59L5.41 20L17.96 7.46L20 9.5V4H14.5ZM14.83 13.41L13.42 14.82L16.55 17.95L14.5 20H20V14.5L17.96 16.54L14.83 13.41Z"
+                                      Width="14" Height="14"/>
+                        </Button>
+                        <Button Grid.Column="5"
                                 Click="DeleteWallpaper_Click"
                                 IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                 ToolTip.Tip="Delete current wallpaper"
