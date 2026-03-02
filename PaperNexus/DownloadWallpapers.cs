@@ -57,7 +57,7 @@ internal class DownloadWallpapers : ScheduledJobService
         if (string.IsNullOrEmpty(ext))
             ext = ".png";
         title += " - " + Path.GetFileNameWithoutExtension(urlFile);
-        var path = $"{settings.WallpapersFolder}/{title}{ext}";
+        var path = $"{settings.Download.WallpapersFolder}/{title}{ext}";
         if (!Debugger.IsAttached && File.Exists(path))
             return;
 
@@ -78,8 +78,8 @@ internal class DownloadWallpapers : ScheduledJobService
 
     private async Task CleanupOldImages(WallpaperNexusSettings settings)
     {
-        var files = new DirectoryInfo(settings.WallpapersFolder).EnumerateFiles();
-        var cutoff = DateTime.UtcNow.AddDays(-settings.RetentionDays);
+        var files = new DirectoryInfo(settings.Download.WallpapersFolder).EnumerateFiles();
+        var cutoff = DateTime.UtcNow.AddDays(-settings.Download.RetentionDays);
         foreach (var file in files)
             if (cutoff > file.LastWriteTimeUtc)
                 file.Delete();
