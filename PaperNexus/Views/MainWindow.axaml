@@ -91,8 +91,7 @@
                         <DataTemplate>
                             <Grid ColumnDefinitions="Auto,8,*" Margin="2,4">
                                 <CheckBox Grid.Column="0"
-                                          IsChecked="{Binding IsEnabled, Mode=OneTime}"
-                                          IsHitTestVisible="False"
+                                          IsChecked="{Binding IsEnabled, Mode=TwoWay}"
                                           VerticalAlignment="Top"
                                           Margin="0,2,0,0"/>
                                 <StackPanel Grid.Column="2" Spacing="2">

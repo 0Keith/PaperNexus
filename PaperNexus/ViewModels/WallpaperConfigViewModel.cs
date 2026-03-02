@@ -168,14 +168,31 @@ public partial class WallpaperConfigViewModel : ObservableObject
     partial void OnSourcesChanging(ObservableCollection<WallpaperSource> value)
     {
         _sources.CollectionChanged -= OnSourcesCollectionChanged;
+        foreach (var src in _sources)
+            src.PropertyChanged -= OnSourcePropertyChanged;
     }
 
     partial void OnSourcesChanged(ObservableCollection<WallpaperSource> value)
     {
         value.CollectionChanged += OnSourcesCollectionChanged;
+        foreach (var src in value)
+            src.PropertyChanged += OnSourcePropertyChanged;
     }
 
     private void OnSourcesCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems is not null)
+            foreach (WallpaperSource src in e.OldItems)
+                src.PropertyChanged -= OnSourcePropertyChanged;
+
+        if (e.NewItems is not null)
+            foreach (WallpaperSource src in e.NewItems)
+                src.PropertyChanged += OnSourcePropertyChanged;
+
+        TriggerSave();
+    }
+
+    private void OnSourcePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         TriggerSave();
     }
