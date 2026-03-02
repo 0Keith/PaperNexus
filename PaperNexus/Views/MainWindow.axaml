@@ -60,12 +60,25 @@
                          DoubleTapped="SourceList_DoubleTapped">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <CheckBox IsChecked="{Binding IsEnabled, Mode=OneTime}"
+                            <Grid ColumnDefinitions="Auto,8,*" Margin="2,4">
+                                <CheckBox Grid.Column="0"
+                                          IsChecked="{Binding IsEnabled, Mode=OneTime}"
                                           IsHitTestVisible="False"
-                                          VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding Name}" Padding="4,2" VerticalAlignment="Center"/>
-                            </StackPanel>
+                                          VerticalAlignment="Top"
+                                          Margin="0,2,0,0"/>
+                                <StackPanel Grid.Column="2" Spacing="2">
+                                    <TextBlock Text="{Binding Name}"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding Url}"
+                                               FontSize="11"
+                                               Opacity="0.55"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding CronExpression}"
+                                               FontSize="11"
+                                               Opacity="0.45"
+                                               FontFamily="Consolas,Courier New,monospace"/>
+                                </StackPanel>
+                            </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
