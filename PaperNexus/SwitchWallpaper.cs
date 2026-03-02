@@ -14,6 +14,7 @@ namespace PaperNexus;
 public interface ISwitchWallpaper
 {
     Task<string?> SwitchToNextAsync();
+    Task<string?> SwitchToRandomAsync();
 }
 
 internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchWallpaper>
@@ -31,12 +32,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
         if (!settings.IsConfigured)
             return null;
 
-        var allFiles = new DirectoryInfo(settings.Download.Folder)
-            .EnumerateFiles()
-            .Where(f => f.Extension.Equals(".png", StringComparison.OrdinalIgnoreCase)
-                     || f.Extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
-                     || f.Extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        var allFiles = GetWallpaperFiles(settings.Download.Folder);
 
         if (allFiles.Count == 0)
             return null;
@@ -63,6 +59,38 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
             next = files[(index + 1) % files.Count];
         }
 
+        return await ApplyWallpaperAsync(next, settings).ConfigureAwait(false);
+    }
+
+    public async Task<string?> SwitchToRandomAsync()
+    {
+        var settings = await WallpaperNexusSettings.LoadAsync().ConfigureAwait(false);
+        if (!settings.IsConfigured)
+            return null;
+
+        var allFiles = GetWallpaperFiles(settings.Download.Folder);
+
+        if (allFiles.Count == 0)
+            return null;
+
+        var candidates = allFiles.Select(f => f.FullName).ToList();
+        if (candidates.Count > 1)
+            candidates = candidates.Where(f => !f.Equals(settings.CurrentWallpaperPath, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var next = candidates[Random.Shared.Next(candidates.Count)];
+        return await ApplyWallpaperAsync(next, settings).ConfigureAwait(false);
+    }
+
+    private static List<FileInfo> GetWallpaperFiles(string folder) =>
+        new DirectoryInfo(folder)
+            .EnumerateFiles()
+            .Where(f => f.Extension.Equals(".png", StringComparison.OrdinalIgnoreCase)
+                     || f.Extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
+                     || f.Extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+    private async Task<string?> ApplyWallpaperAsync(string next, WallpaperNexusSettings settings)
+    {
         // Write to a fixed current file in the execution directory so the original files are never modified.
         // Apply the title overlay here rather than at download time to preserve source image quality.
         // Save as PNG; if it exceeds 16 MB fall back to JPEG stepping quality down by 3% from 97%.
