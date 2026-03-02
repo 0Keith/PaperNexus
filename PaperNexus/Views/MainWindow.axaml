@@ -172,10 +172,13 @@
                     <!-- Slideshow group -->
                     <Border Background="#1E1E1E" BorderBrush="#444" BorderThickness="1" CornerRadius="6" Padding="12">
                         <StackPanel Spacing="12">
-                            <TextBlock Text="Slideshow" FontWeight="SemiBold" FontSize="13" Opacity="0.85"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="Slideshow" FontWeight="SemiBold" FontSize="13" Opacity="0.85" VerticalAlignment="Center"/>
+                                <CheckBox Grid.Column="1" Content="Enabled" IsChecked="{Binding SlideshowEnabled}" VerticalAlignment="Center"/>
+                            </Grid>
 
                             <!-- Slideshow Schedule -->
-                            <StackPanel Spacing="4">
+                            <StackPanel Spacing="4" IsEnabled="{Binding SlideshowEnabled}">
                                 <TextBlock Text="Schedule" FontSize="12" Opacity="0.6"/>
                                 <StackPanel Orientation="Horizontal" Spacing="16">
                                     <RadioButton Content="Interval (mins)"
@@ -208,12 +211,12 @@
                             <Border Height="1" Background="#333"/>
 
                             <!-- Slideshow Pattern -->
-                            <StackPanel Spacing="4">
+                            <StackPanel Spacing="4" IsEnabled="{Binding SlideshowEnabled}">
                                 <TextBlock Text="Pattern" FontSize="12" Opacity="0.6"/>
                                 <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.SwitchPatternOptions}"
                                           SelectedItem="{Binding SelectedSlideshowPattern}"
                                           HorizontalAlignment="Stretch"/>
-                                <TextBlock Text="Alphabetical: cycle A→Z  •  Oldest/Newest: cycle by file date  •  Random: pick randomly  •  Never: disable auto-switching"
+                                <TextBlock Text="Alphabetical: cycle A→Z  •  Oldest/Newest: cycle by file date  •  Random: pick randomly"
                                            FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                             </StackPanel>
 
