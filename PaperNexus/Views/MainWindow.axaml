@@ -53,9 +53,6 @@
                                       Foreground="#E06C75"/>
                         </Button>
                     </Grid>
-                    <TextBlock Text="{Binding CurrentWallpaperName}" FontSize="13"
-                               TextWrapping="Wrap" Foreground="SteelBlue"
-                               DoubleTapped="OnWallpaperNameDoubleTapped"/>
                     <Button Command="{Binding OpenCurrentWallpaperCommand}"
                             IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                             ToolTip.Tip="Open wallpaper file"
@@ -63,7 +60,8 @@
                             HorizontalAlignment="Left" HorizontalContentAlignment="Left"
                             Cursor="Hand">
                         <TextBlock Text="{Binding CurrentWallpaperName}" FontSize="13"
-                                   TextWrapping="Wrap" Foreground="SteelBlue"/>
+                                   TextWrapping="Wrap" Foreground="SteelBlue"
+                                   DoubleTapped="OnWallpaperNameDoubleTapped"/>
                     </Button>
                 </StackPanel>
 

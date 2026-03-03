@@ -210,3 +210,4 @@ When the user asks you to "remember" something, that means update `CLAUDE.md` wi
 - Never commit secrets or credentials
 - Check for vulnerable packages with `dotnet list package --vulnerable`
 - **Always update `CLAUDE.md`** after any task that changes the project structure, adds patterns, or migrates code
+- **No Linear issues exist for this repo** — do not search Linear for related issues
