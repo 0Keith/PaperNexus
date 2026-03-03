@@ -56,7 +56,7 @@ public class WallpaperSource : ObservableObject
     public string Url { get; set; } = string.Empty;
     public string ImageUrlJPath { get; set; } = "$[*].imageUrl";
     public string TitleJPath { get; set; } = "$[*].title";
-    public string CronExpression { get; set; } = "0 * * * *";
+    public string CronExpression { get; set; } = "0 */8 * * *";
 
     private bool _isEnabled = true;
 
