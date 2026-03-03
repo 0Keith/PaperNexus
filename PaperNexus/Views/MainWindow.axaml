@@ -255,11 +255,11 @@
                             <!-- Separator -->
                             <Border Height="1" Background="#333"/>
 
-                            <!-- Slideshow Pattern -->
+                            <!-- Slideshow Order -->
                             <StackPanel Spacing="4">
-                                <TextBlock Text="Pattern" FontSize="12" Opacity="0.6"/>
-                                <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.SwitchPatternOptions}"
-                                          SelectedItem="{Binding SelectedSlideshowPattern}"
+                                <TextBlock Text="Order" FontSize="12" Opacity="0.6"/>
+                                <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.SlideshowOrderOptions}"
+                                          SelectedItem="{Binding SelectedSlideshowOrder}"
                                           HorizontalAlignment="Stretch"/>
                                 <TextBlock Text="Alphabetical: cycle A→Z  •  Oldest/Newest: cycle by file date  •  Random: pick randomly"
                                            FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>

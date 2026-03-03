@@ -18,7 +18,7 @@ public record FillStyleOption(string Label, WallpaperFillStyle Style)
     public override string ToString() => Label;
 }
 
-public record SwitchPatternOption(string Label, WallpaperSwitchPattern Pattern)
+public record SlideshowOrderOption(string Label, SlideshowOrder Order)
 {
     public override string ToString() => Label;
 }
@@ -55,12 +55,12 @@ public partial class WallpaperConfigViewModel : ObservableObject
         new FillStyleOption("Span",    WallpaperFillStyle.Span),
     };
 
-    public static readonly IReadOnlyList<SwitchPatternOption> SwitchPatternOptions = new[]
+    public static readonly IReadOnlyList<SlideshowOrderOption> SlideshowOrderOptions = new[]
     {
-        new SwitchPatternOption("Alphabetical", WallpaperSwitchPattern.Alphabetical),
-        new SwitchPatternOption("Oldest first", WallpaperSwitchPattern.OldestFirst),
-        new SwitchPatternOption("Newest first", WallpaperSwitchPattern.NewestFirst),
-        new SwitchPatternOption("Random",       WallpaperSwitchPattern.Random),
+        new SlideshowOrderOption("Alphabetical", SlideshowOrder.Alphabetical),
+        new SlideshowOrderOption("Oldest first", SlideshowOrder.OldestFirst),
+        new SlideshowOrderOption("Newest first", SlideshowOrder.NewestFirst),
+        new SlideshowOrderOption("Random",       SlideshowOrder.Random),
     };
 
     public static readonly IReadOnlyList<AnnotationPositionOption> AnnotationPositionOptions = new[]
@@ -125,7 +125,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private FillStyleOption _selectedFillStyle;
 
     [ObservableProperty]
-    private SwitchPatternOption _selectedSlideshowPattern;
+    private SlideshowOrderOption _selectedSlideshowOrder;
 
     [ObservableProperty]
     private int _retentionDays;
@@ -201,8 +201,8 @@ public partial class WallpaperConfigViewModel : ObservableObject
         _checkForUpdates = (Application.Current as App)?.Services?.GetService<ICheckForUpdates>();
         _downloadWallpapers = (Application.Current as App)?.Services?.GetService<IDownloadWallpapers>();
         _selectedFillStyle = FillStyleOptions[0];
-        _selectedSlideshowPattern = SwitchPatternOptions.First(p => p.Pattern == WallpaperSwitchPattern.NewestFirst);
         _selectedAnnotationPosition = AnnotationPositionOptions[0];
+        _selectedSlideshowOrder = SlideshowOrderOptions.First(o => o.Order == SlideshowOrder.NewestFirst);
         _sources.CollectionChanged += OnSourcesCollectionChanged;
 
         if (_switchWallpaper is not null)
@@ -265,7 +265,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
     partial void OnSlideshowIntervalHoursChanged(int value) => TriggerSave();
     partial void OnSelectedResolutionChanged(ResolutionOption value) => TriggerSave();
     partial void OnSelectedFillStyleChanged(FillStyleOption value) => TriggerSave();
-    partial void OnSelectedSlideshowPatternChanged(SwitchPatternOption value) => TriggerSave();
+    partial void OnSelectedSlideshowOrderChanged(SlideshowOrderOption value) => TriggerSave();
     partial void OnRetentionDaysChanged(int value) => TriggerSave();
     partial void OnAnnotateWallpaperChanged(bool value) => TriggerSave();
     partial void OnAnnotationFontFamilyChanged(string value) => TriggerSave();
@@ -318,8 +318,8 @@ public partial class WallpaperConfigViewModel : ObservableObject
                 ?? ResolutionOptions[0];
             SelectedFillStyle = FillStyleOptions.FirstOrDefault(f => f.Style == settings.Slideshow.FillStyle)
                 ?? FillStyleOptions[0];
-            SelectedSlideshowPattern = SwitchPatternOptions.FirstOrDefault(p => p.Pattern == settings.Slideshow.Pattern)
-                ?? SwitchPatternOptions[0];
+            SelectedSlideshowOrder = SlideshowOrderOptions.FirstOrDefault(o => o.Order == settings.Slideshow.Order)
+                ?? SlideshowOrderOptions[0];
             RetentionDays = settings.Download.RetentionDays;
             AnnotateWallpaper = settings.AnnotateWallpaper;
             AnnotationFontFamily = settings.Annotation.FontFamily;
@@ -676,7 +676,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             settings.Download.ResolutionHeight = SelectedResolution.Height;
             settings.Download.RetentionDays = RetentionDays;
             settings.Slideshow.FillStyle = SelectedFillStyle.Style;
-            settings.Slideshow.Pattern = SelectedSlideshowPattern.Pattern;
+            settings.Slideshow.Order = SelectedSlideshowOrder.Order;
             settings.Slideshow.Enabled = SlideshowEnabled;
             settings.AnnotateWallpaper = AnnotateWallpaper;
             settings.Annotation.FontFamily = AnnotationFontFamily;

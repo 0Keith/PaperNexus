@@ -18,7 +18,7 @@ public enum WallpaperFillStyle
     Span,
 }
 
-public enum WallpaperSwitchPattern
+public enum SlideshowOrder
 {
     Alphabetical,
     Random,
@@ -36,11 +36,11 @@ public enum SlideshowScheduleMode
 public class SlideshowSettings
 {
     public bool Enabled { get; set; } = true;
-    public SlideshowScheduleMode ScheduleMode { get; set; } = SlideshowScheduleMode.CronExpression;
+    public SlideshowScheduleMode ScheduleMode { get; set; } = SlideshowScheduleMode.IntervalMinutes;
     public int IntervalMinutes { get; set; } = 30;
     public int IntervalHours { get; set; } = 1;
     public string CronExpression { get; set; } = "*/30 * * * *";
-    public WallpaperSwitchPattern Pattern { get; set; } = WallpaperSwitchPattern.NewestFirst;
+    public SlideshowOrder Order { get; set; } = SlideshowOrder.NewestFirst;
     public WallpaperFillStyle FillStyle { get; set; } = WallpaperFillStyle.Fill;
 }
 
