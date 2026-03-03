@@ -25,6 +25,7 @@ public static class Extensions
         while (line is not null)
         {
             logger.Log(level, line);
+            line = await reader.ReadLineAsync();
         }
     }
 
@@ -47,7 +48,7 @@ public static class Extensions
 
     public static T Max<T>(this T value1, T value2) where T : IComparable<T>
     {
-        return value1.CompareTo(value2) < 0 ? value1 : value2;
+        return value1.CompareTo(value2) > 0 ? value1 : value2;
     }
 
     public static TValue GetOrAdd<TKey, TValue>(this Dictionary<TKey, TValue> items, TKey key, Func<TKey, TValue> valueFactory)

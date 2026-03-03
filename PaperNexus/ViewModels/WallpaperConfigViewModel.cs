@@ -511,7 +511,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
     {
         var nameWithoutExt = Path.GetFileNameWithoutExtension(path);
         var lastSep = nameWithoutExt.LastIndexOf(" - ", StringComparison.Ordinal);
-        return lastSep > 0 ? nameWithoutExt[..lastSep] : Path.GetFileName(path);
+        return lastSep > 0 ? nameWithoutExt[..lastSep] : nameWithoutExt;
     }
 
     internal async Task ShowTransientStatusAsync(string message, int durationMs = 3000)
