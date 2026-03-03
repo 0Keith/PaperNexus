@@ -2,7 +2,12 @@ using Cronos;
 
 namespace PaperNexus;
 
-internal class DownloadWallpapers : ScheduledJobService
+internal interface IDownloadWallpapers
+{
+    Task DownloadAllAsync();
+}
+
+internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers
 {
     private readonly HttpWallpaperSourceService _sourceService;
 
@@ -27,7 +32,7 @@ internal class DownloadWallpapers : ScheduledJobService
         return earliest;
     }
 
-    protected override async Task Execute()
+    public async Task DownloadAllAsync()
     {
         var settings = await WallpaperNexusSettings.LoadAsync();
         if (!settings.IsConfigured)
@@ -44,6 +49,8 @@ internal class DownloadWallpapers : ScheduledJobService
         }
         await CleanupOldImages(settings);
     }
+
+    protected override Task Execute() => DownloadAllAsync();
 
     public async Task Download(WallpaperImage data, WallpaperNexusSettings settings)
     {

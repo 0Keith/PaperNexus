@@ -65,9 +65,19 @@
                     </Button>
                 </StackPanel>
 
-                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,8,Auto,4,Auto,4,Auto" Margin="0,0,0,6">
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,8,Auto,4,Auto,4,Auto,4,Auto" Margin="0,0,0,6">
                     <TextBlock Grid.Column="0" Text="Wallpaper Sources" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <Button Grid.Column="2"
+                            Command="{Binding DownloadNowCommand}"
+                            ToolTip.Tip="Download wallpapers from all enabled sources now"
+                            Padding="8,4">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <PathIcon Data="M5 20H19V18H5V20ZM19 9H15V3H9V9H5L12 16L19 9Z"
+                                      Width="12" Height="12"/>
+                            <TextBlock Text="Download" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="4"
                             Click="AddSource_Click"
                             Padding="8,4">
                         <StackPanel Orientation="Horizontal" Spacing="4">
@@ -76,7 +86,7 @@
                             <TextBlock Text="Add" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Grid.Column="4"
+                    <Button Grid.Column="6"
                             Click="EditSource_Click"
                             IsEnabled="{Binding SelectedSource, Converter={x:Static ObjectConverters.IsNotNull}}"
                             Padding="8,4">
@@ -86,7 +96,7 @@
                             <TextBlock Text="Edit" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Grid.Column="6"
+                    <Button Grid.Column="8"
                             Command="{Binding DeleteSourceCommand}"
                             IsEnabled="{Binding SelectedSource, Converter={x:Static ObjectConverters.IsNotNull}}"
                             Padding="8,4">
