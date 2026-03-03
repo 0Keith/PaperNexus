@@ -324,6 +324,12 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
             StatusMessage = "Switching wallpaper...";
             var next = await Task.Run(_switchWallpaper.SwitchToNextAsync);
+            if (next is null && _downloadWallpapers is not null)
+            {
+                StatusMessage = "No wallpapers found. Downloading...";
+                await Task.Run(_downloadWallpapers.DownloadAllAsync);
+                next = await Task.Run(_switchWallpaper.SwitchToNextAsync);
+            }
             if (next is null)
             {
                 await ShowTransientStatusAsync("✗ No wallpapers found. Check your wallpapers folder setting.");
@@ -352,6 +358,12 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
             StatusMessage = "Picking random wallpaper...";
             var next = await Task.Run(_switchWallpaper.SwitchToRandomAsync);
+            if (next is null && _downloadWallpapers is not null)
+            {
+                StatusMessage = "No wallpapers found. Downloading...";
+                await Task.Run(_downloadWallpapers.DownloadAllAsync);
+                next = await Task.Run(_switchWallpaper.SwitchToRandomAsync);
+            }
             if (next is null)
             {
                 await ShowTransientStatusAsync("✗ No wallpapers found. Check your wallpapers folder setting.");
