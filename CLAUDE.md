@@ -99,7 +99,7 @@ In `App.OnFrameworkInitializationCompleted()`:
 ### Settings
 
 `WallpaperNexusSettings` in `Core/WallpaperNexusSettings.cs` — JSON file at `{AppContext.BaseDirectory}/settings.json` (resolves to `%LOCALAPPDATA%\PaperNexus\settings.json` after install):
-- `SlideshowSettings` — schedule mode (cron/interval minutes/interval hours), pattern (alphabetical/random/oldest/newest/never), fill style
+- `SlideshowSettings` — schedule mode (cron/interval minutes/interval hours), order (alphabetical/random/oldest/newest), fill style
 - `DownloadSettings` — wallpapers folder path (default: `%USERPROFILE%\Pictures\PaperNexus`), resolution, retention days
 - `List<WallpaperSource>` — name, URL, cron expression, enabled flag; default: Bing Daily via peapix.com
 - Window position/size persistence (`WindowX`, `WindowY`, `WindowWidth`, `WindowHeight`)

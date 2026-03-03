@@ -18,7 +18,7 @@ public enum WallpaperFillStyle
     Span,
 }
 
-public enum WallpaperSwitchPattern
+public enum WallpaperSwitchOrder
 {
     Alphabetical,
     Random,
@@ -40,7 +40,7 @@ public class SlideshowSettings
     public int IntervalMinutes { get; set; } = 30;
     public int IntervalHours { get; set; } = 1;
     public string CronExpression { get; set; } = "*/30 * * * *";
-    public WallpaperSwitchPattern Pattern { get; set; } = WallpaperSwitchPattern.NewestFirst;
+    public WallpaperSwitchOrder Order { get; set; } = WallpaperSwitchOrder.NewestFirst;
     public WallpaperFillStyle FillStyle { get; set; } = WallpaperFillStyle.Fill;
 }
 
