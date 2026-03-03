@@ -61,11 +61,14 @@ public partial class App : Application
             });
 #pragma warning restore CA1416
 
-            // Show splash screen while background services start
-            _splashScreen = new SplashScreen();
-            _splashScreen.Show();
+            var launchedOnStartup = desktop.Args?.Contains("--startup") == true;
 
-            var launchedAfterUpdate = desktop.Args?.Contains("--updated") == true;
+            // Show splash screen while background services start (skip on startup)
+            if (!launchedOnStartup)
+            {
+                _splashScreen = new SplashScreen();
+                _splashScreen.Show();
+            }
 
             // Close the splash once the background host has started, but show it for at least 2 seconds
             _ = Task.WhenAll(_backgroundHost.StartAsync(), Task.Delay(2000)).ContinueWith(_ =>
@@ -73,7 +76,7 @@ public partial class App : Application
                 {
                     _splashScreen?.Close();
                     _splashScreen = null;
-                    if (launchedAfterUpdate)
+                    if (!launchedOnStartup)
                         ShowMainWindow();
                 }));
 
@@ -189,7 +192,7 @@ public partial class App : Application
         {
             var exePath = Environment.ProcessPath
                 ?? Path.ChangeExtension(Assembly.GetEntryAssembly()!.Location, ".exe");
-            key?.SetValue("PaperNexus", $"\"{exePath}\"");
+            key?.SetValue("PaperNexus", $"\"{exePath}\" --startup");
         }
         else
         {
