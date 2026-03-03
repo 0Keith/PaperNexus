@@ -341,7 +341,7 @@ public partial class MainWindow : Window
         {
             Title = title,
             Width = 400,
-            Height = 160,
+            SizeToContent = SizeToContent.Height,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Background = new SolidColorBrush(Color.Parse("#2B2B2B")),
