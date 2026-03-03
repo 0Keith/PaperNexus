@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Avalonia;
 using Avalonia.Media;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PaperNexus.Core;
@@ -168,6 +169,18 @@ public partial class WallpaperConfigViewModel : ObservableObject
         _selectedFillStyle = FillStyleOptions[0];
         _selectedSlideshowPattern = SwitchPatternOptions.First(p => p.Pattern == WallpaperSwitchPattern.NewestFirst);
         _sources.CollectionChanged += OnSourcesCollectionChanged;
+
+        if (_switchWallpaper is not null)
+            _switchWallpaper.WallpaperChanged += OnWallpaperChanged;
+    }
+
+    private void OnWallpaperChanged(string path)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            CurrentWallpaperPath = path;
+            CurrentWallpaperName = GetDisplayName(path);
+        });
     }
 
     partial void OnSourcesChanging(ObservableCollection<WallpaperSource> value)
