@@ -24,32 +24,29 @@
 
                 <!-- Current Wallpaper -->
                 <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
-                    <Grid ColumnDefinitions="*,Auto,4,Auto,4,Auto">
+                    <Grid ColumnDefinitions="Auto,4,Auto,4,Auto,4,Auto">
                         <TextBlock Grid.Column="0" Text="Current Wallpaper" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                        <Button Grid.Column="1"
+                        <Button Grid.Column="2"
                                 Command="{Binding NextWallpaperCommand}"
                                 ToolTip.Tip="Switch to next wallpaper"
-                                Padding="4,2"
-                                Background="Transparent" BorderThickness="0">
+                                Padding="8,4">
                             <PathIcon Data="M6 18L14.5 12L6 6V18ZM16 6V18H18V6H16Z"
-                                      Width="14" Height="14"/>
+                                      Width="12" Height="12"/>
                         </Button>
-                        <Button Grid.Column="3"
+                        <Button Grid.Column="4"
                                 Command="{Binding RandomWallpaperCommand}"
                                 ToolTip.Tip="Switch to random wallpaper"
-                                Padding="4,2"
-                                Background="Transparent" BorderThickness="0">
+                                Padding="8,4">
                             <PathIcon Data="M10.59 9.17L5.41 4L4 5.41L9.17 10.59L10.59 9.17ZM14.5 4L16.54 6.04L4 18.59L5.41 20L17.96 7.46L20 9.5V4H14.5ZM14.83 13.41L13.42 14.82L16.55 17.95L14.5 20H20V14.5L17.96 16.54L14.83 13.41Z"
-                                      Width="14" Height="14"/>
+                                      Width="12" Height="12"/>
                         </Button>
-                        <Button Grid.Column="5"
+                        <Button Grid.Column="6"
                                 Click="DeleteWallpaper_Click"
                                 IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                 ToolTip.Tip="Delete current wallpaper"
-                                Padding="4,2"
-                                Background="Transparent" BorderThickness="0">
+                                Padding="8,4">
                             <PathIcon Data="M9 3H15L16 4H20V6H4V4H8L9 3ZM5 7H19L18.1 20.1C18 21.2 17.1 22 16 22H8C6.9 22 6 21.2 5.9 20.1L5 7ZM10 10V19H12V10H10ZM14 10V19H16V10H14Z"
-                                      Width="14" Height="14"
+                                      Width="12" Height="12"
                                       Foreground="#E06C75"/>
                         </Button>
                     </Grid>
