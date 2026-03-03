@@ -52,6 +52,8 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
             return;
         }
 
+        Directory.CreateDirectory(settings.Download.Folder);
+
         var downloaded = false;
         foreach (var source in settings.Sources.Where(s => s.IsEnabled && filter(s)))
         {

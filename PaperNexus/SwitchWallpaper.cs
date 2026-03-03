@@ -13,6 +13,7 @@ namespace PaperNexus;
 
 public interface ISwitchWallpaper
 {
+    event Action<string>? WallpaperChanged;
     Task<string?> SwitchToNextAsync();
     Task<string?> SwitchToRandomAsync();
 }
@@ -20,6 +21,8 @@ public interface ISwitchWallpaper
 internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchWallpaper>
 {
     private readonly ILogger<SwitchWallpaper> _logger;
+
+    public event Action<string>? WallpaperChanged;
 
     public SwitchWallpaper(ILogger<SwitchWallpaper> logger)
     {
@@ -136,6 +139,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
 
         settings.CurrentWallpaperPath = next;
         await settings.SaveAsync().ConfigureAwait(false);
+        WallpaperChanged?.Invoke(next);
         return next;
     }
 

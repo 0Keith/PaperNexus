@@ -91,11 +91,7 @@ public class WallpaperNexusSettings
     public bool AutoUpdatesEnabled { get; set; } = true;
 
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
-    public List<WallpaperSource> Sources { get; set; } = new()
-    {
-        new WallpaperSource { Name = "Bing Daily 4k", Url = "https://peapix.com/bing/feed?country=us" },
-        new WallpaperSource { Name = "Spotlight Daily 4k", Url = "https://peapix.com/spotlight/feed" },
-    };
+    public List<WallpaperSource> Sources { get; set; } = DefaultSources;
 
     public double? WindowX { get; set; }
     public double? WindowY { get; set; }
@@ -104,10 +100,10 @@ public class WallpaperNexusSettings
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Download.Folder);
 
-    public static readonly WallpaperSource DefaultBingSource = new()
+    public static List<WallpaperSource> DefaultSources => new()
     {
-        Name = "Bing Daily 4k",
-        Url = "https://peapix.com/bing/feed?country=us"
+        new() { Name = "Bing Daily 4k", Url = "https://peapix.com/bing/feed?country=us" },
+        new() { Name = "Spotlight Daily 4k", Url = "https://peapix.com/spotlight/feed" },
     };
 
     private static readonly JsonSerializerSettings JsonSettings = new()
@@ -124,13 +120,36 @@ public class WallpaperNexusSettings
             {
                 var json = await File.ReadAllTextAsync(SettingsFilePath);
                 var settings = JsonConvert.DeserializeObject<WallpaperNexusSettings>(json, JsonSettings) ?? new WallpaperNexusSettings();
-                if (settings.Sources.Count == 0)
-                    settings.Sources.Add(new WallpaperSource { Name = DefaultBingSource.Name, Url = DefaultBingSource.Url });
+                ApplyDefaults(settings);
                 return settings;
             }
         }
         catch { }
         return new WallpaperNexusSettings();
+    }
+
+    private static void ApplyDefaults(WallpaperNexusSettings settings)
+    {
+        var defaultSlideshow = new SlideshowSettings();
+        settings.Slideshow ??= defaultSlideshow;
+        if (string.IsNullOrWhiteSpace(settings.Slideshow.CronExpression))
+            settings.Slideshow.CronExpression = defaultSlideshow.CronExpression;
+        if (settings.Slideshow.IntervalMinutes <= 0)
+            settings.Slideshow.IntervalMinutes = defaultSlideshow.IntervalMinutes;
+        if (settings.Slideshow.IntervalHours <= 0)
+            settings.Slideshow.IntervalHours = defaultSlideshow.IntervalHours;
+
+        var defaultDownload = new DownloadSettings();
+        settings.Download ??= defaultDownload;
+        if (string.IsNullOrWhiteSpace(settings.Download.Folder))
+            settings.Download.Folder = defaultDownload.Folder;
+        if (settings.Download.RetentionDays <= 0)
+            settings.Download.RetentionDays = defaultDownload.RetentionDays;
+
+        settings.CurrentWallpaperPath ??= string.Empty;
+
+        if (settings.Sources is null || settings.Sources.Count == 0)
+            settings.Sources = DefaultSources;
     }
 
     public async Task SaveAsync()

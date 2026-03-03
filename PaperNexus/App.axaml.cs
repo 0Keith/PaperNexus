@@ -98,8 +98,18 @@ public partial class App : Application
             try
             {
                 var switcher = _backgroundHost?.Services.GetService<ISwitchWallpaper>();
-                if (switcher is not null)
-                    await Task.Run(switcher.SwitchToNextAsync);
+                if (switcher is null)
+                    return;
+                var next = await Task.Run(switcher.SwitchToNextAsync);
+                if (next is null)
+                {
+                    var downloader = _backgroundHost?.Services.GetService<IDownloadWallpapers>();
+                    if (downloader is not null)
+                    {
+                        await Task.Run(downloader.DownloadAllAsync);
+                        await Task.Run(switcher.SwitchToNextAsync);
+                    }
+                }
             }
             catch (Exception ex)
             {

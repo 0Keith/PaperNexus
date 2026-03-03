@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Avalonia;
 using Avalonia.Media;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PaperNexus.Core;
@@ -168,6 +169,18 @@ public partial class WallpaperConfigViewModel : ObservableObject
         _selectedFillStyle = FillStyleOptions[0];
         _selectedSlideshowPattern = SwitchPatternOptions.First(p => p.Pattern == WallpaperSwitchPattern.NewestFirst);
         _sources.CollectionChanged += OnSourcesCollectionChanged;
+
+        if (_switchWallpaper is not null)
+            _switchWallpaper.WallpaperChanged += OnWallpaperChanged;
+    }
+
+    private void OnWallpaperChanged(string path)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            CurrentWallpaperPath = path;
+            CurrentWallpaperName = GetDisplayName(path);
+        });
     }
 
     partial void OnSourcesChanging(ObservableCollection<WallpaperSource> value)
@@ -324,6 +337,12 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
             StatusMessage = "Switching wallpaper...";
             var next = await Task.Run(_switchWallpaper.SwitchToNextAsync);
+            if (next is null && _downloadWallpapers is not null)
+            {
+                StatusMessage = "No wallpapers found. Downloading...";
+                await Task.Run(_downloadWallpapers.DownloadAllAsync);
+                next = await Task.Run(_switchWallpaper.SwitchToNextAsync);
+            }
             if (next is null)
             {
                 await ShowTransientStatusAsync("✗ No wallpapers found. Check your wallpapers folder setting.");
@@ -352,6 +371,12 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
             StatusMessage = "Picking random wallpaper...";
             var next = await Task.Run(_switchWallpaper.SwitchToRandomAsync);
+            if (next is null && _downloadWallpapers is not null)
+            {
+                StatusMessage = "No wallpapers found. Downloading...";
+                await Task.Run(_downloadWallpapers.DownloadAllAsync);
+                next = await Task.Run(_switchWallpaper.SwitchToRandomAsync);
+            }
             if (next is null)
             {
                 await ShowTransientStatusAsync("✗ No wallpapers found. Check your wallpapers folder setting.");
