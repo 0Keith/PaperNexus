@@ -71,11 +71,8 @@
                             Command="{Binding DownloadNowCommand}"
                             ToolTip.Tip="Download wallpapers from all enabled sources now"
                             Padding="8,4">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <PathIcon Data="M5 20H19V18H5V20ZM19 9H15V3H9V9H5L12 16L19 9Z"
-                                      Width="12" Height="12"/>
-                            <TextBlock Text="Download" VerticalAlignment="Center"/>
-                        </StackPanel>
+                        <PathIcon Data="M5 20H19V18H5V20ZM19 9H15V3H9V9H5L12 16L19 9Z"
+                                  Width="12" Height="12"/>
                     </Button>
                     <Button Grid.Column="4"
                             Click="AddSource_Click"
