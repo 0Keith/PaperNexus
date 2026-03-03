@@ -195,7 +195,7 @@
                             </Grid>
 
                             <!-- Slideshow Schedule -->
-                            <StackPanel Spacing="4" IsEnabled="{Binding SlideshowEnabled}">
+                            <StackPanel Spacing="4">
                                 <TextBlock Text="Schedule" FontSize="12" Opacity="0.6"/>
                                 <StackPanel Orientation="Horizontal" Spacing="16">
                                     <RadioButton Content="Interval (mins)"
@@ -228,7 +228,7 @@
                             <Border Height="1" Background="#333"/>
 
                             <!-- Slideshow Pattern -->
-                            <StackPanel Spacing="4" IsEnabled="{Binding SlideshowEnabled}">
+                            <StackPanel Spacing="4">
                                 <TextBlock Text="Pattern" FontSize="12" Opacity="0.6"/>
                                 <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.SwitchPatternOptions}"
                                           SelectedItem="{Binding SelectedSlideshowPattern}"
