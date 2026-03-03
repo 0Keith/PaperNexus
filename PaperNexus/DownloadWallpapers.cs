@@ -7,7 +7,7 @@ internal interface IDownloadWallpapers
     Task DownloadAllAsync();
 }
 
-internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers
+internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IAddHostedSingleton<IDownloadWallpapers>
 {
     private readonly HttpWallpaperSourceService _sourceService;
 

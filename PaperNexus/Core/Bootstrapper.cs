@@ -13,18 +13,36 @@ public interface IAddSingleton<TService>
 {
 }
 
+/// <summary>
+/// Implement this interface on a hosted service class to have it registered as both a singleton
+/// (accessible via <typeparamref name="TService"/>) and as an <see cref="IHostedService"/>
+/// via <see cref="Bootstrapper.AddServicesFrom"/>.
+/// </summary>
+public interface IAddHostedSingleton<TService>
+{
+}
+
 public static class Bootstrapper
 {
     public static IServiceCollection AddServicesFrom(this IServiceCollection services, Assembly assembly)
     {
-        var openMarker = typeof(IAddSingleton<>);
+        var openSingleton = typeof(IAddSingleton<>);
+        var openHosted = typeof(IAddHostedSingleton<>);
 
         foreach (var implType in assembly.GetTypes().Where(t => t.IsClass && !t.IsAbstract))
         {
-            foreach (var iface in implType.GetInterfaces().Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == openMarker))
+            foreach (var iface in implType.GetInterfaces().Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == openSingleton))
             {
                 var serviceType = iface.GetGenericArguments()[0];
                 services.AddSingleton(serviceType, implType);
+            }
+
+            foreach (var iface in implType.GetInterfaces().Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == openHosted))
+            {
+                var serviceType = iface.GetGenericArguments()[0];
+                services.AddSingleton(implType);
+                services.AddSingleton(serviceType, sp => sp.GetRequiredService(implType));
+                services.AddSingleton<IHostedService>(sp => (IHostedService)sp.GetRequiredService(implType));
             }
         }
 

@@ -94,7 +94,7 @@ public class WallpaperNexusSettings
     public List<WallpaperSource> Sources { get; set; } = new()
     {
         new WallpaperSource { Name = "Bing Daily 4k", Url = "https://peapix.com/bing/feed?country=us" },
-        new WallpaperSource { Name = "Peapix Spotlight", Url = "https://peapix.com/spotlight/feed" },
+        new WallpaperSource { Name = "Spotlight Daily 4k", Url = "https://peapix.com/spotlight/feed" },
     };
 
     public double? WindowX { get; set; }
