@@ -31,22 +31,19 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers
         return earliest;
     }
 
-    public async Task DownloadAllAsync()
+    public Task DownloadAllAsync() => DownloadFromSourcesAsync(_ => true);
+
+    protected override Task Execute() => DownloadFromSourcesAsync(source =>
     {
-        var settings = await WallpaperNexusSettings.LoadAsync();
-        if (!settings.IsConfigured)
+        if (!IsOverdue(source))
         {
-            Logger.LogInformation("Wallpapers folder not configured — skipping.");
-            return;
+            Logger.LogInformation($"Source '{source.Name}' is up to date — skipping.");
+            return false;
         }
+        return true;
+    });
 
-        foreach (var source in settings.Sources.Where(s => s.IsEnabled))
-            await DownloadSource(source, settings);
-        await CleanupOldImages(settings);
-        await settings.SaveAsync();
-    }
-
-    protected override async Task Execute()
+    private async Task DownloadFromSourcesAsync(Func<WallpaperSource, bool> filter)
     {
         var settings = await WallpaperNexusSettings.LoadAsync();
         if (!settings.IsConfigured)
@@ -56,19 +53,16 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers
         }
 
         var downloaded = false;
-        foreach (var source in settings.Sources.Where(s => s.IsEnabled))
+        foreach (var source in settings.Sources.Where(s => s.IsEnabled && filter(s)))
         {
-            if (!IsOverdue(source))
-            {
-                Logger.LogInformation($"Source '{source.Name}' is up to date — skipping.");
-                continue;
-            }
             await DownloadSource(source, settings);
             downloaded = true;
         }
         if (downloaded)
+        {
             await CleanupOldImages(settings);
-        await settings.SaveAsync();
+            await settings.SaveAsync();
+        }
     }
 
     private async Task DownloadSource(WallpaperSource source, WallpaperNexusSettings settings)
@@ -90,7 +84,7 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers
             var next = cron.GetNextOccurrence(source.LastDownloadUtc.Value, TimeZoneInfo.Local);
             return next.HasValue && next.Value <= DateTimeOffset.UtcNow;
         }
-        catch
+        catch (CronFormatException)
         {
             return true;
         }
