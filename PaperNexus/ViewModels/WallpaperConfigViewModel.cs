@@ -18,7 +18,7 @@ public record FillStyleOption(string Label, WallpaperFillStyle Style)
     public override string ToString() => Label;
 }
 
-public record SwitchOrderOption(string Label, SlideshowOrder Order)
+public record SlideshowOrderOption(string Label, SlideshowOrder Order)
 {
     public override string ToString() => Label;
 }
@@ -50,12 +50,12 @@ public partial class WallpaperConfigViewModel : ObservableObject
         new FillStyleOption("Span",    WallpaperFillStyle.Span),
     };
 
-    public static readonly IReadOnlyList<SwitchOrderOption> SwitchOrderOptions = new[]
+    public static readonly IReadOnlyList<SlideshowOrderOption> SlideshowOrderOptions = new[]
     {
-        new SwitchOrderOption("Alphabetical", SlideshowOrder.Alphabetical),
-        new SwitchOrderOption("Oldest first", SlideshowOrder.OldestFirst),
-        new SwitchOrderOption("Newest first", SlideshowOrder.NewestFirst),
-        new SwitchOrderOption("Random",       SlideshowOrder.Random),
+        new SlideshowOrderOption("Alphabetical", SlideshowOrder.Alphabetical),
+        new SlideshowOrderOption("Oldest first", SlideshowOrder.OldestFirst),
+        new SlideshowOrderOption("Newest first", SlideshowOrder.NewestFirst),
+        new SlideshowOrderOption("Random",       SlideshowOrder.Random),
     };
 
     [ObservableProperty]
@@ -112,7 +112,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private FillStyleOption _selectedFillStyle;
 
     [ObservableProperty]
-    private SwitchOrderOption _selectedSlideshowOrder;
+    private SlideshowOrderOption _selectedSlideshowOrder;
 
     [ObservableProperty]
     private int _retentionDays;
@@ -170,7 +170,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         _checkForUpdates = (Application.Current as App)?.Services?.GetService<ICheckForUpdates>();
         _downloadWallpapers = (Application.Current as App)?.Services?.GetService<IDownloadWallpapers>();
         _selectedFillStyle = FillStyleOptions[0];
-        _selectedSlideshowOrder = SwitchOrderOptions.First(o => o.Order == SlideshowOrder.NewestFirst);
+        _selectedSlideshowOrder = SlideshowOrderOptions.First(o => o.Order == SlideshowOrder.NewestFirst);
         _sources.CollectionChanged += OnSourcesCollectionChanged;
 
         if (_switchWallpaper is not null)
@@ -231,7 +231,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
     partial void OnSlideshowIntervalHoursChanged(int value) => TriggerSave();
     partial void OnSelectedResolutionChanged(ResolutionOption value) => TriggerSave();
     partial void OnSelectedFillStyleChanged(FillStyleOption value) => TriggerSave();
-    partial void OnSelectedSlideshowOrderChanged(SwitchOrderOption value) => TriggerSave();
+    partial void OnSelectedSlideshowOrderChanged(SlideshowOrderOption value) => TriggerSave();
     partial void OnRetentionDaysChanged(int value) => TriggerSave();
     partial void OnAnnotateWallpaperChanged(bool value) => TriggerSave();
     partial void OnAutoUpdatesEnabledChanged(bool value) => TriggerSave();
@@ -280,8 +280,8 @@ public partial class WallpaperConfigViewModel : ObservableObject
                 ?? ResolutionOptions[0];
             SelectedFillStyle = FillStyleOptions.FirstOrDefault(f => f.Style == settings.Slideshow.FillStyle)
                 ?? FillStyleOptions[0];
-            SelectedSlideshowOrder = SwitchOrderOptions.FirstOrDefault(o => o.Order == settings.Slideshow.Order)
-                ?? SwitchOrderOptions[0];
+            SelectedSlideshowOrder = SlideshowOrderOptions.FirstOrDefault(o => o.Order == settings.Slideshow.Order)
+                ?? SlideshowOrderOptions[0];
             RetentionDays = settings.Download.RetentionDays;
             AnnotateWallpaper = settings.AnnotateWallpaper;
             RunOnStartup = settings.RunOnStartup;

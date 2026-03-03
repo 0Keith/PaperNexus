@@ -236,7 +236,7 @@
                             <!-- Slideshow Order -->
                             <StackPanel Spacing="4">
                                 <TextBlock Text="Order" FontSize="12" Opacity="0.6"/>
-                                <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.SwitchOrderOptions}"
+                                <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.SlideshowOrderOptions}"
                                           SelectedItem="{Binding SelectedSlideshowOrder}"
                                           HorizontalAlignment="Stretch"/>
                                 <TextBlock Text="Alphabetical: cycle A→Z  •  Oldest/Newest: cycle by file date  •  Random: pick randomly"
