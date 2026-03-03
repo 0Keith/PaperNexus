@@ -2,15 +2,19 @@ using Cronos;
 
 namespace PaperNexus;
 
-internal class DownloadWallpapers : ScheduledJobService
+internal interface IDownloadWallpapers
+{
+    Task DownloadAllAsync();
+}
+
+internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IAddHostedSingleton<IDownloadWallpapers>
 {
     private readonly HttpWallpaperSourceService _sourceService;
 
     public DownloadWallpapers(ILogger<DownloadWallpapers> logger, HttpWallpaperSourceService sourceService) : base(logger)
     {
         _sourceService = sourceService.ThrowIfNull();
-        ExecuteOnStartupAfterFailure = true;
-        DebugOnStartup = true;
+        ExecuteOnStartup = true;
     }
 
     protected override async Task<DateTimeOffset> GetNextExecutionAsync(JobExecutionContext context)
@@ -27,7 +31,19 @@ internal class DownloadWallpapers : ScheduledJobService
         return earliest;
     }
 
-    protected override async Task Execute()
+    public Task DownloadAllAsync() => DownloadFromSourcesAsync(_ => true);
+
+    protected override Task Execute() => DownloadFromSourcesAsync(source =>
+    {
+        if (!IsOverdue(source))
+        {
+            Logger.LogInformation($"Source '{source.Name}' is up to date — skipping.");
+            return false;
+        }
+        return true;
+    });
+
+    private async Task DownloadFromSourcesAsync(Func<WallpaperSource, bool> filter)
     {
         var settings = await WallpaperNexusSettings.LoadAsync();
         if (!settings.IsConfigured)
@@ -36,13 +52,42 @@ internal class DownloadWallpapers : ScheduledJobService
             return;
         }
 
-        foreach (var source in settings.Sources.Where(s => s.IsEnabled))
+        var downloaded = false;
+        foreach (var source in settings.Sources.Where(s => s.IsEnabled && filter(s)))
         {
-            var images = await _sourceService.GetImages(source);
-            foreach (var image in images)
-                await Download(image, settings);
+            await DownloadSource(source, settings);
+            downloaded = true;
         }
-        await CleanupOldImages(settings);
+        if (downloaded)
+        {
+            await CleanupOldImages(settings);
+            await settings.SaveAsync();
+        }
+    }
+
+    private async Task DownloadSource(WallpaperSource source, WallpaperNexusSettings settings)
+    {
+        var images = await _sourceService.GetImages(source);
+        foreach (var image in images)
+            await Download(image, settings);
+        source.LastDownloadUtc = DateTimeOffset.UtcNow;
+    }
+
+    private static bool IsOverdue(WallpaperSource source)
+    {
+        if (source.LastDownloadUtc is null)
+            return true;
+
+        try
+        {
+            var cron = CronExpression.Parse(source.CronExpression);
+            var next = cron.GetNextOccurrence(source.LastDownloadUtc.Value, TimeZoneInfo.Local);
+            return next.HasValue && next.Value <= DateTimeOffset.UtcNow;
+        }
+        catch (CronFormatException)
+        {
+            return true;
+        }
     }
 
     public async Task Download(WallpaperImage data, WallpaperNexusSettings settings)

@@ -48,7 +48,6 @@ public partial class App : Application
                 {
                     services.AddLogging(b => b.AddProvider(new FileLoggerProvider()));
                     services.AddSingleton<HttpWallpaperSourceService>();
-                    services.AddHostedService<DownloadWallpapers>();
                     services.AddServicesFrom(typeof(App).Assembly);
                 })
                 .Build();

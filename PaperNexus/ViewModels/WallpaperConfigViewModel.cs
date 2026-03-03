@@ -37,6 +37,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
     private readonly ISwitchWallpaper? _switchWallpaper;
     private readonly ICheckForUpdates? _checkForUpdates;
+    private readonly IDownloadWallpapers? _downloadWallpapers;
 
     public static readonly IReadOnlyList<FillStyleOption> FillStyleOptions = new[]
     {
@@ -163,6 +164,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         _selectedResolution = ResolutionOptions[0];
         _switchWallpaper = (Application.Current as App)?.Services?.GetService<ISwitchWallpaper>();
         _checkForUpdates = (Application.Current as App)?.Services?.GetService<ICheckForUpdates>();
+        _downloadWallpapers = (Application.Current as App)?.Services?.GetService<IDownloadWallpapers>();
         _selectedFillStyle = FillStyleOptions[0];
         _selectedSlideshowPattern = SwitchPatternOptions.First(p => p.Pattern == WallpaperSwitchPattern.NewestFirst);
         _sources.CollectionChanged += OnSourcesCollectionChanged;
@@ -278,6 +280,27 @@ public partial class WallpaperConfigViewModel : ObservableObject
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DownloadNow()
+    {
+        if (_downloadWallpapers is null)
+        {
+            await ShowTransientStatusAsync("✗ Download service not available.");
+            return;
+        }
+
+        try
+        {
+            StatusMessage = "Downloading wallpapers...";
+            await Task.Run(_downloadWallpapers.DownloadAllAsync);
+            await ShowTransientStatusAsync("✓ Download complete.");
+        }
+        catch (Exception ex)
+        {
+            await ShowTransientStatusAsync($"✗ Download failed: {ex.Message}");
         }
     }
 

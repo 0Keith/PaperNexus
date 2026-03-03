@@ -80,7 +80,7 @@ PaperNexus/
 - **MVVM:** `WallpaperConfigViewModel` + `Views/MainWindow.axaml` with `CommunityToolkit.Mvvm` (`[ObservableProperty]`, `[RelayCommand]`)
 - **Scheduled Jobs — Two Patterns:**
   1. **`IScheduleScopedJob` (newer):** Separate business logic interfaces (e.g., `ISwitchWallpaper`, `ICheckForUpdates`) from scheduling infrastructure. A separate job wrapper class (e.g., `SwitchWallpaperJob`, `AutoUpdateJob`) implements `IScheduleScopedJob` and delegates to the injected interface. Business logic registers as singleton via `IAddSingleton<T>`; job wrappers are auto-discovered and registered by `AddServicesFrom()` in `Bootstrapper.cs`.
-  2. **`ScheduledJobService` (older base class):** `DownloadWallpapers` directly extends `ScheduledJobService` and overrides `Execute()` / `GetNextExecutionAsync()`. It is registered manually via `services.AddHostedService<DownloadWallpapers>()`.
+  2. **`ScheduledJobService` (older base class):** `DownloadWallpapers` directly extends `ScheduledJobService` and overrides `Execute()` / `GetNextExecutionAsync()`. It is auto-discovered via `IAddHostedSingleton<IDownloadWallpapers>`, which registers it as both a singleton (accessible via `IDownloadWallpapers`) and as an `IHostedService`.
 - **Silent Auto-Update:** `AutoUpdateJob` runs with `ExecuteOnStartup: true` and a daily cron (`0 3 * * *`). It delegates to `AutoUpdateService.CheckAsync()`, which queries the GitHub Releases API (`0Keith/PaperNexus`), compares the release tag's build number against `Assembly.Version.Major` as integers (tags use simplified `vN` format), downloads `PaperNexus.exe`, removes the `Zone.Identifier` ADS to avoid SmartScreen blocking, writes a self-deleting batch script to swap the file after exit, then calls `Environment.Exit(0)`. The batch script relaunches with `--updated` flag, which triggers the settings window to open. If the new exe fails to start, the batch script rolls back from the `.bak` copy.
 - **Single Instance Enforcement:** `Program.cs` uses a named `Mutex` (`PaperNexus_SingleInstance`) to prevent concurrent instances, which protects against update batch scripts spawning multiple copies.
 - **Tray-only startup:** App runs as a system tray icon with no window on startup. `ShutdownMode.OnExplicitShutdown` keeps it alive when the settings window is closed. The tray menu provides "Open Settings", "Next Wallpaper", and "Exit".
@@ -93,8 +93,7 @@ PaperNexus/
 In `App.OnFrameworkInitializationCompleted()`:
 - `FileLoggerProvider` — added as logging provider
 - `HttpWallpaperSourceService` — registered as singleton manually
-- `DownloadWallpapers` — registered as hosted service manually
-- `AddServicesFrom(assembly)` — auto-discovers `IAddSingleton<T>` implementations (registers `SwitchWallpaper` as `ISwitchWallpaper`, `AutoUpdateService` as `ICheckForUpdates`) and `IScheduleScopedJob` implementations (registers `ScheduledJobHostedService<SwitchWallpaperJob>`, `ScheduledJobHostedService<AutoUpdateJob>`)
+- `AddServicesFrom(assembly)` — auto-discovers `IAddSingleton<T>` implementations (registers `SwitchWallpaper` as `ISwitchWallpaper`, `AutoUpdateService` as `ICheckForUpdates`), `IAddHostedSingleton<T>` implementations (registers `DownloadWallpapers` as both `IDownloadWallpapers` singleton and `IHostedService`), and `IScheduleScopedJob` implementations (registers `ScheduledJobHostedService<SwitchWallpaperJob>`, `ScheduledJobHostedService<AutoUpdateJob>`)
 
 ### Settings
 
