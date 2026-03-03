@@ -71,7 +71,7 @@ public class WallpaperSource : ObservableObject
 public class DownloadSettings
 {
     public string Folder { get; set; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "wallpapers");
+        Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "PaperNexus");
     public int ResolutionWidth { get; set; } = 0;
     public int ResolutionHeight { get; set; } = 0;
     public int RetentionDays { get; set; } = 365;
