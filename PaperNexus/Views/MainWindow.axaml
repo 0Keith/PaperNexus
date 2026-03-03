@@ -288,6 +288,7 @@
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" Foreground="{Binding StatusForeground}" TextWrapping="Wrap" FontSize="12" VerticalAlignment="Bottom"/>
                 <Button Grid.Column="1"
                         Click="FactoryReset_Click"
+                        IsVisible="{Binding DebugMode}"
                         ToolTip.Tip="Delete all application data and restart"
                         Padding="5,2" Opacity="0.6">
                     <StackPanel Orientation="Horizontal" Spacing="4">
