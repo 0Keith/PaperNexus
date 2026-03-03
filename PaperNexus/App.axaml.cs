@@ -82,6 +82,29 @@ public partial class App : Application
 
             // Show only the tray icon — no window at startup
             SetupTrayIcon(desktop);
+
+            // Monitor for show-UI signals from second instances
+            if (Program.ShowUIEvent is not null)
+            {
+                _ = Task.Run(() =>
+                {
+                    while (!_exiting)
+                    {
+                        try
+                        {
+                            if (Program.ShowUIEvent.WaitOne(1000))
+                            {
+                                if (!_exiting)
+                                    ShowMainWindow();
+                            }
+                        }
+                        catch (ObjectDisposedException)
+                        {
+                            break;
+                        }
+                    }
+                });
+            }
         }
 
         base.OnFrameworkInitializationCompleted();

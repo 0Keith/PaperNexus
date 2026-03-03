@@ -39,7 +39,7 @@ PaperNexus/
 └── PaperNexus/                           # Main project
     ├── PaperNexus.csproj
     ├── App.axaml / App.axaml.cs          # Avalonia application root, tray icon, startup
-    ├── Program.cs                         # Entry point, global usings, single-instance mutex
+    ├── Program.cs                         # Entry point, auto-install, single-instance mutex, IPC
     ├── AutoUpdateService.cs              # Silent auto-update via GitHub Releases + job wrapper
     ├── DownloadWallpapers.cs             # Scheduled wallpaper downloader (extends ScheduledJobService)
     ├── HttpWallpaperSourceService.cs     # HTTP feed client + WallpaperImage DTO
@@ -82,7 +82,8 @@ PaperNexus/
   1. **`IScheduleScopedJob` (newer):** Separate business logic interfaces (e.g., `ISwitchWallpaper`, `ICheckForUpdates`) from scheduling infrastructure. A separate job wrapper class (e.g., `SwitchWallpaperJob`, `AutoUpdateJob`) implements `IScheduleScopedJob` and delegates to the injected interface. Business logic registers as singleton via `IAddSingleton<T>`; job wrappers are auto-discovered and registered by `AddServicesFrom()` in `Bootstrapper.cs`.
   2. **`ScheduledJobService` (older base class):** `DownloadWallpapers` directly extends `ScheduledJobService` and overrides `Execute()` / `GetNextExecutionAsync()`. It is auto-discovered via `IAddHostedSingleton<IDownloadWallpapers>`, which registers it as both a singleton (accessible via `IDownloadWallpapers`) and as an `IHostedService`.
 - **Silent Auto-Update:** `AutoUpdateJob` runs with `ExecuteOnStartup: true` and a daily cron (`0 3 * * *`). It delegates to `AutoUpdateService.CheckAsync()`, which queries the GitHub Releases API (`0Keith/PaperNexus`), compares the release tag's build number against `Assembly.Version.Major` as integers (tags use simplified `vN` format), downloads `PaperNexus.exe`, removes the `Zone.Identifier` ADS to avoid SmartScreen blocking, writes a self-deleting batch script to swap the file after exit, then calls `Environment.Exit(0)`. The batch script relaunches with `--updated` flag, which triggers the settings window to open. If the new exe fails to start, the batch script rolls back from the `.bak` copy.
-- **Single Instance Enforcement:** `Program.cs` uses a named `Mutex` (`PaperNexus_SingleInstance`) to prevent concurrent instances, which protects against update batch scripts spawning multiple copies.
+- **Auto-Install on First Run:** When the exe runs from outside `%LOCALAPPDATA%\PaperNexus\`, `Program.Main` copies itself there, migrates `settings.json` and `timers.json` if present, and relaunches from the install location. If an installed instance is already running, it signals it to show the UI instead.
+- **Single Instance + Show UI:** `Program.cs` uses a named `Mutex` (`PaperNexus_SingleInstance`) for single-instance enforcement and a named `EventWaitHandle` (`PaperNexus_ShowUI`) for IPC. When a second instance starts, it signals the running instance to show the settings window via the event handle (instead of silently exiting). `App.axaml.cs` monitors this event on a background thread and calls `ShowMainWindow()` when signaled.
 - **Tray-only startup:** App runs as a system tray icon with no window on startup. `ShutdownMode.OnExplicitShutdown` keeps it alive when the settings window is closed. The tray menu provides "Open Settings", "Next Wallpaper", and "Exit".
 - **Windows Startup Registration:** `UpdateStartupRegistration()` in `App.axaml.cs` writes the exe path to `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` under the key `PaperNexus` (cleaning up old keys `Excogitated Wallpaper Service` and `Wallpaper Nexus` on first run).
 - **Wallpaper Processing:** `SwitchWallpaper` writes to a fixed `current.png` (or `current.jpg`) in the app directory. Title overlay is applied at switch time (not download time) using SixLabors with `MS Gothic` font. PNG format is preferred; falls back to JPEG with quality stepping from 97% if the image exceeds 16 MB. Fill style is applied via `WallpaperStyle` and `TileWallpaper` registry keys under `HKCU\Control Panel\Desktop`.
@@ -97,9 +98,9 @@ In `App.OnFrameworkInitializationCompleted()`:
 
 ### Settings
 
-`WallpaperNexusSettings` in `Core/WallpaperNexusSettings.cs` — JSON file at `{AppContext.BaseDirectory}/settings.json`:
+`WallpaperNexusSettings` in `Core/WallpaperNexusSettings.cs` — JSON file at `{AppContext.BaseDirectory}/settings.json` (resolves to `%LOCALAPPDATA%\PaperNexus\settings.json` after install):
 - `SlideshowSettings` — schedule mode (cron/interval minutes/interval hours), pattern (alphabetical/random/oldest/newest/never), fill style
-- `DownloadSettings` — wallpapers folder path, resolution, retention days
+- `DownloadSettings` — wallpapers folder path (default: `%USERPROFILE%\Pictures\PaperNexus`), resolution, retention days
 - `List<WallpaperSource>` — name, URL, cron expression, enabled flag; default: Bing Daily via peapix.com
 - Window position/size persistence (`WindowX`, `WindowY`, `WindowWidth`, `WindowHeight`)
 - `AnnotateWallpaper`, `RunOnStartup`, `CurrentWallpaperPath`
