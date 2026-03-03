@@ -18,7 +18,7 @@ public record FillStyleOption(string Label, WallpaperFillStyle Style)
     public override string ToString() => Label;
 }
 
-public record SwitchOrderOption(string Label, WallpaperSwitchOrder Order)
+public record SwitchOrderOption(string Label, SlideshowOrder Order)
 {
     public override string ToString() => Label;
 }
@@ -52,10 +52,10 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
     public static readonly IReadOnlyList<SwitchOrderOption> SwitchOrderOptions = new[]
     {
-        new SwitchOrderOption("Alphabetical", WallpaperSwitchOrder.Alphabetical),
-        new SwitchOrderOption("Oldest first", WallpaperSwitchOrder.OldestFirst),
-        new SwitchOrderOption("Newest first", WallpaperSwitchOrder.NewestFirst),
-        new SwitchOrderOption("Random",       WallpaperSwitchOrder.Random),
+        new SwitchOrderOption("Alphabetical", SlideshowOrder.Alphabetical),
+        new SwitchOrderOption("Oldest first", SlideshowOrder.OldestFirst),
+        new SwitchOrderOption("Newest first", SlideshowOrder.NewestFirst),
+        new SwitchOrderOption("Random",       SlideshowOrder.Random),
     };
 
     [ObservableProperty]
@@ -170,7 +170,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         _checkForUpdates = (Application.Current as App)?.Services?.GetService<ICheckForUpdates>();
         _downloadWallpapers = (Application.Current as App)?.Services?.GetService<IDownloadWallpapers>();
         _selectedFillStyle = FillStyleOptions[0];
-        _selectedSlideshowOrder = SwitchOrderOptions.First(o => o.Order == WallpaperSwitchOrder.NewestFirst);
+        _selectedSlideshowOrder = SwitchOrderOptions.First(o => o.Order == SlideshowOrder.NewestFirst);
         _sources.CollectionChanged += OnSourcesCollectionChanged;
 
         if (_switchWallpaper is not null)

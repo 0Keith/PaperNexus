@@ -41,7 +41,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
             return null;
 
         string next;
-        if (settings.Slideshow.Order == WallpaperSwitchOrder.Random && allFiles.Count > 1)
+        if (settings.Slideshow.Order == SlideshowOrder.Random && allFiles.Count > 1)
         {
             var candidates = allFiles
                 .Select(f => f.FullName)
@@ -55,8 +55,8 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
         {
             var files = settings.Slideshow.Order switch
             {
-                WallpaperSwitchOrder.OldestFirst => allFiles.OrderBy(f => f.LastWriteTime).Select(f => f.FullName).ToList(),
-                WallpaperSwitchOrder.NewestFirst => allFiles.OrderByDescending(f => f.LastWriteTime).Select(f => f.FullName).ToList(),
+                SlideshowOrder.OldestFirst => allFiles.OrderBy(f => f.LastWriteTime).Select(f => f.FullName).ToList(),
+                SlideshowOrder.NewestFirst => allFiles.OrderByDescending(f => f.LastWriteTime).Select(f => f.FullName).ToList(),
                 _ => allFiles.OrderBy(f => f.Name).Select(f => f.FullName).ToList(), // Sequential, Alphabetical, default
             };
             var index = files.IndexOf(settings.CurrentWallpaperPath);
