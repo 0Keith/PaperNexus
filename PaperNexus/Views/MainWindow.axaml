@@ -142,7 +142,7 @@
                     <!-- Download group -->
                     <Border Background="#1E1E1E" BorderBrush="#444" BorderThickness="1" CornerRadius="6" Padding="12">
                         <StackPanel Spacing="12">
-                            <TextBlock Text="Download" FontWeight="SemiBold" FontSize="13" Opacity="0.85"/>
+                            <TextBlock Text="Download Settings" FontWeight="SemiBold" FontSize="13" Opacity="0.85"/>
 
                             <!-- Folder -->
                             <StackPanel Spacing="4">
@@ -195,7 +195,7 @@
                     <Border Background="#1E1E1E" BorderBrush="#444" BorderThickness="1" CornerRadius="6" Padding="12">
                         <StackPanel Spacing="12">
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Grid.Column="0" Text="Slideshow" FontWeight="SemiBold" FontSize="13" Opacity="0.85" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="0" Text="Slideshow Settings" FontWeight="SemiBold" FontSize="13" Opacity="0.85" VerticalAlignment="Center"/>
                                 <CheckBox Grid.Column="1" Content="Enabled" IsChecked="{Binding SlideshowEnabled}" VerticalAlignment="Center"/>
                             </Grid>
 
@@ -260,7 +260,7 @@
                     <!-- General group -->
                     <Border Background="#1E1E1E" BorderBrush="#444" BorderThickness="1" CornerRadius="6" Padding="12">
                         <StackPanel Spacing="12">
-                            <TextBlock Text="General" FontWeight="SemiBold" FontSize="13" Opacity="0.85"/>
+                            <TextBlock Text="General Settings" FontWeight="SemiBold" FontSize="13" Opacity="0.85"/>
                             <CheckBox Content="Run on startup"
                                       IsChecked="{Binding RunOnStartup}"/>
                             <Border Height="1" Background="#333"/>
