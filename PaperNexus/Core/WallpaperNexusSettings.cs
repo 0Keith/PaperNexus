@@ -89,6 +89,7 @@ public class WallpaperNexusSettings
     public bool AnnotateWallpaper { get; set; } = true;
     public bool RunOnStartup { get; set; } = true;
     public bool AutoUpdatesEnabled { get; set; } = true;
+    public bool DebugMode { get; set; }
 
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public List<WallpaperSource> Sources { get; set; } = DefaultSources;
