@@ -122,6 +122,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private bool _runOnStartup = true;
 
     [ObservableProperty]
+    private bool _autoUpdatesEnabled = true;
+
+    [ObservableProperty]
     private bool _slideshowEnabled = true;
 
     [ObservableProperty]
@@ -213,6 +216,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
     partial void OnSelectedSlideshowPatternChanged(SwitchPatternOption value) => TriggerSave();
     partial void OnRetentionDaysChanged(int value) => TriggerSave();
     partial void OnAnnotateWallpaperChanged(bool value) => TriggerSave();
+    partial void OnAutoUpdatesEnabledChanged(bool value) => TriggerSave();
     partial void OnSlideshowEnabledChanged(bool value) => TriggerSave();
 
     partial void OnRunOnStartupChanged(bool value)
@@ -262,6 +266,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             RetentionDays = settings.Download.RetentionDays;
             AnnotateWallpaper = settings.AnnotateWallpaper;
             RunOnStartup = settings.RunOnStartup;
+            AutoUpdatesEnabled = settings.AutoUpdatesEnabled;
             SlideshowEnabled = settings.Slideshow.Enabled;
 
             Sources = new ObservableCollection<WallpaperSource>(settings.Sources);
@@ -491,6 +496,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             settings.Slideshow.Enabled = SlideshowEnabled;
             settings.AnnotateWallpaper = AnnotateWallpaper;
             settings.RunOnStartup = RunOnStartup;
+            settings.AutoUpdatesEnabled = AutoUpdatesEnabled;
             settings.Sources = Sources.ToList();
             await settings.SaveAsync();
             await ShowTransientStatusAsync("✓ Settings saved.");

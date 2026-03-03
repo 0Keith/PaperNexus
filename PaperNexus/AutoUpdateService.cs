@@ -184,10 +184,15 @@ internal sealed class AutoUpdateJob : IScheduleScopedJob
         _checkForUpdates = checkForUpdates.ThrowIfNull();
     }
 
-    public Task<JobConfig> GetJobConfigAsync() =>
-        Task.FromResult(new JobConfig(
+    public async Task<JobConfig> GetJobConfigAsync()
+    {
+        var settings = await WallpaperNexusSettings.LoadAsync();
+        if (!settings.AutoUpdatesEnabled)
+            return new JobConfig();
+        return new JobConfig(
             CronExpression: CronExpression.Parse("0 3 * * *"),
-            ExecuteOnStartup: true));
+            ExecuteOnStartup: true);
+    }
 
     public Task ExecuteAsync() => _checkForUpdates.CheckAsync(forceUpdate: false, progress: null);
 }
