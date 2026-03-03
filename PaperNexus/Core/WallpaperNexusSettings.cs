@@ -130,16 +130,42 @@ public class WallpaperNexusSettings
             {
                 var json = await File.ReadAllTextAsync(SettingsFilePath);
                 var settings = JsonConvert.DeserializeObject<WallpaperNexusSettings>(json, JsonSettings) ?? new WallpaperNexusSettings();
-                if (settings.Sources.Count == 0)
-                {
-                    settings.Sources.Add(new WallpaperSource { Name = DefaultBingSource.Name, Url = DefaultBingSource.Url });
-                    settings.Sources.Add(new WallpaperSource { Name = DefaultSpotlightSource.Name, Url = DefaultSpotlightSource.Url });
-                }
+                ApplyDefaults(settings);
                 return settings;
             }
         }
         catch { }
         return new WallpaperNexusSettings();
+    }
+
+    private static void ApplyDefaults(WallpaperNexusSettings settings)
+    {
+        var defaultSlideshow = new SlideshowSettings();
+        settings.Slideshow ??= defaultSlideshow;
+        if (string.IsNullOrWhiteSpace(settings.Slideshow.CronExpression))
+            settings.Slideshow.CronExpression = defaultSlideshow.CronExpression;
+        if (settings.Slideshow.IntervalMinutes <= 0)
+            settings.Slideshow.IntervalMinutes = defaultSlideshow.IntervalMinutes;
+        if (settings.Slideshow.IntervalHours <= 0)
+            settings.Slideshow.IntervalHours = defaultSlideshow.IntervalHours;
+
+        var defaultDownload = new DownloadSettings();
+        settings.Download ??= defaultDownload;
+        if (string.IsNullOrWhiteSpace(settings.Download.Folder))
+            settings.Download.Folder = defaultDownload.Folder;
+        if (settings.Download.RetentionDays <= 0)
+            settings.Download.RetentionDays = defaultDownload.RetentionDays;
+
+        settings.CurrentWallpaperPath ??= string.Empty;
+
+        if (settings.Sources is null || settings.Sources.Count == 0)
+        {
+            settings.Sources = new List<WallpaperSource>
+            {
+                new() { Name = DefaultBingSource.Name, Url = DefaultBingSource.Url },
+                new() { Name = DefaultSpotlightSource.Name, Url = DefaultSpotlightSource.Url },
+            };
+        }
     }
 
     public async Task SaveAsync()
