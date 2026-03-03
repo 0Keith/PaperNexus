@@ -9,6 +9,10 @@ using PaperNexus.Views;
 using PaperNexus.ViewModels;
 using Microsoft.Win32;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Drawing;
+using SixLabors.ImageSharp.Drawing.Processing;
+using Path = System.IO.Path;
+using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
 namespace PaperNexus;
@@ -114,11 +118,11 @@ public partial class App : Application
     {
         var menu = new NativeMenu();
 
-        var openItem = new NativeMenuItem { Header = "Open Settings" };
+        var openItem = new NativeMenuItem { Header = "Open Settings", Icon = CreateGearIcon() };
         openItem.Click += (_, _) => ShowMainWindow();
         menu.Items.Add(openItem);
 
-        var nextItem = new NativeMenuItem { Header = "Next Wallpaper" };
+        var nextItem = new NativeMenuItem { Header = "Next Wallpaper", Icon = CreatePlayIcon() };
         nextItem.Click += async (_, _) =>
         {
             try
@@ -149,7 +153,7 @@ public partial class App : Application
         };
         menu.Items.Add(nextItem);
 
-        var randomItem = new NativeMenuItem { Header = "Random Wallpaper" };
+        var randomItem = new NativeMenuItem { Header = "Random Wallpaper", Icon = CreateDiceIcon() };
         randomItem.Click += async (_, _) =>
         {
             try
@@ -182,7 +186,7 @@ public partial class App : Application
 
         menu.Items.Add(new NativeMenuItemSeparator());
 
-        var exitItem = new NativeMenuItem { Header = "Exit" };
+        var exitItem = new NativeMenuItem { Header = "Exit", Icon = CreatePowerIcon() };
         exitItem.Click += (_, _) => ExitApplication(desktop);
         menu.Items.Add(exitItem);
 
@@ -234,6 +238,42 @@ public partial class App : Application
         ms.Position = 0;
         return new WindowIcon(new Avalonia.Media.Imaging.Bitmap(ms));
     }
+
+    private static Avalonia.Media.Imaging.Bitmap CreateMenuIcon(Action<IImageProcessingContext> draw)
+    {
+        using var img = new Image<Rgba32>(16, 16);
+        img.Mutate(draw);
+        using var ms = new MemoryStream();
+        img.SaveAsPng(ms);
+        ms.Position = 0;
+        return new Avalonia.Media.Imaging.Bitmap(ms);
+    }
+
+    private static Avalonia.Media.Imaging.Bitmap CreateGearIcon() => CreateMenuIcon(ctx =>
+    {
+        ctx.Fill(Color.CornflowerBlue, new Star(new PointF(8, 8), 8, 3.5f, 7f));
+        ctx.Fill(Color.White, new EllipsePolygon(new PointF(8, 8), 2.5f));
+    });
+
+    private static Avalonia.Media.Imaging.Bitmap CreatePlayIcon() => CreateMenuIcon(ctx =>
+    {
+        ctx.Fill(Color.LimeGreen, new Polygon(
+            new LinearLineSegment(new PointF(4, 2), new PointF(14, 8), new PointF(4, 14))));
+    });
+
+    private static Avalonia.Media.Imaging.Bitmap CreateDiceIcon() => CreateMenuIcon(ctx =>
+    {
+        ctx.Fill(Color.MediumOrchid, new RectangularPolygon(2, 2, 12, 12));
+        ctx.Fill(Color.White, new EllipsePolygon(new PointF(5, 5), 1.3f));
+        ctx.Fill(Color.White, new EllipsePolygon(new PointF(8, 8), 1.3f));
+        ctx.Fill(Color.White, new EllipsePolygon(new PointF(11, 11), 1.3f));
+    });
+
+    private static Avalonia.Media.Imaging.Bitmap CreatePowerIcon() => CreateMenuIcon(ctx =>
+    {
+        ctx.Draw(Color.Tomato, 2f, new EllipsePolygon(new PointF(8, 9), 5));
+        ctx.Fill(Color.Tomato, new RectangularPolygon(7, 2, 2, 7));
+    });
 
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     internal static void UpdateStartupRegistration(bool enable)
