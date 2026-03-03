@@ -57,6 +57,7 @@ public class WallpaperSource : ObservableObject
     public string ImageUrlJPath { get; set; } = "$[*].imageUrl";
     public string TitleJPath { get; set; } = "$[*].title";
     public string CronExpression { get; set; } = "0 */8 * * *";
+    public DateTimeOffset? LastDownloadUtc { get; set; }
 
     private bool _isEnabled = true;
 

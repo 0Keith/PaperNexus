@@ -14,8 +14,7 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers
     public DownloadWallpapers(ILogger<DownloadWallpapers> logger, HttpWallpaperSourceService sourceService) : base(logger)
     {
         _sourceService = sourceService.ThrowIfNull();
-        ExecuteOnStartupAfterFailure = true;
-        DebugOnStartup = true;
+        ExecuteOnStartup = true;
     }
 
     protected override async Task<DateTimeOffset> GetNextExecutionAsync(JobExecutionContext context)
@@ -42,15 +41,60 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers
         }
 
         foreach (var source in settings.Sources.Where(s => s.IsEnabled))
-        {
-            var images = await _sourceService.GetImages(source);
-            foreach (var image in images)
-                await Download(image, settings);
-        }
+            await DownloadSource(source, settings);
         await CleanupOldImages(settings);
+        await settings.SaveAsync();
     }
 
-    protected override Task Execute() => DownloadAllAsync();
+    protected override async Task Execute()
+    {
+        var settings = await WallpaperNexusSettings.LoadAsync();
+        if (!settings.IsConfigured)
+        {
+            Logger.LogInformation("Wallpapers folder not configured — skipping.");
+            return;
+        }
+
+        var downloaded = false;
+        foreach (var source in settings.Sources.Where(s => s.IsEnabled))
+        {
+            if (!IsOverdue(source))
+            {
+                Logger.LogInformation($"Source '{source.Name}' is up to date — skipping.");
+                continue;
+            }
+            await DownloadSource(source, settings);
+            downloaded = true;
+        }
+        if (downloaded)
+            await CleanupOldImages(settings);
+        await settings.SaveAsync();
+    }
+
+    private async Task DownloadSource(WallpaperSource source, WallpaperNexusSettings settings)
+    {
+        var images = await _sourceService.GetImages(source);
+        foreach (var image in images)
+            await Download(image, settings);
+        source.LastDownloadUtc = DateTimeOffset.UtcNow;
+    }
+
+    private static bool IsOverdue(WallpaperSource source)
+    {
+        if (source.LastDownloadUtc is null)
+            return true;
+
+        try
+        {
+            var cron = CronExpression.Parse(source.CronExpression);
+            var next = cron.GetNextOccurrence(source.LastDownloadUtc.Value, TimeZoneInfo.Local);
+            return next.HasValue && next.Value <= DateTimeOffset.UtcNow;
+        }
+        catch
+        {
+            return true;
+        }
+    }
 
     public async Task Download(WallpaperImage data, WallpaperNexusSettings settings)
     {
