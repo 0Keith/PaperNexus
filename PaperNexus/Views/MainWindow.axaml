@@ -257,6 +257,9 @@
                             <CheckBox Content="Run on startup"
                                       IsChecked="{Binding RunOnStartup}"/>
                             <Border Height="1" Background="#333"/>
+                            <CheckBox Content="Automatic updates"
+                                      IsChecked="{Binding AutoUpdatesEnabled}"/>
+                            <Border Height="1" Background="#333"/>
                             <CheckBox Content="Show title annotation on wallpaper"
                                       IsChecked="{Binding AnnotateWallpaper}"/>
                         </StackPanel>
