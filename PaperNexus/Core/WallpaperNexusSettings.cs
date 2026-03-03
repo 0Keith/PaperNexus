@@ -91,11 +91,7 @@ public class WallpaperNexusSettings
     public bool AutoUpdatesEnabled { get; set; } = true;
 
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
-    public List<WallpaperSource> Sources { get; set; } = new()
-    {
-        new WallpaperSource { Name = "Bing Daily 4k", Url = "https://peapix.com/bing/feed?country=us" },
-        new WallpaperSource { Name = "Spotlight Daily 4k", Url = "https://peapix.com/spotlight/feed" },
-    };
+    public List<WallpaperSource> Sources { get; set; } = DefaultSources;
 
     public double? WindowX { get; set; }
     public double? WindowY { get; set; }
@@ -104,16 +100,10 @@ public class WallpaperNexusSettings
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Download.Folder);
 
-    public static readonly WallpaperSource DefaultBingSource = new()
+    public static List<WallpaperSource> DefaultSources => new()
     {
-        Name = "Bing Daily 4k",
-        Url = "https://peapix.com/bing/feed?country=us"
-    };
-
-    public static readonly WallpaperSource DefaultSpotlightSource = new()
-    {
-        Name = "Spotlight Daily 4k",
-        Url = "https://peapix.com/spotlight/feed"
+        new() { Name = "Bing Daily 4k", Url = "https://peapix.com/bing/feed?country=us" },
+        new() { Name = "Spotlight Daily 4k", Url = "https://peapix.com/spotlight/feed" },
     };
 
     private static readonly JsonSerializerSettings JsonSettings = new()
@@ -159,13 +149,7 @@ public class WallpaperNexusSettings
         settings.CurrentWallpaperPath ??= string.Empty;
 
         if (settings.Sources is null || settings.Sources.Count == 0)
-        {
-            settings.Sources = new List<WallpaperSource>
-            {
-                new() { Name = DefaultBingSource.Name, Url = DefaultBingSource.Url },
-                new() { Name = DefaultSpotlightSource.Name, Url = DefaultSpotlightSource.Url },
-            };
-        }
+            settings.Sources = DefaultSources;
     }
 
     public async Task SaveAsync()
