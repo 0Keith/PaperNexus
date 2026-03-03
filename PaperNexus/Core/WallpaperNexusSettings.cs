@@ -68,6 +68,22 @@ public class WallpaperSource : ObservableObject
     }
 }
 
+public enum AnnotationPosition
+{
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+public class AnnotationSettings
+{
+    public string FontFamily { get; set; } = "MS Gothic";
+    public int FontSize { get; set; } = 18;
+    public string Color { get; set; } = "#F5F5F5";
+    public AnnotationPosition Position { get; set; } = AnnotationPosition.TopLeft;
+}
+
 public class DownloadSettings
 {
     public string Folder { get; set; } = Path.Combine(
@@ -87,9 +103,11 @@ public class WallpaperNexusSettings
 
     public string CurrentWallpaperPath { get; set; } = string.Empty;
     public bool AnnotateWallpaper { get; set; } = true;
+    public AnnotationSettings Annotation { get; set; } = new();
     public bool RunOnStartup { get; set; } = true;
     public bool AutoUpdatesEnabled { get; set; } = true;
     public bool DebugMode { get; set; }
+    public List<string> FavoriteWallpapers { get; set; } = new();
 
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public List<WallpaperSource> Sources { get; set; } = DefaultSources;
@@ -148,6 +166,8 @@ public class WallpaperNexusSettings
             settings.Download.RetentionDays = defaultDownload.RetentionDays;
 
         settings.CurrentWallpaperPath ??= string.Empty;
+        settings.Annotation ??= new AnnotationSettings();
+        settings.FavoriteWallpapers ??= new List<string>();
 
         if (settings.Sources is null || settings.Sources.Count == 0)
             settings.Sources = DefaultSources;
