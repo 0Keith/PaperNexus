@@ -121,6 +121,7 @@ All rules are enforced via `.editorconfig`. Key conventions:
 - **Null checks:** `is null` preferred over reference equality
 - **Fields:** `readonly` preferred
 - **No `this.` qualification**
+- **`using` over manual `Dispose()`:** Prefer `using` statements/declarations over calling `.Dispose()` directly
 - **Collection/object initializers:** Disabled (silent — don't suggest)
 
 ### Suppressed Diagnostics

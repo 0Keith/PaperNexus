@@ -38,8 +38,8 @@ internal sealed class Program
 #pragma warning disable CA1416
             if (EventWaitHandle.TryOpenExisting(EventName, out var existingEvent))
             {
-                existingEvent.Set();
-                existingEvent.Dispose();
+                using (existingEvent)
+                    existingEvent.Set();
                 return;
             }
 
@@ -85,8 +85,8 @@ internal sealed class Program
 #pragma warning disable CA1416
             if (EventWaitHandle.TryOpenExisting(EventName, out var existingEvent))
             {
-                existingEvent.Set();
-                existingEvent.Dispose();
+                using (existingEvent)
+                    existingEvent.Set();
             }
 #pragma warning restore CA1416
             return;
