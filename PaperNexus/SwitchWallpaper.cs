@@ -44,6 +44,8 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
                 .Select(f => f.FullName)
                 .Where(f => !f.Equals(settings.CurrentWallpaperPath, StringComparison.OrdinalIgnoreCase))
                 .ToList();
+            if (candidates.Count == 0)
+                candidates = allFiles.Select(f => f.FullName).ToList();
             next = candidates[Random.Shared.Next(candidates.Count)];
         }
         else
