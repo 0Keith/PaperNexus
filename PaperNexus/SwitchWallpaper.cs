@@ -127,6 +127,19 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
             if (annotation.Position is AnnotationPosition.TopRight or AnnotationPosition.BottomRight)
                 options.HorizontalAlignment = HorizontalAlignment.Right;
             o.DrawText(options, title, new SolidBrush(color), null);
+
+            if (settings.DebugMode)
+            {
+                var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                var tsFont = new Font(fontFamily, fontSize * 0.75f);
+                var tsY = annotation.Position is AnnotationPosition.TopLeft or AnnotationPosition.TopRight
+                    ? position.Y + fontSize + 4
+                    : position.Y - fontSize;
+                var tsOptions = new RichTextOptions(tsFont) { Origin = new PointF(position.X, tsY) };
+                if (annotation.Position is AnnotationPosition.TopRight or AnnotationPosition.BottomRight)
+                    tsOptions.HorizontalAlignment = HorizontalAlignment.Right;
+                o.DrawText(tsOptions, timestamp, new SolidBrush(color), null);
+            }
         });
         using var ms = new MemoryStream();
         await annotated.SaveAsPngAsync(ms, new PngEncoder { ColorType = PngColorType.Rgb, BitDepth = PngBitDepth.Bit8 }).ConfigureAwait(false);
