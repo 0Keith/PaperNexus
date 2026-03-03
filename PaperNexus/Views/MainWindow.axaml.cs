@@ -157,11 +157,13 @@ public partial class MainWindow : Window
     private async void DeleteWallpaper_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         var cancelBtn = new Button { Content = "Cancel" };
+        ToolTip.SetTip(cancelBtn, "Cancel deletion");
         var deleteBtn = new Button
         {
             Content = "Delete",
             Foreground = new SolidColorBrush(Color.Parse("#E06C75")),
         };
+        ToolTip.SetTip(deleteBtn, "Permanently delete wallpaper file");
         var dialog = new Window
         {
             Title = "Delete Wallpaper",

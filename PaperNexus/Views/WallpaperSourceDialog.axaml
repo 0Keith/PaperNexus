@@ -68,8 +68,10 @@
 
         <Grid ColumnDefinitions="*,8,Auto,8,Auto" Margin="0,6,0,0">
             <Button Grid.Column="0" Content="Cancel" Click="Cancel_Click"
+                    ToolTip.Tip="Close without saving"
                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
             <Button Grid.Column="2" Click="Test_Click"
+                    ToolTip.Tip="Test the source configuration"
                     HorizontalAlignment="Stretch" Padding="16,6">
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <PathIcon Data="M8 5v14l11-7z"
@@ -78,6 +80,7 @@
                 </StackPanel>
             </Button>
             <Button Grid.Column="4" Click="Save_Click"
+                    ToolTip.Tip="Save wallpaper source"
                     HorizontalAlignment="Stretch" Padding="24,6">
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <PathIcon Data="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59Z"

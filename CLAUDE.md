@@ -121,6 +121,7 @@ All rules are enforced via `.editorconfig`. Key conventions:
 - **Fields:** `readonly` preferred
 - **No `this.` qualification**
 - **Collection/object initializers:** Disabled (silent — don't suggest)
+- **Button tooltips:** Every `Button` in AXAML must have a `ToolTip.Tip` attribute. For buttons created in code-behind, use `ToolTip.SetTip(button, "...")`. This applies to all views; tray `NativeMenuItem`s are exempt (OS menus don't support tooltips).
 
 ### Suppressed Diagnostics
 
