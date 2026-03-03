@@ -141,8 +141,15 @@ public partial class MainWindow : Window
         if (saved && dialog.Result is not null)
         {
             var index = vm.Sources.IndexOf(vm.SelectedSource);
-            vm.Sources.RemoveAt(index);
-            vm.Sources.Insert(index, dialog.Result);
+            if (index < 0)
+            {
+                vm.Sources.Add(dialog.Result);
+            }
+            else
+            {
+                vm.Sources.RemoveAt(index);
+                vm.Sources.Insert(index, dialog.Result);
+            }
             vm.SelectedSource = dialog.Result;
         }
     }
