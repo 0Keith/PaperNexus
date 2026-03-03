@@ -26,11 +26,14 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
     {
         var currentVersion = typeof(AutoUpdateService).Assembly.GetName().Version;
         if (currentVersion is null)
-            return;
+        {
+            _logger.LogError("Cannot determine current assembly version.");
+            throw new InvalidOperationException("Cannot determine current assembly version.");
+        }
 
         var currentBuild = currentVersion.Major;
-        _logger.LogInformation("Checking for updates. Current build: {Build}", currentBuild);
-        progress?.Report("Checking for updates...");
+        _logger.LogInformation("Checking for updates. Current build: v{Build}", currentBuild);
+        progress?.Report($"Checking for updates (v{currentBuild})...");
 
         using var client = new HttpClient();
         client.DefaultRequestHeaders.UserAgent.ParseAdd("PaperNexus-AutoUpdater");
@@ -51,15 +54,24 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         var root = doc.RootElement;
 
         if (!root.TryGetProperty("tag_name", out var tagElement))
-            return;
+        {
+            _logger.LogWarning("No tag_name found in GitHub release response.");
+            throw new InvalidOperationException("No version tag found in latest release.");
+        }
 
         var tag = tagElement.GetString();
         if (tag is null)
-            return;
+        {
+            _logger.LogWarning("Release tag_name is null.");
+            throw new InvalidOperationException("Release version tag is empty.");
+        }
 
         var versionStr = tag.TrimStart('v');
         if (!int.TryParse(versionStr, out var latestBuild))
-            return;
+        {
+            _logger.LogWarning("Cannot parse release tag '{Tag}' as build number.", tag);
+            throw new InvalidOperationException($"Cannot parse release tag '{tag}' as a version number.");
+        }
 
         if (latestBuild <= currentBuild && !forceUpdate)
         {
@@ -73,7 +85,10 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         _logger.LogInformation("Update available: v{Latest} (current: v{Current})", latestBuild, currentBuild);
 
         if (!root.TryGetProperty("assets", out var assetsElement))
-            return;
+        {
+            _logger.LogWarning("No assets found in release {Tag}.", tag);
+            throw new InvalidOperationException($"No assets found in release {tag}.");
+        }
 
         string? downloadUrl = null;
         foreach (var asset in assetsElement.EnumerateArray())
@@ -88,8 +103,8 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
 
         if (downloadUrl is null)
         {
-            _logger.LogWarning("Asset '{Asset}' not found in release {Tag}", AssetName, tag);
-            return;
+            _logger.LogWarning("Asset '{Asset}' not found in release {Tag}.", AssetName, tag);
+            throw new InvalidOperationException($"Update file '{AssetName}' not found in release {tag}.");
         }
 
         var exePath = Environment.ProcessPath

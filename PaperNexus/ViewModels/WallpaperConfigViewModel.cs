@@ -390,7 +390,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         try
         {
             await Task.Run(() => _checkForUpdates.CheckAsync(forceUpdate: false, progress: progress));
-            await ShowTransientStatusAsync("✓ Already up to date.");
+            await ShowTransientStatusAsync($"✓ Already up to date ({App.AppVersion}).");
         }
         catch (Exception ex)
         {
@@ -411,7 +411,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         try
         {
             await Task.Run(() => _checkForUpdates.CheckAsync(forceUpdate: true, progress: progress));
-            await ShowTransientStatusAsync("✓ Already up to date.");
+            await ShowTransientStatusAsync($"✓ Already on latest version ({App.AppVersion}).");
         }
         catch (Exception ex)
         {
