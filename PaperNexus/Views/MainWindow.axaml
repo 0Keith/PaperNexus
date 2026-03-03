@@ -65,7 +65,7 @@
                     </Button>
                 </StackPanel>
 
-                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,8,Auto,4,Auto,4,Auto,4,Auto" Margin="0,0,0,6">
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,4,Auto,*,Auto,4,Auto,4,Auto" Margin="0,0,0,6">
                     <TextBlock Grid.Column="0" Text="Wallpaper Sources" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <Button Grid.Column="2"
                             Command="{Binding DownloadNowCommand}"
