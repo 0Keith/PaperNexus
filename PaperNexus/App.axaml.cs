@@ -149,6 +149,37 @@ public partial class App : Application
         };
         menu.Items.Add(nextItem);
 
+        var randomItem = new NativeMenuItem { Header = "Random Wallpaper" };
+        randomItem.Click += async (_, _) =>
+        {
+            try
+            {
+                var switcher = _backgroundHost?.Services.GetService<ISwitchWallpaper>();
+                if (switcher is null)
+                    return;
+                var next = await Task.Run(switcher.SwitchToRandomAsync);
+                if (next is null)
+                {
+                    var downloader = _backgroundHost?.Services.GetService<IDownloadWallpapers>();
+                    if (downloader is not null)
+                    {
+                        await Task.Run(downloader.DownloadAllAsync);
+                        await Task.Run(switcher.SwitchToRandomAsync);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger?.LogError(ex, "Error switching to random wallpaper from tray.");
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (_mainWindow?.DataContext is WallpaperConfigViewModel vm)
+                        _ = vm.ShowTransientStatusAsync($"✗ Error switching wallpaper: {ex.Message}");
+                });
+            }
+        };
+        menu.Items.Add(randomItem);
+
         menu.Items.Add(new NativeMenuItemSeparator());
 
         var exitItem = new NativeMenuItem { Header = "Exit" };
