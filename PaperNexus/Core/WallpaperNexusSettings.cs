@@ -92,18 +92,18 @@ public class WallpaperNexusSettings
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public List<WallpaperSource> Sources { get; set; } = new()
     {
-        new WallpaperSource { Name = "Bing Daily - United States", Url = "https://peapix.com/bing/feed?country=us" },
-        new WallpaperSource { Name = "Bing Daily - Australia", Url = "https://peapix.com/bing/feed?country=au" },
-        new WallpaperSource { Name = "Bing Daily - Brazil", Url = "https://peapix.com/bing/feed?country=br" },
-        new WallpaperSource { Name = "Bing Daily - Canada", Url = "https://peapix.com/bing/feed?country=ca" },
-        new WallpaperSource { Name = "Bing Daily - China", Url = "https://peapix.com/bing/feed?country=cn" },
-        new WallpaperSource { Name = "Bing Daily - France", Url = "https://peapix.com/bing/feed?country=fr" },
-        new WallpaperSource { Name = "Bing Daily - Germany", Url = "https://peapix.com/bing/feed?country=de" },
-        new WallpaperSource { Name = "Bing Daily - India", Url = "https://peapix.com/bing/feed?country=in" },
-        new WallpaperSource { Name = "Bing Daily - Italy", Url = "https://peapix.com/bing/feed?country=it" },
-        new WallpaperSource { Name = "Bing Daily - Japan", Url = "https://peapix.com/bing/feed?country=jp" },
-        new WallpaperSource { Name = "Bing Daily - Spain", Url = "https://peapix.com/bing/feed?country=es" },
-        new WallpaperSource { Name = "Bing Daily - United Kingdom", Url = "https://peapix.com/bing/feed?country=gb" },
+        new WallpaperSource { Name = "Bing Daily 4k -United States", Url = "https://peapix.com/bing/feed?country=us" },
+        new WallpaperSource { Name = "Bing Daily 4k -Australia", Url = "https://peapix.com/bing/feed?country=au" },
+        new WallpaperSource { Name = "Bing Daily 4k -Brazil", Url = "https://peapix.com/bing/feed?country=br" },
+        new WallpaperSource { Name = "Bing Daily 4k -Canada", Url = "https://peapix.com/bing/feed?country=ca" },
+        new WallpaperSource { Name = "Bing Daily 4k -China", Url = "https://peapix.com/bing/feed?country=cn" },
+        new WallpaperSource { Name = "Bing Daily 4k -France", Url = "https://peapix.com/bing/feed?country=fr" },
+        new WallpaperSource { Name = "Bing Daily 4k -Germany", Url = "https://peapix.com/bing/feed?country=de" },
+        new WallpaperSource { Name = "Bing Daily 4k -India", Url = "https://peapix.com/bing/feed?country=in" },
+        new WallpaperSource { Name = "Bing Daily 4k -Italy", Url = "https://peapix.com/bing/feed?country=it" },
+        new WallpaperSource { Name = "Bing Daily 4k -Japan", Url = "https://peapix.com/bing/feed?country=jp" },
+        new WallpaperSource { Name = "Bing Daily 4k -Spain", Url = "https://peapix.com/bing/feed?country=es" },
+        new WallpaperSource { Name = "Bing Daily 4k -United Kingdom", Url = "https://peapix.com/bing/feed?country=gb" },
     };
 
     public double? WindowX { get; set; }
@@ -115,7 +115,7 @@ public class WallpaperNexusSettings
 
     public static readonly WallpaperSource DefaultBingSource = new()
     {
-        Name = "Bing Daily - United States",
+        Name = "Bing Daily 4k -United States",
         Url = "https://peapix.com/bing/feed?country=us"
     };
 
