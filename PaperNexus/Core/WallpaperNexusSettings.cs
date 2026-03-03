@@ -110,6 +110,12 @@ public class WallpaperNexusSettings
         Url = "https://peapix.com/bing/feed?country=us"
     };
 
+    public static readonly WallpaperSource DefaultSpotlightSource = new()
+    {
+        Name = "Spotlight Daily 4k",
+        Url = "https://peapix.com/spotlight/feed"
+    };
+
     private static readonly JsonSerializerSettings JsonSettings = new()
     {
         Formatting = Formatting.Indented,
@@ -125,7 +131,10 @@ public class WallpaperNexusSettings
                 var json = await File.ReadAllTextAsync(SettingsFilePath);
                 var settings = JsonConvert.DeserializeObject<WallpaperNexusSettings>(json, JsonSettings) ?? new WallpaperNexusSettings();
                 if (settings.Sources.Count == 0)
+                {
                     settings.Sources.Add(new WallpaperSource { Name = DefaultBingSource.Name, Url = DefaultBingSource.Url });
+                    settings.Sources.Add(new WallpaperSource { Name = DefaultSpotlightSource.Name, Url = DefaultSpotlightSource.Url });
+                }
                 return settings;
             }
         }
