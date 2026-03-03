@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -7,8 +8,21 @@ using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using PaperNexus.Core;
 using PaperNexus.ViewModels;
+using System.Globalization;
 
 namespace PaperNexus.Views;
+
+public class FavoriteColorConverter : IValueConverter
+{
+    private static readonly IBrush ActiveBrush = new SolidColorBrush(Color.Parse("#E06C75"));
+    private static readonly IBrush InactiveBrush = new SolidColorBrush(Color.Parse("#888888"));
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? ActiveBrush : InactiveBrush;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
 
 public partial class MainWindow : Window
 {

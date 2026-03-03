@@ -86,7 +86,9 @@ PaperNexus/
 - **Single Instance + Show UI:** `Program.cs` uses a named `Mutex` (`PaperNexus_SingleInstance`) for single-instance enforcement and a named `EventWaitHandle` (`PaperNexus_ShowUI`) for IPC. When a second instance starts, it signals the running instance to show the settings window via the event handle (instead of silently exiting). `App.axaml.cs` monitors this event on a background thread and calls `ShowMainWindow()` when signaled.
 - **Tray-only startup:** App runs as a system tray icon with no window on startup. `ShutdownMode.OnExplicitShutdown` keeps it alive when the settings window is closed. The tray menu provides "Open Settings", "Next Wallpaper", and "Exit".
 - **Windows Startup Registration:** `UpdateStartupRegistration()` in `App.axaml.cs` writes the exe path to `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` under the key `PaperNexus` (cleaning up old keys `Excogitated Wallpaper Service` and `Wallpaper Nexus` on first run).
-- **Wallpaper Processing:** `SwitchWallpaper` writes to a fixed `current.png` (or `current.jpg`) in the app directory. Title overlay is applied at switch time (not download time) using SixLabors with `MS Gothic` font. PNG format is preferred; falls back to JPEG with quality stepping from 97% if the image exceeds 16 MB. Fill style is applied via `WallpaperStyle` and `TileWallpaper` registry keys under `HKCU\Control Panel\Desktop`.
+- **Wallpaper Processing:** `SwitchWallpaper` writes to a fixed `current.png` (or `current.jpg`) in the app directory. Title overlay is applied at switch time (not download time) using SixLabors with configurable font, size, color, and position via `AnnotationSettings`. PNG format is preferred; falls back to JPEG with quality stepping from 97% if the image exceeds 16 MB. Fill style is applied via `WallpaperStyle` and `TileWallpaper` registry keys under `HKCU\Control Panel\Desktop`.
+- **Wallpaper Preview:** The settings window shows a live thumbnail preview of the current wallpaper (loaded from `current.png`/`current.jpg` in the app directory). The preview refreshes automatically when wallpapers are switched.
+- **Favorite Wallpapers:** Users can mark wallpapers as favorites via a heart toggle button. Favorited wallpapers are stored as file paths in `settings.json` and are excluded from the retention-period auto-cleanup in `DownloadWallpapers.CleanupOldImages`.
 - **Self-contained distribution:** Published as a single-file, self-contained exe.
 
 ### DI Registration Summary
@@ -102,6 +104,8 @@ In `App.OnFrameworkInitializationCompleted()`:
 - `SlideshowSettings` — schedule mode (cron/interval minutes/interval hours), pattern (alphabetical/random/oldest/newest/never), fill style
 - `DownloadSettings` — wallpapers folder path (default: `%USERPROFILE%\Pictures\PaperNexus`), resolution, retention days
 - `List<WallpaperSource>` — name, URL, cron expression, enabled flag; default: Bing Daily via peapix.com
+- `AnnotationSettings` — font family (default: MS Gothic), font size (default: 18), color as hex (default: #F5F5F5), position (TopLeft/TopRight/BottomLeft/BottomRight)
+- `List<string> FavoriteWallpapers` — file paths of favorited wallpapers (excluded from retention cleanup)
 - Window position/size persistence (`WindowX`, `WindowY`, `WindowWidth`, `WindowHeight`)
 - `AnnotateWallpaper`, `RunOnStartup`, `CurrentWallpaperPath`
 

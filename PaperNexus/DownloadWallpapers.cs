@@ -125,10 +125,13 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
 
     private async Task CleanupOldImages(WallpaperNexusSettings settings)
     {
+        var favorites = new HashSet<string>(
+            settings.FavoriteWallpapers ?? [],
+            StringComparer.OrdinalIgnoreCase);
         var files = new DirectoryInfo(settings.Download.Folder).EnumerateFiles();
         var cutoff = DateTime.UtcNow.AddDays(-settings.Download.RetentionDays);
         foreach (var file in files)
-            if (cutoff > file.LastWriteTimeUtc)
+            if (cutoff > file.LastWriteTimeUtc && !favorites.Contains(file.FullName))
                 file.Delete();
     }
 }

@@ -108,8 +108,25 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
         {
             if (!settings.AnnotateWallpaper)
                 return;
-            var font = new Font(SystemFonts.Get("MS Gothic"), 18);
-            o.DrawText(title, font, Color.WhiteSmoke, new PointF(125, 5));
+            var annotation = settings.Annotation;
+            var fontFamily = SystemFonts.TryGet(annotation.FontFamily, out var family)
+                ? family : SystemFonts.Get("MS Gothic");
+            var fontSize = annotation.FontSize > 0 ? annotation.FontSize : 18;
+            var font = new Font(fontFamily, fontSize);
+            var color = Color.WhiteSmoke;
+            try { color = Color.ParseHex(annotation.Color); }
+            catch { }
+            var position = annotation.Position switch
+            {
+                AnnotationPosition.TopRight => new PointF(img.Width - 125, 5),
+                AnnotationPosition.BottomLeft => new PointF(125, img.Height - fontSize - 10),
+                AnnotationPosition.BottomRight => new PointF(img.Width - 125, img.Height - fontSize - 10),
+                _ => new PointF(125, 5),
+            };
+            var options = new RichTextOptions(font) { Origin = position };
+            if (annotation.Position is AnnotationPosition.TopRight or AnnotationPosition.BottomRight)
+                options.HorizontalAlignment = HorizontalAlignment.Right;
+            o.DrawText(options, title, new SolidBrush(color), null);
         });
         using var ms = new MemoryStream();
         await annotated.SaveAsPngAsync(ms, new PngEncoder { ColorType = PngColorType.Rgb, BitDepth = PngBitDepth.Bit8 }).ConfigureAwait(false);

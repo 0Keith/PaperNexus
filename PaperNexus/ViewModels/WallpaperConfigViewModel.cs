@@ -23,6 +23,11 @@ public record SwitchPatternOption(string Label, WallpaperSwitchPattern Pattern)
     public override string ToString() => Label;
 }
 
+public record AnnotationPositionOption(string Label, AnnotationPosition Position)
+{
+    public override string ToString() => Label;
+}
+
 public partial class WallpaperConfigViewModel : ObservableObject
 {
     public static readonly IReadOnlyList<ResolutionOption> ResolutionOptions = new[]
@@ -56,6 +61,14 @@ public partial class WallpaperConfigViewModel : ObservableObject
         new SwitchPatternOption("Oldest first", WallpaperSwitchPattern.OldestFirst),
         new SwitchPatternOption("Newest first", WallpaperSwitchPattern.NewestFirst),
         new SwitchPatternOption("Random",       WallpaperSwitchPattern.Random),
+    };
+
+    public static readonly IReadOnlyList<AnnotationPositionOption> AnnotationPositionOptions = new[]
+    {
+        new AnnotationPositionOption("Top Left",     AnnotationPosition.TopLeft),
+        new AnnotationPositionOption("Top Right",    AnnotationPosition.TopRight),
+        new AnnotationPositionOption("Bottom Left",  AnnotationPosition.BottomLeft),
+        new AnnotationPositionOption("Bottom Right", AnnotationPosition.BottomRight),
     };
 
     [ObservableProperty]
@@ -121,6 +134,18 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private bool _annotateWallpaper = true;
 
     [ObservableProperty]
+    private string _annotationFontFamily = "MS Gothic";
+
+    [ObservableProperty]
+    private int _annotationFontSize = 18;
+
+    [ObservableProperty]
+    private string _annotationColor = "#F5F5F5";
+
+    [ObservableProperty]
+    private AnnotationPositionOption _selectedAnnotationPosition;
+
+    [ObservableProperty]
     private bool _runOnStartup = true;
 
     [ObservableProperty]
@@ -150,6 +175,12 @@ public partial class WallpaperConfigViewModel : ObservableObject
     [ObservableProperty]
     private WallpaperSource? _selectedSource;
 
+    [ObservableProperty]
+    private Avalonia.Media.Imaging.Bitmap? _previewImage;
+
+    [ObservableProperty]
+    private bool _isCurrentWallpaperFavorited;
+
     private bool _isLoading;
     private CancellationTokenSource _statusCts = new();
 
@@ -171,6 +202,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         _downloadWallpapers = (Application.Current as App)?.Services?.GetService<IDownloadWallpapers>();
         _selectedFillStyle = FillStyleOptions[0];
         _selectedSlideshowPattern = SwitchPatternOptions.First(p => p.Pattern == WallpaperSwitchPattern.NewestFirst);
+        _selectedAnnotationPosition = AnnotationPositionOptions[0];
         _sources.CollectionChanged += OnSourcesCollectionChanged;
 
         if (_switchWallpaper is not null)
@@ -183,6 +215,8 @@ public partial class WallpaperConfigViewModel : ObservableObject
         {
             CurrentWallpaperPath = path;
             CurrentWallpaperName = GetDisplayName(path);
+            RefreshPreviewImage();
+            RefreshFavoriteState();
         });
     }
 
@@ -234,6 +268,10 @@ public partial class WallpaperConfigViewModel : ObservableObject
     partial void OnSelectedSlideshowPatternChanged(SwitchPatternOption value) => TriggerSave();
     partial void OnRetentionDaysChanged(int value) => TriggerSave();
     partial void OnAnnotateWallpaperChanged(bool value) => TriggerSave();
+    partial void OnAnnotationFontFamilyChanged(string value) => TriggerSave();
+    partial void OnAnnotationFontSizeChanged(int value) => TriggerSave();
+    partial void OnAnnotationColorChanged(string value) => TriggerSave();
+    partial void OnSelectedAnnotationPositionChanged(AnnotationPositionOption value) => TriggerSave();
     partial void OnAutoUpdatesEnabledChanged(bool value) => TriggerSave();
     partial void OnSlideshowEnabledChanged(bool value) => TriggerSave();
     partial void OnDebugModeChanged(bool value) => TriggerSave();
@@ -284,6 +322,11 @@ public partial class WallpaperConfigViewModel : ObservableObject
                 ?? SwitchPatternOptions[0];
             RetentionDays = settings.Download.RetentionDays;
             AnnotateWallpaper = settings.AnnotateWallpaper;
+            AnnotationFontFamily = settings.Annotation.FontFamily;
+            AnnotationFontSize = settings.Annotation.FontSize;
+            AnnotationColor = settings.Annotation.Color;
+            SelectedAnnotationPosition = AnnotationPositionOptions.FirstOrDefault(
+                p => p.Position == settings.Annotation.Position) ?? AnnotationPositionOptions[0];
             RunOnStartup = settings.RunOnStartup;
             AutoUpdatesEnabled = settings.AutoUpdatesEnabled;
             SlideshowEnabled = settings.Slideshow.Enabled;
@@ -294,6 +337,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
             var path = settings.CurrentWallpaperPath;
             CurrentWallpaperPath = path;
             CurrentWallpaperName = string.IsNullOrEmpty(path) ? "(none)" : GetDisplayName(path);
+            RefreshPreviewImage();
+            IsCurrentWallpaperFavorited = !string.IsNullOrEmpty(path)
+                && settings.FavoriteWallpapers.Contains(path, StringComparer.OrdinalIgnoreCase);
         }
         finally
         {
@@ -355,6 +401,8 @@ public partial class WallpaperConfigViewModel : ObservableObject
             }
             CurrentWallpaperPath = next;
             CurrentWallpaperName = GetDisplayName(next);
+            RefreshPreviewImage();
+            RefreshFavoriteState();
             await ShowTransientStatusAsync($"✓ Switched to: {CurrentWallpaperName}");
         }
         catch (Exception ex)
@@ -389,6 +437,8 @@ public partial class WallpaperConfigViewModel : ObservableObject
             }
             CurrentWallpaperPath = next;
             CurrentWallpaperName = GetDisplayName(next);
+            RefreshPreviewImage();
+            RefreshFavoriteState();
             await ShowTransientStatusAsync($"✓ Switched to: {CurrentWallpaperName}");
         }
         catch (Exception ex)
@@ -427,11 +477,92 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
             CurrentWallpaperPath = next;
             CurrentWallpaperName = GetDisplayName(next);
+            RefreshPreviewImage();
+            RefreshFavoriteState();
             await ShowTransientStatusAsync($"✓ Deleted and switched to: {CurrentWallpaperName}");
         }
         catch (Exception ex)
         {
             await ShowTransientStatusAsync($"✗ Error deleting wallpaper: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task ToggleFavorite()
+    {
+        var path = CurrentWallpaperPath;
+        if (string.IsNullOrEmpty(path))
+            return;
+
+        try
+        {
+            var settings = await WallpaperNexusSettings.LoadAsync();
+            if (settings.FavoriteWallpapers.Contains(path, StringComparer.OrdinalIgnoreCase))
+            {
+                settings.FavoriteWallpapers.RemoveAll(f => f.Equals(path, StringComparison.OrdinalIgnoreCase));
+                IsCurrentWallpaperFavorited = false;
+                await settings.SaveAsync();
+                await ShowTransientStatusAsync("✓ Removed from favorites.");
+            }
+            else
+            {
+                settings.FavoriteWallpapers.Add(path);
+                IsCurrentWallpaperFavorited = true;
+                await settings.SaveAsync();
+                await ShowTransientStatusAsync("✓ Added to favorites.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowTransientStatusAsync($"✗ Error updating favorites: {ex.Message}");
+        }
+    }
+
+    private void RefreshPreviewImage()
+    {
+        try
+        {
+            var oldImage = PreviewImage;
+
+            // Load from the processed current.png/current.jpg in the app directory
+            var pngPath = Path.Combine(AppContext.BaseDirectory, "current.png");
+            var jpgPath = Path.Combine(AppContext.BaseDirectory, "current.jpg");
+            var previewPath = File.Exists(pngPath) ? pngPath : File.Exists(jpgPath) ? jpgPath : null;
+
+            if (previewPath is not null)
+            {
+                using var stream = File.OpenRead(previewPath);
+                PreviewImage = new Avalonia.Media.Imaging.Bitmap(stream);
+            }
+            else
+            {
+                PreviewImage = null;
+            }
+
+            oldImage?.Dispose();
+        }
+        catch
+        {
+            PreviewImage = null;
+        }
+    }
+
+    private async void RefreshFavoriteState()
+    {
+        try
+        {
+            var path = CurrentWallpaperPath;
+            if (string.IsNullOrEmpty(path))
+            {
+                IsCurrentWallpaperFavorited = false;
+                return;
+            }
+            var settings = await WallpaperNexusSettings.LoadAsync();
+            IsCurrentWallpaperFavorited = settings.FavoriteWallpapers.Contains(path, StringComparer.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            IsCurrentWallpaperFavorited = false;
         }
     }
 
@@ -548,6 +679,10 @@ public partial class WallpaperConfigViewModel : ObservableObject
             settings.Slideshow.Pattern = SelectedSlideshowPattern.Pattern;
             settings.Slideshow.Enabled = SlideshowEnabled;
             settings.AnnotateWallpaper = AnnotateWallpaper;
+            settings.Annotation.FontFamily = AnnotationFontFamily;
+            settings.Annotation.FontSize = AnnotationFontSize;
+            settings.Annotation.Color = AnnotationColor;
+            settings.Annotation.Position = SelectedAnnotationPosition.Position;
             settings.RunOnStartup = RunOnStartup;
             settings.AutoUpdatesEnabled = AutoUpdatesEnabled;
             settings.DebugMode = DebugMode;

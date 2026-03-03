@@ -15,6 +15,10 @@
        CanResize="True"
        Background="#2B2B2B">
 
+    <Window.Resources>
+        <v:FavoriteColorConverter x:Key="FavoriteColorConverter"/>
+    </Window.Resources>
+
     <Grid RowDefinitions="*,Auto" Margin="20">
         <!-- Two-column layout -->
         <Grid Grid.Row="0" ColumnDefinitions="*,16,*">
@@ -24,7 +28,7 @@
 
                 <!-- Current Wallpaper -->
                 <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
-                    <Grid ColumnDefinitions="Auto,4,Auto,4,Auto,4,Auto">
+                    <Grid ColumnDefinitions="Auto,4,Auto,4,Auto,4,Auto,4,Auto">
                         <TextBlock Grid.Column="0" Text="Current Wallpaper" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         <Button Grid.Column="2"
                                 Command="{Binding NextWallpaperCommand}"
@@ -41,6 +45,15 @@
                                       Width="12" Height="12"/>
                         </Button>
                         <Button Grid.Column="6"
+                                Command="{Binding ToggleFavoriteCommand}"
+                                IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                ToolTip.Tip="Toggle favorite"
+                                Padding="8,4">
+                            <PathIcon Data="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.03L12 21.35Z"
+                                      Width="12" Height="12"
+                                      Foreground="{Binding IsCurrentWallpaperFavorited, Converter={StaticResource FavoriteColorConverter}}"/>
+                        </Button>
+                        <Button Grid.Column="8"
                                 Click="DeleteWallpaper_Click"
                                 IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                 ToolTip.Tip="Delete current wallpaper"
@@ -60,6 +73,15 @@
                                    TextWrapping="Wrap" Foreground="SteelBlue"
                                    DoubleTapped="OnWallpaperNameDoubleTapped"/>
                     </Button>
+                    <!-- Wallpaper Preview Thumbnail -->
+                    <Border Background="#1E1E1E" BorderBrush="#444" BorderThickness="1"
+                            CornerRadius="4" Padding="4" Margin="0,4,0,0"
+                            MaxHeight="180"
+                            IsVisible="{Binding PreviewImage, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <Image Source="{Binding PreviewImage}"
+                               Stretch="Uniform"
+                               MaxHeight="170"/>
+                    </Border>
                 </StackPanel>
 
                 <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,4,Auto,*,Auto,4,Auto,4,Auto" Margin="0,0,0,6">
@@ -270,6 +292,33 @@
                             <Border Height="1" Background="#333"/>
                             <CheckBox Content="Show title annotation on wallpaper"
                                       IsChecked="{Binding AnnotateWallpaper}"/>
+                            <StackPanel Spacing="8" Margin="24,0,0,0"
+                                        IsVisible="{Binding AnnotateWallpaper}">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Font" FontSize="12" Opacity="0.6"/>
+                                    <TextBox Text="{Binding AnnotationFontFamily}"
+                                             Watermark="e.g. MS Gothic, Arial, Segoe UI"/>
+                                </StackPanel>
+                                <Grid ColumnDefinitions="*,12,*" >
+                                    <StackPanel Grid.Column="0" Spacing="4">
+                                        <TextBlock Text="Size" FontSize="12" Opacity="0.6"/>
+                                        <NumericUpDown Value="{Binding AnnotationFontSize}"
+                                                       Minimum="8" Maximum="72" Increment="2"
+                                                       FormatString="0"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="4">
+                                        <TextBlock Text="Color (hex)" FontSize="12" Opacity="0.6"/>
+                                        <TextBox Text="{Binding AnnotationColor}"
+                                                 Watermark="#F5F5F5"/>
+                                    </StackPanel>
+                                </Grid>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Position" FontSize="12" Opacity="0.6"/>
+                                    <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.AnnotationPositionOptions}"
+                                                  SelectedItem="{Binding SelectedAnnotationPosition}"
+                                                  HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+                            </StackPanel>
                             <Border Height="1" Background="#333"/>
                             <CheckBox x:Name="DebugModeCheckBox"
                                       Content="Debug mode"
