@@ -703,6 +703,23 @@ public partial class WallpaperConfigViewModel : ObservableObject
         return lastSep > 0 ? nameWithoutExt[..lastSep] : nameWithoutExt;
     }
 
+    internal void Cleanup()
+    {
+        if (_switchWallpaper is not null)
+            _switchWallpaper.WallpaperChanged -= OnWallpaperChanged;
+
+        _statusCts.Cancel();
+        _statusCts.Dispose();
+
+        var image = PreviewImage;
+        PreviewImage = null;
+        image?.Dispose();
+
+        foreach (var src in Sources)
+            src.PropertyChanged -= OnSourcePropertyChanged;
+        Sources.CollectionChanged -= OnSourcesCollectionChanged;
+    }
+
     internal async Task ShowTransientStatusAsync(string message, int durationMs = 3000)
     {
         _statusCts.Cancel();

@@ -231,13 +231,15 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        // Hide to tray instead of closing, unless the app is actually exiting
         if (Application.Current is App { IsExiting: false })
         {
-            e.Cancel = true;
-            _ = SaveWindowPositionAsync();
-            Hide();
-            return;
+            // Capture position before the window is destroyed
+            _ = SaveWindowPositionAsync(Position.X, Position.Y, Width, Height);
+
+            // Release ViewModel resources to reduce memory while running in tray
+            if (DataContext is WallpaperConfigViewModel vm)
+                vm.Cleanup();
+            DataContext = null;
         }
         base.OnClosing(e);
     }
@@ -381,15 +383,15 @@ public partial class MainWindow : Window
         return await dialog.ShowDialog<bool>(this);
     }
 
-    private async Task SaveWindowPositionAsync()
+    private static async Task SaveWindowPositionAsync(int x, int y, double w, double h)
     {
         try
         {
             var settings = await WallpaperNexusSettings.LoadAsync();
-            settings.WindowX = Position.X;
-            settings.WindowY = Position.Y;
-            settings.WindowWidth = Width;
-            settings.WindowHeight = Height;
+            settings.WindowX = x;
+            settings.WindowY = y;
+            settings.WindowWidth = w;
+            settings.WindowHeight = h;
             await settings.SaveAsync();
         }
         catch { }
