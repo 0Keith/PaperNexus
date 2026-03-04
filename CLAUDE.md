@@ -56,7 +56,9 @@ PaperNexus/
     │   └── WallpaperConfigViewModel.cs   # MVVM ViewModel (CommunityToolkit.Mvvm)
     └── Views/
         ├── MainWindow.axaml / .cs        # Settings window
-        └── SplashScreen.axaml / .cs      # Startup splash
+        ├── SplashScreen.axaml / .cs      # Startup splash
+        ├── WallpaperSourceDialog.axaml / .cs  # Add/edit wallpaper source dialog
+        └── NonScrollableComboBox.cs      # ComboBox subclass that ignores scroll wheel unless dropdown is open
 ```
 
 ## Project: PaperNexus
@@ -84,9 +86,12 @@ PaperNexus/
 - **Silent Auto-Update:** `AutoUpdateJob` runs with `ExecuteOnStartup: true` and a daily cron (`0 3 * * *`). It delegates to `AutoUpdateService.CheckAsync()`, which queries the GitHub Releases API (`0Keith/PaperNexus`), compares the release tag's build number against `Assembly.Version.Major` as integers (tags use simplified `vN` format), downloads `PaperNexus.exe`, removes the `Zone.Identifier` ADS to avoid SmartScreen blocking, writes a self-deleting batch script to swap the file after exit, then calls `Environment.Exit(0)`. The batch script relaunches with `--updated` flag, which triggers the settings window to open. If the new exe fails to start, the batch script rolls back from the `.bak` copy.
 - **Auto-Install on First Run:** When the exe runs from outside `%LOCALAPPDATA%\PaperNexus\`, `Program.Main` copies itself there, migrates `settings.json` and `timers.json` if present, and relaunches from the install location. If an installed instance is already running, it signals it to show the UI instead.
 - **Single Instance + Show UI:** `Program.cs` uses a named `Mutex` (`PaperNexus_SingleInstance`) for single-instance enforcement and a named `EventWaitHandle` (`PaperNexus_ShowUI`) for IPC. When a second instance starts, it signals the running instance to show the settings window via the event handle (instead of silently exiting). `App.axaml.cs` monitors this event on a background thread and calls `ShowMainWindow()` when signaled.
-- **Tray-only startup:** App runs as a system tray icon with no window on startup. `ShutdownMode.OnExplicitShutdown` keeps it alive when the settings window is closed. The tray menu provides "Open Settings", "Next Wallpaper", and "Exit".
+- **Tray-only startup:** App runs as a system tray icon with no window on startup. `ShutdownMode.OnExplicitShutdown` keeps it alive when the settings window is closed. The tray menu provides "Open Settings", "Next Wallpaper", "Random Wallpaper", and "Exit". Each menu item has a programmatically-drawn SixLabors icon (gear, play triangle, dice, power).
 - **Windows Startup Registration:** `UpdateStartupRegistration()` in `App.axaml.cs` writes the exe path to `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` under the key `PaperNexus` (cleaning up old keys `Excogitated Wallpaper Service` and `Wallpaper Nexus` on first run).
 - **Wallpaper Processing:** `SwitchWallpaper` writes to a fixed `current.png` (or `current.jpg`) in the app directory. Title overlay is applied at switch time (not download time) using SixLabors with configurable font, size, color, and position via `AnnotationSettings`. PNG format is preferred; falls back to JPEG with quality stepping from 97% if the image exceeds 16 MB. Fill style is applied via `WallpaperStyle` and `TileWallpaper` registry keys under `HKCU\Control Panel\Desktop`.
+- **`ISwitchWallpaper`:** Exposes `WallpaperChanged` event (fired after each switch), `SwitchToNextAsync()` (respects slideshow order setting), and `SwitchToRandomAsync()` (always picks randomly, excluding the current wallpaper). Both return `null` if no wallpapers are found.
+- **Wallpaper Sources (JPath-based):** `HttpWallpaperSourceService.GetImages()` fetches a JSON feed URL and uses Newtonsoft `SelectTokens` with `ImageUrlJPath` / `TitleJPath` to extract image URLs and titles. Sources can be added/edited via `WallpaperSourceDialog` (modal window with name, URL, JPath fields, cron expression, enabled toggle, and a live "Test" button).
+- **`NonScrollableComboBox`:** Custom `ComboBox` subclass that suppresses `OnPointerWheelChanged` unless the dropdown is open — prevents accidental value changes while scrolling the settings page.
 - **Wallpaper Preview:** The settings window shows a live thumbnail preview of the current wallpaper (loaded from `current.png`/`current.jpg` in the app directory). The preview refreshes automatically when wallpapers are switched.
 - **Favorite Wallpapers:** Users can mark wallpapers as favorites via a heart toggle button. Favorited wallpapers are stored as file paths in `settings.json` and are excluded from the retention-period auto-cleanup in `DownloadWallpapers.CleanupOldImages`.
 - **Self-contained distribution:** Published as a single-file, self-contained exe.
@@ -101,13 +106,14 @@ In `App.OnFrameworkInitializationCompleted()`:
 ### Settings
 
 `WallpaperNexusSettings` in `Core/WallpaperNexusSettings.cs` — JSON file at `{AppContext.BaseDirectory}/settings.json` (resolves to `%LOCALAPPDATA%\PaperNexus\settings.json` after install):
-- `SlideshowSettings` — schedule mode (cron/interval minutes/interval hours), order (alphabetical/random/oldest/newest), fill style
-- `DownloadSettings` — wallpapers folder path (default: `%USERPROFILE%\Pictures\PaperNexus`), resolution, retention days
-- `List<WallpaperSource>` — name, URL, cron expression, enabled flag; default: Bing Daily via peapix.com
+- `SlideshowSettings` — `Enabled` flag, schedule mode (cron/interval minutes/interval hours), order (alphabetical/random/oldest/newest, default: newest first), fill style (default: Fill)
+- `DownloadSettings` — wallpapers folder path (default: `%USERPROFILE%\Pictures\PaperNexus`), resolution width/height (default: 0/0 = native), retention days (default: 365)
+- `List<WallpaperSource>` — name, type (`HttpJson`), URL, `ImageUrlJPath` (default: `$[*].imageUrl`), `TitleJPath` (default: `$[*].title`), cron expression, enabled flag, `LastDownloadUtc`; two defaults: "Bing Daily 4k" and "Spotlight Daily 4k" (both via peapix.com)
 - `AnnotationSettings` — font family (default: MS Gothic), font size (default: 18), color as hex (default: #F5F5F5), position (TopLeft/TopRight/BottomLeft/BottomRight)
 - `List<string> FavoriteWallpapers` — file paths of favorited wallpapers (excluded from retention cleanup)
 - Window position/size persistence (`WindowX`, `WindowY`, `WindowWidth`, `WindowHeight`)
-- `AnnotateWallpaper`, `RunOnStartup`, `CurrentWallpaperPath`
+- `AnnotateWallpaper`, `RunOnStartup`, `AutoUpdatesEnabled`, `DebugMode`, `CurrentWallpaperPath`
+- `DebugMode` — when enabled, draws a timestamp below the wallpaper title annotation
 
 ## Code Style & Conventions
 
@@ -217,3 +223,4 @@ When the user asks you to "remember" something, that means update `CLAUDE.md` wi
 - Check for vulnerable packages with `dotnet list package --vulnerable`
 - **Always update `CLAUDE.md`** after any task that changes the project structure, adds patterns, or migrates code
 - **No Linear issues exist for this repo** — do not search Linear for related issues
+- **Always start work on a feature branch** — never commit directly to `main`; create a descriptive branch (e.g., `feature/wallpaper-preview`, `fix/auto-update`) before making any changes
