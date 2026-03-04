@@ -148,6 +148,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
         {
             currentPath = Path.Combine(AppContext.BaseDirectory, "current.png");
             await File.WriteAllBytesAsync(currentPath, ms.ToArray()).ConfigureAwait(false);
+            File.Delete(Path.Combine(AppContext.BaseDirectory, "current.jpg"));
         }
         else
         {
@@ -160,6 +161,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
                     break;
             }
             await File.WriteAllBytesAsync(currentPath, ms.ToArray()).ConfigureAwait(false);
+            File.Delete(Path.Combine(AppContext.BaseDirectory, "current.png"));
         }
 
         if (OperatingSystem.IsWindows())
