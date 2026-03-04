@@ -206,11 +206,26 @@ public partial class App : Application
         Dispatcher.UIThread.Post(() =>
         {
             if (_mainWindow == null)
+            {
                 _mainWindow = new MainWindow();
+                _mainWindow.Closed += OnMainWindowClosed;
+            }
             _mainWindow.Show();
             _mainWindow.WindowState = WindowState.Normal;
             _mainWindow.Activate();
         });
+    }
+
+    private void OnMainWindowClosed(object? sender, EventArgs e)
+    {
+        if (_mainWindow is not null)
+        {
+            _mainWindow.Closed -= OnMainWindowClosed;
+            _mainWindow = null;
+        }
+
+        // Reclaim UI memory now that the settings window is closed
+        GC.Collect(2, GCCollectionMode.Forced, blocking: false);
     }
 
     private async void ExitApplication(IClassicDesktopStyleApplicationLifetime desktop)
