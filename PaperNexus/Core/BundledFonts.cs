@@ -4,6 +4,8 @@ namespace PaperNexus.Core;
 
 internal static class BundledFonts
 {
+    public const string DefaultFontFamily = "Cinzel";
+
     private static readonly Lazy<FontCollection> _collection = new(LoadBundledFonts);
 
     public static FontCollection Collection => _collection.Value;
@@ -11,7 +13,7 @@ internal static class BundledFonts
     /// <summary>
     /// Bundled font names available regardless of system-installed fonts.
     /// </summary>
-    public static IReadOnlyList<string> Names { get; } = ["Cinzel"];
+    public static IReadOnlyList<string> Names { get; } = [DefaultFontFamily];
 
     public static bool TryGet(string familyName, out FontFamily family)
     {

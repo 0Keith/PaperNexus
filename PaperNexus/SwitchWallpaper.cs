@@ -111,7 +111,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
                 return;
             var annotation = settings.Annotation;
             var fontFamily = BundledFonts.TryGet(annotation.FontFamily, out var family)
-                ? family : BundledFonts.Collection.Get("Cinzel");
+                ? family : BundledFonts.Collection.Get(BundledFonts.DefaultFontFamily);
             var fontSize = annotation.FontSize > 0 ? annotation.FontSize : 18;
             var font = new Font(fontFamily, fontSize);
             var color = Color.WhiteSmoke;

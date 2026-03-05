@@ -154,7 +154,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private bool _annotateWallpaper = true;
 
     [ObservableProperty]
-    private string _annotationFontFamily = "Cinzel";
+    private string _annotationFontFamily = BundledFonts.DefaultFontFamily;
 
     [ObservableProperty]
     private int _annotationFontSize = 18;
