@@ -121,7 +121,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
             var pixel = color.ToPixel<Rgba32>();
             var outlineColor = pixel.R + pixel.G + pixel.B > 382 ? Color.Black : Color.White;
             var outlinePen = annotation.OutlineEnabled
-                ? Pens.Solid(outlineColor, 1 + fontSize / 36f)
+                ? Pens.Solid(outlineColor, fontSize / 36f)
                 : null;
             var brush = new SolidBrush(color);
             var position = annotation.Position switch
