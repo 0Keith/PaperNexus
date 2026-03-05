@@ -319,6 +319,9 @@
                                                   SelectedItem="{Binding SelectedAnnotationPosition}"
                                                   HorizontalAlignment="Stretch"/>
                                 </StackPanel>
+                                <CheckBox Content="Text outline"
+                                          ToolTip.Tip="Draw a contrasting outline around the annotation text"
+                                          IsChecked="{Binding AnnotationOutlineEnabled}"/>
                             </StackPanel>
                             <Border Height="1" Background="#333"/>
                             <CheckBox x:Name="DebugModeCheckBox"
