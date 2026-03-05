@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git config --global user.name)",
+      "Bash(git config --global user.email)",
+      "Bash(git config --global commit.gpgsign)",
+      "Bash(git config --global gpg.format)",
+      "Bash(git config --global user.signingkey)",
+      "Bash(dotnet sln PaperNexus.sln add PaperNexus.Tests/PaperNexus.Tests.csproj)",
+      "Bash(dotnet build PaperNexus.sln --configuration Release)",
+      "Bash(dotnet test PaperNexus.sln --configuration Release --verbosity normal)"
+    ]
+  }
+}
