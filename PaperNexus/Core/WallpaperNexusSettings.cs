@@ -143,7 +143,10 @@ public class WallpaperNexusSettings
                 return settings;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to load settings: {ex.Message}");
+        }
         return new WallpaperNexusSettings();
     }
 

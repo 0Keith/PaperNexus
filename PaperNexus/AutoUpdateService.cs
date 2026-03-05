@@ -1,6 +1,7 @@
 using Cronos;
 using PaperNexus.Core;
 using System.Diagnostics;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 
 namespace PaperNexus;
@@ -35,7 +36,7 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         _logger.LogInformation("Checking for updates. Current build: v{Build}", currentBuild);
         progress?.Report($"Checking for updates (v{currentBuild})...");
 
-        using var client = new HttpClient();
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd("PaperNexus-AutoUpdater");
 
         string json;
@@ -111,7 +112,7 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
             ?? Path.Combine(AppContext.BaseDirectory, AssetName);
         var newExePath = exePath + ".new";
         var backupPath = exePath + ".bak";
-        var batchPath = Path.Combine(Path.GetDirectoryName(exePath)!, "update.bat");
+        var batchPath = Path.Combine(Path.GetDirectoryName(exePath)!, $"update-{Guid.NewGuid():N}.bat");
 
         _logger.LogInformation("Downloading v{Latest} from {Url}", latestBuild, downloadUrl);
         progress?.Report($"Downloading {tag}...");
@@ -128,6 +129,15 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         }
 
         await File.WriteAllBytesAsync(newExePath, bytes);
+
+        // Verify the downloaded exe has a valid Authenticode signature from PaperNexus.
+        // This prevents executing a tampered or unsigned binary.
+        if (!VerifyAuthenticodeSignature(newExePath))
+        {
+            File.Delete(newExePath);
+            _logger.LogWarning("Update signature verification failed. Update aborted.");
+            throw new InvalidOperationException("Downloaded update failed signature verification.");
+        }
 
         // Remove the Zone.Identifier alternate data stream so Smart App Control
         // does not treat the downloaded file as untrusted internet content.
@@ -172,6 +182,27 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         progress?.Report("Restarting...");
         await Task.Delay(500); // brief pause so the UI can display "Restarting..." before exit
         Environment.Exit(0);
+    }
+
+    private bool VerifyAuthenticodeSignature(string filePath)
+    {
+        try
+        {
+#pragma warning disable SYSLIB0057 // No non-obsolete API for Authenticode cert extraction yet
+            using var x509 = X509Certificate2.CreateFromSignedFile(filePath);
+#pragma warning restore SYSLIB0057
+            if (!x509.Subject.Contains("CN=PaperNexus", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Update signed by unexpected subject: {Subject}", x509.Subject);
+                return false;
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Authenticode verification failed: {Message}", ex.Message);
+            return false;
+        }
     }
 }
 

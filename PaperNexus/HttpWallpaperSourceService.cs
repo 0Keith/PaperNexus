@@ -16,7 +16,7 @@ internal class HttpWallpaperSourceService
     {
         _logger.LogInformation($"Getting images from source '{source.Name}': {source.Url}");
         var watch = Stopwatch.StartNew();
-        using var client = new HttpClient();
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         using var getResponse = await client.GetAsync(source.Url);
         if (!getResponse.IsSuccessStatusCode)
         {
