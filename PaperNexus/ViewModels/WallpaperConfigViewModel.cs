@@ -518,7 +518,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
         }
     }
 
-    private void RefreshPreviewImage()
+    internal void RefreshPreviewImage()
     {
         try
         {

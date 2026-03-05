@@ -210,6 +210,11 @@ public partial class App : Application
                 _mainWindow = new MainWindow();
                 _mainWindow.Closed += OnMainWindowClosed;
             }
+            else if (_mainWindow.DataContext is WallpaperConfigViewModel vm)
+            {
+                // Refresh preview in case the wallpaper changed while the window was not visible
+                vm.RefreshPreviewImage();
+            }
             _mainWindow.Show();
             _mainWindow.WindowState = WindowState.Normal;
             _mainWindow.Activate();
