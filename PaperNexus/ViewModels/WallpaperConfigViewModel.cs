@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Avalonia;
+using Cronos;
 using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -666,12 +667,22 @@ public partial class WallpaperConfigViewModel : ObservableObject
             settings.Slideshow.ScheduleMode = SlideshowScheduleMode;
             settings.Slideshow.IntervalMinutes = SlideshowIntervalMinutes;
             settings.Slideshow.IntervalHours = SlideshowIntervalHours;
-            settings.Slideshow.CronExpression = SlideshowScheduleMode switch
+            var cronExpression = SlideshowScheduleMode switch
             {
                 SlideshowScheduleMode.IntervalMinutes => $"*/{SlideshowIntervalMinutes} * * * *",
                 SlideshowScheduleMode.IntervalHours => $"0 */{SlideshowIntervalHours} * * *",
                 _ => SlideshowCronExpression,
             };
+            try
+            {
+                CronExpression.Parse(cronExpression);
+            }
+            catch (CronFormatException)
+            {
+                await ShowTransientStatusAsync("✗ Invalid cron expression.");
+                return;
+            }
+            settings.Slideshow.CronExpression = cronExpression;
             settings.Download.ResolutionWidth = SelectedResolution.Width;
             settings.Download.ResolutionHeight = SelectedResolution.Height;
             settings.Download.RetentionDays = RetentionDays;

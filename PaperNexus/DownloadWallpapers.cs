@@ -94,7 +94,10 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
 
     public async Task Download(WallpaperImage data, WallpaperNexusSettings settings)
     {
-        var invalidChars = Path.GetInvalidFileNameChars().Concat(Path.GetInvalidPathChars()).ToHashSet();
+        var invalidChars = Path.GetInvalidFileNameChars()
+            .Concat(Path.GetInvalidPathChars())
+            .Append('/').Append('\\')
+            .ToHashSet();
         var title = new string(data.Title
             .Where(c => !invalidChars.Contains(c))
             .Take(200)
@@ -104,13 +107,20 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         if (string.IsNullOrEmpty(ext))
             ext = ".png";
         title += " - " + Path.GetFileNameWithoutExtension(urlFile);
-        var path = $"{settings.Download.Folder}/{title}{ext}";
+        var path = Path.Combine(settings.Download.Folder, title + ext);
+        var fullPath = Path.GetFullPath(path);
+        var folder = Path.GetFullPath(settings.Download.Folder);
+        if (!fullPath.StartsWith(folder, StringComparison.OrdinalIgnoreCase))
+        {
+            Logger.LogWarning("Path traversal blocked: {Path}", fullPath);
+            return;
+        }
         if (!Debugger.IsAttached && File.Exists(path))
             return;
 
         Logger.LogInformation($"Downloading Image: {data.Title}");
         var watch = Stopwatch.StartNew();
-        using var client = new HttpClient();
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         using var response = await client.GetAsync(data.ImageUrl, HttpCompletionOption.ResponseHeadersRead);
         if (!response.IsSuccessStatusCode)
         {

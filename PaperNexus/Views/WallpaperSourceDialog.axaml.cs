@@ -40,6 +40,12 @@ public partial class WallpaperSourceDialog : Window
             return;
         }
 
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var parsedUrl) || parsedUrl.Scheme != Uri.UriSchemeHttps)
+        {
+            ShowError("URL must use HTTPS.");
+            return;
+        }
+
         TestButtonText.Text = "Testing…";
         try
         {
@@ -86,6 +92,12 @@ public partial class WallpaperSourceDialog : Window
             return;
         }
 
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var parsedUrl) || parsedUrl.Scheme != Uri.UriSchemeHttps)
+        {
+            ShowError("URL must use HTTPS.");
+            return;
+        }
+
         if (string.IsNullOrEmpty(imageUrlJPath))
         {
             ShowError("Image URL JPath is required.");
@@ -100,6 +112,16 @@ public partial class WallpaperSourceDialog : Window
 
         if (string.IsNullOrEmpty(cron))
             cron = "0 * * * *";
+
+        try
+        {
+            Cronos.CronExpression.Parse(cron);
+        }
+        catch (Cronos.CronFormatException)
+        {
+            ShowError("Invalid cron expression.");
+            return;
+        }
 
         Result = new WallpaperSource
         {
