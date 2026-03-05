@@ -109,7 +109,7 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         title += " - " + Path.GetFileNameWithoutExtension(urlFile);
         var path = Path.Combine(settings.Download.Folder, title + ext);
         var fullPath = Path.GetFullPath(path);
-        var folder = Path.GetFullPath(settings.Download.Folder);
+        var folder = Path.GetFullPath(settings.Download.Folder).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         if (!fullPath.StartsWith(folder, StringComparison.OrdinalIgnoreCase))
         {
             Logger.LogWarning("Path traversal blocked: {Path}", fullPath);

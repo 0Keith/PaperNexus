@@ -197,10 +197,6 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
                 _logger.LogWarning("Update signed by unexpected subject: {Subject}", x509.Subject);
                 return false;
             }
-            using var chain = new X509Chain();
-            chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
-            chain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllFlags;
-            chain.Build(x509);
             return true;
         }
         catch (Exception ex)
