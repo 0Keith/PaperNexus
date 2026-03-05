@@ -82,6 +82,7 @@ public class AnnotationSettings
     public int FontSize { get; set; } = 18;
     public string Color { get; set; } = "#F5F5F5";
     public AnnotationPosition Position { get; set; } = AnnotationPosition.TopLeft;
+    public bool OutlineEnabled { get; set; } = true;
 }
 
 public class DownloadSettings

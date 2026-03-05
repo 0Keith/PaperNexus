@@ -163,6 +163,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private string _annotationColor = "#F5F5F5";
 
     [ObservableProperty]
+    private bool _annotationOutlineEnabled = true;
+
+    [ObservableProperty]
     private AnnotationPositionOption _selectedAnnotationPosition;
 
     [ObservableProperty]
@@ -291,6 +294,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
     partial void OnAnnotationFontFamilyChanged(string value) => TriggerSave();
     partial void OnAnnotationFontSizeChanged(int value) => TriggerSave();
     partial void OnAnnotationColorChanged(string value) => TriggerSave();
+    partial void OnAnnotationOutlineEnabledChanged(bool value) => TriggerSave();
     partial void OnSelectedAnnotationPositionChanged(AnnotationPositionOption value) => TriggerSave();
     partial void OnAutoUpdatesEnabledChanged(bool value) => TriggerSave();
     partial void OnSlideshowEnabledChanged(bool value) => TriggerSave();
@@ -345,6 +349,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             AnnotationFontFamily = settings.Annotation.FontFamily;
             AnnotationFontSize = settings.Annotation.FontSize;
             AnnotationColor = settings.Annotation.Color;
+            AnnotationOutlineEnabled = settings.Annotation.OutlineEnabled;
             SelectedAnnotationPosition = AnnotationPositionOptions.FirstOrDefault(
                 p => p.Position == settings.Annotation.Position) ?? AnnotationPositionOptions[0];
             RunOnStartup = settings.RunOnStartup;
@@ -715,6 +720,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             settings.Annotation.FontFamily = AnnotationFontFamily;
             settings.Annotation.FontSize = AnnotationFontSize;
             settings.Annotation.Color = AnnotationColor;
+            settings.Annotation.OutlineEnabled = AnnotationOutlineEnabled;
             settings.Annotation.Position = SelectedAnnotationPosition.Position;
             settings.RunOnStartup = RunOnStartup;
             settings.AutoUpdatesEnabled = AutoUpdatesEnabled;

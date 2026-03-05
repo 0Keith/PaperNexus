@@ -24,7 +24,7 @@ PaperNexus is an automated wallpaper rotation app for Windows that lives quietly
 - **Fetches wallpapers automatically** from online sources (Bing Daily and more)
 - **Rotates your desktop** on a schedule — cron expressions, intervals, you name it
 - **Runs silently** in the system tray, minding its own business
-- **Annotates wallpapers** with optional title overlays so you know what you're looking at
+- **Annotates wallpapers** with optional title overlays (with auto-contrasting outline) so you know what you're looking at
 - **Updates itself** in the background — no manual downloads required
 - **Starts with Windows** so your desktop is never boring, even on a Monday morning
 

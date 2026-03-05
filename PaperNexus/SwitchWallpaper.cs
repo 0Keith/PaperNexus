@@ -5,6 +5,7 @@ using SixLabors.Fonts;
 using BundledFonts = PaperNexus.Core.BundledFonts;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing.Processing;
+using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Processing;
@@ -117,6 +118,13 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
             var color = Color.WhiteSmoke;
             try { color = Color.ParseHex(annotation.Color); }
             catch { }
+            var pixel = color.ToPixel<Rgba32>();
+            var luminance = 0.299 * pixel.R + 0.587 * pixel.G + 0.114 * pixel.B;
+            var outlineColor = luminance > 127.5 ? Color.Black : Color.White;
+            var outlinePen = annotation.OutlineEnabled
+                ? Pens.Solid(outlineColor, Math.Max(1, fontSize / 9f))
+                : null;
+            var brush = new SolidBrush(color);
             var position = annotation.Position switch
             {
                 AnnotationPosition.TopRight => new PointF(img.Width - 125, 5),
@@ -127,7 +135,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
             var options = new RichTextOptions(font) { Origin = position };
             if (annotation.Position is AnnotationPosition.TopRight or AnnotationPosition.BottomRight)
                 options.HorizontalAlignment = HorizontalAlignment.Right;
-            o.DrawText(options, title, new SolidBrush(color), null);
+            o.DrawText(options, title, brush, outlinePen);
 
             if (settings.DebugMode)
             {
@@ -139,7 +147,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
                 var tsOptions = new RichTextOptions(tsFont) { Origin = new PointF(position.X, tsY) };
                 if (annotation.Position is AnnotationPosition.TopRight or AnnotationPosition.BottomRight)
                     tsOptions.HorizontalAlignment = HorizontalAlignment.Right;
-                o.DrawText(tsOptions, timestamp, new SolidBrush(color), null);
+                o.DrawText(tsOptions, timestamp, brush, outlinePen);
             }
         });
         using var ms = new MemoryStream();
