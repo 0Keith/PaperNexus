@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PaperNexus.Core;
+using BundledFonts = PaperNexus.Core.BundledFonts;
 
 namespace PaperNexus.ViewModels;
 
@@ -72,6 +73,24 @@ public partial class WallpaperConfigViewModel : ObservableObject
         new AnnotationPositionOption("Bottom Right", AnnotationPosition.BottomRight),
     };
 
+    public static readonly IReadOnlyList<string> FontFamilyOptions = BuildFontFamilyOptions();
+
+    private static List<string> BuildFontFamilyOptions()
+    {
+        var fonts = new List<string>(BundledFonts.Names);
+        string[] commonSystemFonts = [
+            "MS Gothic", "Arial", "Segoe UI", "Consolas",
+            "Georgia", "Times New Roman", "Verdana", "Tahoma",
+            "Courier New", "Impact", "Comic Sans MS",
+        ];
+        foreach (var name in commonSystemFonts)
+        {
+            if (SixLabors.Fonts.SystemFonts.TryGet(name, out _))
+                fonts.Add(name);
+        }
+        return fonts;
+    }
+
     [ObservableProperty]
     private string _folder;
 
@@ -135,7 +154,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private bool _annotateWallpaper = true;
 
     [ObservableProperty]
-    private string _annotationFontFamily = "MS Gothic";
+    private string _annotationFontFamily = "Cinzel";
 
     [ObservableProperty]
     private int _annotationFontSize = 18;

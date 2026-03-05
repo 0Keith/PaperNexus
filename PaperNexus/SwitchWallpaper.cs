@@ -2,6 +2,7 @@ using Cronos;
 using PaperNexus.Core;
 using Microsoft.Win32;
 using SixLabors.Fonts;
+using BundledFonts = PaperNexus.Core.BundledFonts;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.ImageSharp.Formats.Jpeg;
@@ -109,8 +110,8 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
             if (!settings.AnnotateWallpaper)
                 return;
             var annotation = settings.Annotation;
-            var fontFamily = SystemFonts.TryGet(annotation.FontFamily, out var family)
-                ? family : SystemFonts.Get("MS Gothic");
+            var fontFamily = BundledFonts.TryGet(annotation.FontFamily, out var family)
+                ? family : BundledFonts.Collection.Get("Cinzel");
             var fontSize = annotation.FontSize > 0 ? annotation.FontSize : 18;
             var font = new Font(fontFamily, fontSize);
             var color = Color.WhiteSmoke;

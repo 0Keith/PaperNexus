@@ -296,8 +296,9 @@
                                         IsVisible="{Binding AnnotateWallpaper}">
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="Font" FontSize="12" Opacity="0.6"/>
-                                    <TextBox Text="{Binding AnnotationFontFamily}"
-                                             Watermark="e.g. MS Gothic, Arial, Segoe UI"/>
+                                    <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.FontFamilyOptions}"
+                                                  SelectedItem="{Binding AnnotationFontFamily}"
+                                                  HorizontalAlignment="Stretch"/>
                                 </StackPanel>
                                 <Grid ColumnDefinitions="*,12,*" >
                                     <StackPanel Grid.Column="0" Spacing="4">

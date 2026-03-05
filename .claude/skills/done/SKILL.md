@@ -72,21 +72,23 @@ Complete the current feature branch: create a PR, review, merge, and clean up.
 
 22. **Update changelog**: Add entry under `## Unreleased` in `CHANGELOG.md` using [Keep a Changelog](https://keepachangelog.com) conventions. Match existing format. Skip if no changelog exists. Commit and push.
 
-23. **Compact docs**: Check character counts of `CLAUDE.md` (limit: 15,000 chars) and this skill file `.claude/skills/done/SKILL.md` (limit: 10,000 chars). If either exceeds its limit, compact it — remove redundancy, tighten wording, and consolidate without losing meaning. Commit and push if changes were made.
+23. **Sync this skill**: Reflect on the `/done` run. If any step was ambiguous, wrong, missing, or could be improved based on what happened, update this file (`SKILL.md`). Examples: a step that always gets skipped, a missing edge case, a better command, or a reordering that would save time. Commit and push if changes were made.
 
-24. **Update PR description**: `gh pr edit --body` to reflect final state of all changes. Keep `## Summary` and `## Test plan` format.
+24. **Compact docs**: Check character counts of all `.md` files loaded into context (`CLAUDE.md`, skill files, memory files). Each file must stay under **3% of the token context window**. If any file exceeds this, compact it — remove redundancy, tighten wording, and consolidate without losing meaning. Commit and push if changes were made.
 
-25. **Wait for CI**: Poll `gh pr checks`. If failures, fix, commit, push, and re-poll.
+25. **Update PR description**: `gh pr edit --body` to reflect final state of all changes. Keep `## Summary` and `## Test plan` format.
 
-26. **Merge**: `gh pr merge --squash --delete-branch`. Fallback to `--merge`, then `--rebase`.
+26. **Wait for CI**: Poll `gh pr checks`. If failures, fix, commit, push, and re-poll.
 
-27. **Clean up locally**: Switch to default branch, pull, delete feature branch. Prune remotes (`git fetch --prune`) and delete local branches merged to default. Report cleaned branches.
+27. **Merge**: `gh pr merge --squash --delete-branch`. Fallback to `--merge`, then `--rebase`.
 
-28. **Verify deploy**: Check for CI/CD on default branch (`gh run list --branch <default> --limit 1`). Watch with `gh run watch`. On failure: read logs, create fix branch, restart from step 1. Skip if no deploy workflow.
+28. **Clean up locally**: Switch to default branch, pull, delete feature branch. Prune remotes (`git fetch --prune`) and delete local branches merged to default. Report cleaned branches.
 
-29. **Report**: Summarize what merged, review fixes applied, and the PR URL.
+29. **Verify deploy**: Check for CI/CD on default branch (`gh run list --branch <default> --limit 1`). Watch with `gh run watch`. On failure: read logs, create fix branch, restart from step 1. Skip if no deploy workflow.
 
-30. **Celebrate**: Web search for a funny "job's done" meme/gif and include the image URL.
+30. **Report**: Summarize what merged, review fixes applied, and the PR URL.
+
+31. **Celebrate**: Web search for a funny "job's done" meme/gif and include the image URL.
 
 ## Notes
 
