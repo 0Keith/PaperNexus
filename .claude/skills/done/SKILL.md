@@ -72,7 +72,7 @@ Complete the current feature branch: create a PR, review, merge, and clean up.
 
 20. **Report**: Summarize what merged, review fixes applied, and the PR URL.
 
-21. **Celebrate**: Web search for a funny "job's done" meme/gif and include the image URL.
+21. **Celebrate**: Web search for a funny "job's done" meme/gif and include the image or convert it to ASCII art.
 
 ## Notes
 
