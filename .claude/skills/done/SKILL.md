@@ -30,65 +30,49 @@ Complete the current feature branch: create a PR, review, merge, and clean up.
    - `tests` — test files
    Create missing labels with `gh label create`. Skip if nothing matches.
 
-9. **Review architecture**: Check the diff (`gh pr diff`) for:
-   - Violations of patterns in `CLAUDE.md`; wrong dependency direction; circular refs
-   - Unnecessary coupling; concurrency/thread-safety issues; SRP violations
-   - Inconsistent public API conventions
-   Post concerns as batched PR review comments. Note if clean.
+9. **Parallel reviews**: Launch **all five** review agents simultaneously using the Agent tool. Each agent receives the PR diff (`gh pr diff`) and `CLAUDE.md` as context. Each agent is **read-only** — it reports findings but does not edit files. Use `subagent_type: "general-purpose"` for each.
 
-10. **Fix architecture issues**: Commit and push any fixes.
+   Launch these agents in a **single message** with five parallel Agent tool calls:
 
-11. **Review security**: Check the diff for:
-    - Injection (command, path traversal, SQL), hardcoded secrets, unsafe deserialization
-    - HTTP where HTTPS expected, overly broad permissions, unsafe FFI/interop
-    - Vulnerable deps (use `dotnet list package --vulnerable`, `npm audit`, `cargo audit`, etc.)
-    Post concerns as batched PR review comments. Note if clean.
+   - **Architecture review agent**: "Review this PR diff for architecture issues: violations of patterns in `CLAUDE.md`; wrong dependency direction; circular refs; unnecessary coupling; concurrency/thread-safety issues; SRP violations; inconsistent public API conventions. Return a list of findings with file paths and line numbers, or state 'No architecture issues found.'"
 
-12. **Fix security issues**: Commit and push any fixes.
+   - **Security review agent**: "Review this PR diff for security issues: injection (command, path traversal, SQL); hardcoded secrets; unsafe deserialization; HTTP where HTTPS expected; overly broad permissions; unsafe FFI/interop. Also run the appropriate vulnerability scanner (`dotnet list package --vulnerable`, `npm audit`, `cargo audit`, etc.). Return a list of findings with file paths and line numbers, or state 'No security issues found.'"
 
-13. **Review performance**: Check the diff for:
-    - Unnecessary allocations/copies, N+1 patterns, redundant I/O
-    - Blocking async calls, expensive ops in hot loops, missing caching
-    - Algorithmic inefficiency (O(n²) where O(n log n) is possible)
-    Post concerns as batched PR review comments. Note if clean.
+   - **Performance review agent**: "Review this PR diff for performance issues: unnecessary allocations/copies; N+1 patterns; redundant I/O; blocking async calls; expensive ops in hot loops; missing caching; algorithmic inefficiency (O(n²) where O(n log n) is possible). Return a list of findings with file paths and line numbers, or state 'No performance issues found.'"
 
-14. **Fix performance issues**: Commit and push any fixes.
+   - **Test coverage review agent**: "Review this PR diff for test coverage gaps: new public APIs without tests; uncovered edge cases; existing tests that no longer match modified behavior. Return a list of missing tests with file paths, or state 'No test coverage issues found.'"
 
-15. **Review test coverage**: Check that new public APIs have tests, edge cases are covered, and existing tests still match modified behavior. Write missing tests.
-    Post concerns as PR review comments. Write tests if needed, commit, and push.
+   - **Code quality review agent**: "Review this PR diff for code quality issues: bugs; style violations; missing error handling; dead code; debug leftovers; TODOs; naming issues. Return a list of findings with file paths and line numbers, or state 'No code quality issues found.'"
 
-16. **Fix test coverage**: Run the test suite. Commit and push any new/updated tests.
+10. **Post review comments**: Collect results from all five agents. For each agent that found issues, post a single batched PR review comment grouping findings by category. Note which reviews were clean.
 
-17. **Self-review**: Check the full diff for bugs, style violations, missing error handling, dead code, debug leftovers, TODOs, and naming issues.
-    Post concerns as batched PR review comments. Note if clean.
+11. **Fix all review issues**: Address findings from all agents. Write missing tests. Commit and push fixes. Re-run build and tests until clean.
 
-18. **Fix review issues**: Commit and push any fixes.
+13. **Parallel doc syncs**: Launch **three** agents simultaneously in a **single message**. Each agent reads the PR diff and updates its target file if needed, then commits and pushes. Use `subagent_type: "general-purpose"` for each.
 
-19. **Simplify**: Run `/simplify` for reuse, quality, and efficiency. Apply fixes, commit, and push.
+    - **CLAUDE.md sync agent**: "Check if project structure, patterns, or architectural decisions changed in this PR. If so, update `CLAUDE.md` accordingly. Commit and push if changes were made. Skip if nothing changed."
 
-20. **Sync CLAUDE.md**: Update if project structure, patterns, or architectural decisions changed. Commit and push.
+    - **README.md sync agent**: "Check if user-facing behavior changed in this PR. If so, update `README.md` to reflect the changes — match the existing tone (keep it fun and witty). Commit and push if changes were made. Skip if no README exists or nothing changed."
 
-21. **Sync README.md**: Update if user-facing behavior changed. Match the existing tone — keep it fun and witty. Skip if no README exists. Commit and push.
+14. **Parallel maintenance**: Launch **two** agents simultaneously in a **single message**. Use `subagent_type: "general-purpose"` for each.
 
-22. **Update changelog**: Add entry under `## Unreleased` in `CHANGELOG.md` using [Keep a Changelog](https://keepachangelog.com) conventions. Match existing format. Skip if no changelog exists. Commit and push.
+    - **Skill sync agent**: "Reflect on this `/done` run. If any step was ambiguous, wrong, missing, or could be improved, update `.claude/skills/done/SKILL.md`. Examples: a step that always gets skipped, a missing edge case, a better command, or a reordering that would save time. Commit and push if changes were made."
 
-23. **Sync this skill**: Reflect on the `/done` run. If any step was ambiguous, wrong, missing, or could be improved based on what happened, update this file (`SKILL.md`). Examples: a step that always gets skipped, a missing edge case, a better command, or a reordering that would save time. Commit and push if changes were made.
+    - **Compact docs agent**: "Check character counts of all `.md` files loaded into context (`CLAUDE.md`, skill files, memory files). Each file must stay under **3% of the token context window**. If any file exceeds this, compact it — remove redundancy, tighten wording, and consolidate without losing meaning. Commit and push if changes were made."
 
-24. **Compact docs**: Check character counts of all `.md` files loaded into context (`CLAUDE.md`, skill files, memory files). Each file must stay under **3% of the token context window**. If any file exceeds this, compact it — remove redundancy, tighten wording, and consolidate without losing meaning. Commit and push if changes were made.
+15. **Update PR description**: `gh pr edit --body` to reflect final state of all changes. Keep `## Summary` and `## Test plan` format.
 
-25. **Update PR description**: `gh pr edit --body` to reflect final state of all changes. Keep `## Summary` and `## Test plan` format.
+16. **Wait for CI**: Poll `gh pr checks`. If failures, fix, commit, push, and re-poll.
 
-26. **Wait for CI**: Poll `gh pr checks`. If failures, fix, commit, push, and re-poll.
+17. **Merge**: `gh pr merge --squash --delete-branch`. Fallback to `--merge`, then `--rebase`.
 
-27. **Merge**: `gh pr merge --squash --delete-branch`. Fallback to `--merge`, then `--rebase`.
+18. **Clean up locally**: Switch to default branch, pull, delete feature branch. Prune remotes (`git fetch --prune`) and delete local branches merged to default. Report cleaned branches.
 
-28. **Clean up locally**: Switch to default branch, pull, delete feature branch. Prune remotes (`git fetch --prune`) and delete local branches merged to default. Report cleaned branches.
+19. **Verify deploy**: Check for CI/CD on default branch (`gh run list --branch <default> --limit 1`). Watch with `gh run watch`. On failure: read logs, create fix branch, restart from step 1. Skip if no deploy workflow.
 
-29. **Verify deploy**: Check for CI/CD on default branch (`gh run list --branch <default> --limit 1`). Watch with `gh run watch`. On failure: read logs, create fix branch, restart from step 1. Skip if no deploy workflow.
+20. **Report**: Summarize what merged, review fixes applied, and the PR URL.
 
-30. **Report**: Summarize what merged, review fixes applied, and the PR URL.
-
-31. **Celebrate**: Web search for a funny "job's done" meme/gif and include the image URL.
+21. **Celebrate**: Web search for a funny "job's done" meme/gif and include the image URL.
 
 ## Notes
 
