@@ -40,11 +40,8 @@ public partial class WallpaperSourceDialog : Window
             return;
         }
 
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var parsedUrl) || parsedUrl.Scheme != Uri.UriSchemeHttps)
-        {
-            ShowError("URL must use HTTPS.");
+        if (!ValidateHttpsUrl(url))
             return;
-        }
 
         TestButtonText.Text = "Testing…";
         try
@@ -92,11 +89,8 @@ public partial class WallpaperSourceDialog : Window
             return;
         }
 
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var parsedUrl) || parsedUrl.Scheme != Uri.UriSchemeHttps)
-        {
-            ShowError("URL must use HTTPS.");
+        if (!ValidateHttpsUrl(url))
             return;
-        }
 
         if (string.IsNullOrEmpty(imageUrlJPath))
         {
@@ -159,5 +153,15 @@ public partial class WallpaperSourceDialog : Window
         ErrorText.IsVisible = false;
         TestResultText.Text = message;
         TestResultText.IsVisible = true;
+    }
+
+    private bool ValidateHttpsUrl(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var parsed) || parsed.Scheme != Uri.UriSchemeHttps)
+        {
+            ShowError("URL must use HTTPS.");
+            return false;
+        }
+        return true;
     }
 }

@@ -189,9 +189,8 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         try
         {
 #pragma warning disable SYSLIB0057 // No non-obsolete API for Authenticode cert extraction yet
-            var cert = X509Certificate2.CreateFromSignedFile(filePath);
+            using var x509 = X509Certificate2.CreateFromSignedFile(filePath);
 #pragma warning restore SYSLIB0057
-            using var x509 = new X509Certificate2(cert);
             if (!x509.Subject.Contains("CN=PaperNexus", StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogWarning("Update signed by unexpected subject: {Subject}", x509.Subject);

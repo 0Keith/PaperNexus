@@ -673,14 +673,17 @@ public partial class WallpaperConfigViewModel : ObservableObject
                 SlideshowScheduleMode.IntervalHours => $"0 */{SlideshowIntervalHours} * * *",
                 _ => SlideshowCronExpression,
             };
-            try
+            if (SlideshowScheduleMode == SlideshowScheduleMode.CronExpression)
             {
-                CronExpression.Parse(cronExpression);
-            }
-            catch (CronFormatException)
-            {
-                await ShowTransientStatusAsync("✗ Invalid cron expression.");
-                return;
+                try
+                {
+                    CronExpression.Parse(cronExpression);
+                }
+                catch (CronFormatException)
+                {
+                    await ShowTransientStatusAsync("✗ Invalid cron expression.");
+                    return;
+                }
             }
             settings.Slideshow.CronExpression = cronExpression;
             settings.Download.ResolutionWidth = SelectedResolution.Width;

@@ -9,6 +9,11 @@ internal interface IDownloadWallpapers
 
 internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IAddHostedSingleton<IDownloadWallpapers>
 {
+    private static readonly HashSet<char> InvalidFileNameChars = Path.GetInvalidFileNameChars()
+        .Concat(Path.GetInvalidPathChars())
+        .Append('/').Append('\\')
+        .ToHashSet();
+
     private readonly HttpWallpaperSourceService _sourceService;
 
     public DownloadWallpapers(ILogger<DownloadWallpapers> logger, HttpWallpaperSourceService sourceService) : base(logger)
@@ -94,12 +99,8 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
 
     public async Task Download(WallpaperImage data, WallpaperNexusSettings settings)
     {
-        var invalidChars = Path.GetInvalidFileNameChars()
-            .Concat(Path.GetInvalidPathChars())
-            .Append('/').Append('\\')
-            .ToHashSet();
         var title = new string(data.Title
-            .Where(c => !invalidChars.Contains(c))
+            .Where(c => !InvalidFileNameChars.Contains(c))
             .Take(200)
             .ToArray());
         var urlFile = data.ImageUrl.Split('/').Last();
