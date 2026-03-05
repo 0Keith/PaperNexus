@@ -78,7 +78,7 @@ public enum AnnotationPosition
 
 public class AnnotationSettings
 {
-    public string FontFamily { get; set; } = "MS Gothic";
+    public string FontFamily { get; set; } = BundledFonts.DefaultFontFamily;
     public int FontSize { get; set; } = 18;
     public string Color { get; set; } = "#F5F5F5";
     public AnnotationPosition Position { get; set; } = AnnotationPosition.TopLeft;

@@ -34,7 +34,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <AvaloniaResource Include="Assets\**" />
+    <AvaloniaResource Include="Assets\**" Exclude="Assets\*.ttf;Assets\*-OFL.txt" />
+    <EmbeddedResource Include="Assets\Cinzel.ttf" LogicalName="PaperNexus.Cinzel.ttf" />
   </ItemGroup>
 
 </Project>
