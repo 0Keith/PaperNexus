@@ -59,7 +59,7 @@ Avalonia 11.3.12, CommunityToolkit.Mvvm 8.4.0, Cronos 0.11.1, Microsoft.Extensio
 - `SlideshowSettings` — schedule mode, order, fill style
 - `DownloadSettings` — folder path, resolution, retention days
 - `List<WallpaperSource>` — name, URL, cron, enabled (default: Bing Daily)
-- `AnnotationSettings` — font (Cinzel, bundled), size (18), color (#F5F5F5), position
+- `AnnotationSettings` — font (Cinzel, bundled), size (18), color (#F5F5F5), position, outline (OutlineEnabled)
 - `FavoriteWallpapers`, window position/size, `RunOnStartup`, `CurrentWallpaperPath`
 
 ## Code Style
