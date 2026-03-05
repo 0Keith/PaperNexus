@@ -16,7 +16,7 @@ Complete the current feature branch: create a PR, review, merge, and clean up.
 
 4. **Build and test locally**: Auto-detect the build system from project files (`CLAUDE.md`, `package.json`, `Cargo.toml`, `Makefile`, etc.) and run build + test commands. Fix warnings in changed files and any test failures. Commit and re-run until clean.
 
-5. **Review code comments**: Read all changed files (`git diff <default>...HEAD --name-only`). Ensure non-obvious logic has concise comments explaining *why*, not *what*. Add comments between logical blocks of code to describe intent — always with a blank line or opening brace before the comment for readability. Remove stale or misleading comments. Don't over-comment trivial code. Commit if changes were made.
+5. **Review code comments**: Read all changed files (`git diff <default>...HEAD --name-only`). Ensure non-obvious logic has concise comments explaining *why*, not *what*. Add comments between logical blocks of code to describe intent — always with a blank line or opening brace before the comment for readability. Remove stale or misleading comments. Don't over-comment trivial code. Stage and commit with message "docs: improve code comments" if changes were made.
 
 6. **Check for existing PR**: `gh pr list --head <branch>`. Reuse if one exists (skip to step 8).
 
