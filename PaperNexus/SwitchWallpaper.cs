@@ -135,7 +135,9 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
             var options = new RichTextOptions(font) { Origin = position };
             if (annotation.Position is AnnotationPosition.TopRight or AnnotationPosition.BottomRight)
                 options.HorizontalAlignment = HorizontalAlignment.Right;
-            o.DrawText(options, title, brush, outlinePen);
+            if (outlinePen is not null)
+                o.DrawText(options, title, null, outlinePen);
+            o.DrawText(options, title, brush, null);
 
             if (settings.DebugMode)
             {
@@ -147,7 +149,9 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
                 var tsOptions = new RichTextOptions(tsFont) { Origin = new PointF(position.X, tsY) };
                 if (annotation.Position is AnnotationPosition.TopRight or AnnotationPosition.BottomRight)
                     tsOptions.HorizontalAlignment = HorizontalAlignment.Right;
-                o.DrawText(tsOptions, timestamp, brush, outlinePen);
+                if (outlinePen is not null)
+                    o.DrawText(tsOptions, timestamp, null, outlinePen);
+                o.DrawText(tsOptions, timestamp, brush, null);
             }
         });
         using var ms = new MemoryStream();
