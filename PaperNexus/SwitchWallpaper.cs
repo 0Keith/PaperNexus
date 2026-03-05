@@ -121,7 +121,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
             var pixel = color.ToPixel<Rgba32>();
             var outlineColor = pixel.R + pixel.G + pixel.B > 382 ? Color.Black : Color.White;
             var outlinePen = annotation.OutlineEnabled
-                ? Pens.Solid(outlineColor, Math.Max(1, fontSize / 9f))
+                ? Pens.Solid(outlineColor, Math.Max(1, fontSize / 17f))
                 : null;
             var brush = new SolidBrush(color);
             var position = annotation.Position switch
@@ -192,13 +192,13 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
         // control how Windows positions the wallpaper image.
         var (wallpaperStyle, tileWallpaper) = style switch
         {
-            WallpaperFillStyle.Tile    => ("0", "1"),
-            WallpaperFillStyle.Center  => ("0", "0"),
+            WallpaperFillStyle.Tile => ("0", "1"),
+            WallpaperFillStyle.Center => ("0", "0"),
             WallpaperFillStyle.Stretch => ("2", "0"),
-            WallpaperFillStyle.Fit     => ("6", "0"),
-            WallpaperFillStyle.Fill    => ("10", "0"),
-            WallpaperFillStyle.Span    => ("22", "0"),
-            _                          => ("10", "0"),
+            WallpaperFillStyle.Fit => ("6", "0"),
+            WallpaperFillStyle.Fill => ("10", "0"),
+            WallpaperFillStyle.Span => ("22", "0"),
+            _ => ("10", "0"),
         };
 
         using var key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", writable: true);
