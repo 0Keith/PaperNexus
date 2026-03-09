@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Linq;
+using CronExpressionDescriptor;
 using Avalonia;
 using Cronos;
 using Avalonia.Media;
@@ -26,6 +28,16 @@ public record SlideshowOrderOption(string Label, string Description, SlideshowOr
 }
 
 public record AnnotationPositionOption(string Label, string Description, AnnotationPosition Position)
+{
+    public override string ToString() => Label;
+}
+
+public record ScheduleModeOption(string Label, SlideshowScheduleMode Mode)
+{
+    public override string ToString() => Label;
+}
+
+public record IntervalTypeOption(string Label, IntervalType Type, double Minimum, double Maximum)
 {
     public override string ToString() => Label;
 }
@@ -73,6 +85,23 @@ public partial class WallpaperConfigViewModel : ObservableObject
         new AnnotationPositionOption("Bottom Right", "Show annotation in the bottom-right corner of the wallpaper", AnnotationPosition.BottomRight),
     };
 
+    public static readonly IReadOnlyList<ScheduleModeOption> ScheduleModeOptions = new[]
+    {
+        new ScheduleModeOption("Interval",        SlideshowScheduleMode.Interval),
+        new ScheduleModeOption("Cron expression", SlideshowScheduleMode.CronExpression),
+    };
+
+    public static readonly IReadOnlyList<IntervalTypeOption> IntervalTypeOptions = new[]
+    {
+        new IntervalTypeOption("Seconds", IntervalType.Seconds,  1, 59),
+        new IntervalTypeOption("Minutes", IntervalType.Minutes,  1, 59),
+        new IntervalTypeOption("Hours",   IntervalType.Hours,    1, 23),
+        new IntervalTypeOption("Days",    IntervalType.Days,     1, 28),
+        new IntervalTypeOption("Weeks",   IntervalType.Weeks,    1,  4),
+        new IntervalTypeOption("Months",  IntervalType.Months,   1, 12),
+        new IntervalTypeOption("Years",   IntervalType.Years,    1,  1),
+    };
+
     public static readonly IReadOnlyList<string> FontFamilyOptions = BuildFontFamilyOptions();
 
     // Builds the font picker list: bundled fonts first, then curated system fonts
@@ -100,15 +129,12 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private string _slideshowCronExpression;
 
     [ObservableProperty]
-    private int _slideshowIntervalMinutes;
+    private double? _slideshowInterval;
 
-    [ObservableProperty]
-    private int _slideshowIntervalHours;
-
+    private IntervalTypeOption _selectedIntervalType;
     private SlideshowScheduleMode _slideshowScheduleMode;
 
-    // Notifies the derived boolean mode properties so XAML radio buttons re-evaluate,
-    // then persists the change immediately.
+    // Drives both the dropdown selection and the conditional input panels beneath it.
     public SlideshowScheduleMode SlideshowScheduleMode
     {
         get => _slideshowScheduleMode;
@@ -116,30 +142,63 @@ public partial class WallpaperConfigViewModel : ObservableObject
         {
             if (SetProperty(ref _slideshowScheduleMode, value))
             {
-                OnPropertyChanged(nameof(IsIntervalMinutesMode));
-                OnPropertyChanged(nameof(IsIntervalHoursMode));
+                OnPropertyChanged(nameof(SelectedScheduleMode));
+                OnPropertyChanged(nameof(IsIntervalMode));
                 OnPropertyChanged(nameof(IsCronMode));
+                OnPropertyChanged(nameof(ScheduleDescription));
                 TriggerSave();
             }
         }
     }
 
-    public bool IsIntervalMinutesMode
+    public ScheduleModeOption SelectedScheduleMode
     {
-        get => _slideshowScheduleMode == SlideshowScheduleMode.IntervalMinutes;
-        set { if (value) SlideshowScheduleMode = SlideshowScheduleMode.IntervalMinutes; }
+        get => ScheduleModeOptions.FirstOrDefault(o => o.Mode == _slideshowScheduleMode) ?? ScheduleModeOptions[0];
+        set { if (value is not null) SlideshowScheduleMode = value.Mode; }
     }
 
-    public bool IsIntervalHoursMode
+    public IntervalTypeOption SelectedIntervalType
     {
-        get => _slideshowScheduleMode == SlideshowScheduleMode.IntervalHours;
-        set { if (value) SlideshowScheduleMode = SlideshowScheduleMode.IntervalHours; }
+        get => _selectedIntervalType;
+        set
+        {
+            if (SetProperty(ref _selectedIntervalType, value) && value is not null)
+            {
+                // Clamp current value to the new type's range
+                if (SlideshowInterval is null || SlideshowInterval < value.Minimum) SlideshowInterval = value.Minimum;
+                else if (SlideshowInterval > value.Maximum) SlideshowInterval = value.Maximum;
+                OnPropertyChanged(nameof(IntervalMinimum));
+                OnPropertyChanged(nameof(IntervalMaximum));
+                OnPropertyChanged(nameof(ScheduleDescription));
+                TriggerSave();
+            }
+        }
     }
 
-    public bool IsCronMode
+    public decimal IntervalMinimum => (decimal)(_selectedIntervalType?.Minimum ?? 1);
+    public decimal IntervalMaximum => (decimal)(_selectedIntervalType?.Maximum ?? 59);
+
+    public bool IsIntervalMode => _slideshowScheduleMode == SlideshowScheduleMode.Interval;
+    public bool IsCronMode => _slideshowScheduleMode == SlideshowScheduleMode.CronExpression;
+
+    // Shows a human-readable description of the generated cron expression for both interval and cron modes.
+    public string ScheduleDescription
     {
-        get => _slideshowScheduleMode == SlideshowScheduleMode.CronExpression;
-        set { if (value) SlideshowScheduleMode = SlideshowScheduleMode.CronExpression; }
+        get
+        {
+            if (_slideshowScheduleMode == SlideshowScheduleMode.CronExpression
+                && string.IsNullOrWhiteSpace(SlideshowCronExpression))
+                return "Enter a cron expression, e.g. 0 9 * * 1-5";
+
+            try
+            {
+                return ExpressionDescriptor.GetDescription(BuildSlideshowCronExpression());
+            }
+            catch
+            {
+                return "Invalid  ·  Fields: minute  hour  day  month  weekday\nExample: 0 9 * * 1-5  (9:00 AM on weekdays)";
+            }
+        }
     }
 
     [ObservableProperty]
@@ -228,7 +287,6 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
     private bool _isLoading;
     private CancellationTokenSource _statusCts = new();
-    private CancellationTokenSource _galleryCts = new();
 
 
     // Initialises all observable properties to sensible defaults and resolves
@@ -238,9 +296,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
     {
         _folder = string.Empty;
         _slideshowCronExpression = string.Empty;
-        _slideshowIntervalMinutes = 30;
-        _slideshowIntervalHours = 1;
-        _slideshowScheduleMode = SlideshowScheduleMode.CronExpression;
+        _slideshowInterval = 30;
+        _selectedIntervalType = IntervalTypeOptions[1]; // Minutes
+        _slideshowScheduleMode = SlideshowScheduleMode.Interval;
         _statusMessage = string.Empty;
         _statusForeground = Brushes.White;
         _currentWallpaperPath = string.Empty;
@@ -320,9 +378,22 @@ public partial class WallpaperConfigViewModel : ObservableObject
     }
 
     partial void OnFolderChanged(string value) => TriggerSave();
-    partial void OnSlideshowCronExpressionChanged(string value) => TriggerSave();
-    partial void OnSlideshowIntervalMinutesChanged(int value) => TriggerSave();
-    partial void OnSlideshowIntervalHoursChanged(int value) => TriggerSave();
+    partial void OnSlideshowCronExpressionChanged(string value)
+    {
+        OnPropertyChanged(nameof(ScheduleDescription));
+        TriggerSave();
+    }
+
+    partial void OnSlideshowIntervalChanged(double? value)
+    {
+        if (value is null)
+        {
+            SlideshowInterval = _selectedIntervalType?.Minimum ?? 1;
+            return;
+        }
+        OnPropertyChanged(nameof(ScheduleDescription));
+        TriggerSave();
+    }
     partial void OnSelectedResolutionChanged(ResolutionOption value) => TriggerSave();
     partial void OnSelectedFillStyleChanged(FillStyleOption value) => TriggerSave();
     partial void OnSelectedSlideshowOrderChanged(SlideshowOrderOption value) => TriggerSave();
@@ -378,11 +449,15 @@ public partial class WallpaperConfigViewModel : ObservableObject
             // then raise property-changed for all derived mode flags manually.
             _slideshowScheduleMode = settings.Slideshow.ScheduleMode;
             OnPropertyChanged(nameof(SlideshowScheduleMode));
-            OnPropertyChanged(nameof(IsIntervalMinutesMode));
-            OnPropertyChanged(nameof(IsIntervalHoursMode));
+            OnPropertyChanged(nameof(SelectedScheduleMode));
+            OnPropertyChanged(nameof(IsIntervalMode));
             OnPropertyChanged(nameof(IsCronMode));
-            SlideshowIntervalMinutes = settings.Slideshow.IntervalMinutes > 0 ? settings.Slideshow.IntervalMinutes : 30;
-            SlideshowIntervalHours = settings.Slideshow.IntervalHours > 0 ? settings.Slideshow.IntervalHours : 1;
+            _selectedIntervalType = IntervalTypeOptions.FirstOrDefault(o => o.Type == settings.Slideshow.IntervalType)
+                ?? IntervalTypeOptions[1]; // Minutes
+            OnPropertyChanged(nameof(SelectedIntervalType));
+            OnPropertyChanged(nameof(IntervalMinimum));
+            OnPropertyChanged(nameof(IntervalMaximum));
+            SlideshowInterval = settings.Slideshow.Interval > 0 ? settings.Slideshow.Interval : 30;
             SlideshowCronExpression = settings.Slideshow.CronExpression;
             // Match the stored resolution/fill/order values to the corresponding option objects;
             // fall back to index 0 if no matching option is found (e.g. unknown enum value after upgrade).
@@ -404,7 +479,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             RunOnStartup = settings.RunOnStartup;
             AutoUpdatesEnabled = settings.AutoUpdatesEnabled;
             SlideshowEnabled = settings.Slideshow.Enabled;
-            DebugMode = settings.DebugMode;
+            DebugMode = settings.DebugMode || Program.IsDebugMode;
             MinimizeToTray = settings.MinimizeToTray;
             FavoritePriorityEnabled = settings.Slideshow.FavoritePriorityEnabled;
             FavoritePriorityWeight = settings.Slideshow.FavoritePriorityWeight > 0 ? settings.Slideshow.FavoritePriorityWeight : 3;
@@ -424,7 +499,6 @@ public partial class WallpaperConfigViewModel : ObservableObject
             _isLoading = false;
         }
 
-        _ = LoadGallery();
     }
 
     [RelayCommand]
@@ -816,21 +890,15 @@ public partial class WallpaperConfigViewModel : ObservableObject
             var settings = await WallpaperNexusSettings.LoadAsync();
             settings.Download.Folder = Folder;
             settings.Slideshow.ScheduleMode = SlideshowScheduleMode;
-            settings.Slideshow.IntervalMinutes = SlideshowIntervalMinutes;
-            settings.Slideshow.IntervalHours = SlideshowIntervalHours;
-            // Derive the actual cron expression from whichever scheduling mode is active
-            var cronExpression = SlideshowScheduleMode switch
-            {
-                SlideshowScheduleMode.IntervalMinutes => $"*/{SlideshowIntervalMinutes} * * * *",
-                SlideshowScheduleMode.IntervalHours => $"0 */{SlideshowIntervalHours} * * *",
-                _ => SlideshowCronExpression,
-            };
+            settings.Slideshow.Interval = SlideshowInterval ?? _selectedIntervalType?.Minimum ?? 1;
+            settings.Slideshow.IntervalType = _selectedIntervalType?.Type ?? IntervalType.Minutes;
+            var cronExpression = BuildSlideshowCronExpression();
             // Only validate the expression when the user typed it directly — synthesised expressions are always valid
             if (SlideshowScheduleMode == SlideshowScheduleMode.CronExpression)
             {
                 try
                 {
-                    CronExpression.Parse(cronExpression);
+                    ParseCronExpression(cronExpression);
                 }
                 catch (CronFormatException)
                 {
@@ -885,9 +953,6 @@ public partial class WallpaperConfigViewModel : ObservableObject
         _statusCts.Cancel();
         _statusCts.Dispose();
 
-        _galleryCts.Cancel();
-        _galleryCts.Dispose();
-
         // Free the preview bitmap's unmanaged memory
         var image = PreviewImage;
         PreviewImage = null;
@@ -928,12 +993,6 @@ public partial class WallpaperConfigViewModel : ObservableObject
     {
         try
         {
-            // Cancel an ongoing thumbnail load before clearing GalleryItems to avoid
-            // a race where LoadThumbnailsAsync tries to set Thumbnail on a cleared item.
-            _galleryCts.Cancel();
-            _galleryCts = new CancellationTokenSource();
-            var ct = _galleryCts.Token;
-
             var settings = await WallpaperNexusSettings.LoadAsync();
             var folder = settings.Download.Folder;
             if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder))
@@ -969,8 +1028,6 @@ public partial class WallpaperConfigViewModel : ObservableObject
                     GalleryDelete));
             }
 
-            // Fire thumbnail loading on a background thread; ct allows it to be cancelled on re-load
-            _ = LoadThumbnailsAsync(GalleryItems.ToList(), ct);
             await ShowTransientStatusAsync($"✓ {files.Count} image{(files.Count == 1 ? "" : "s")} loaded.");
         }
         catch (Exception ex)
@@ -979,25 +1036,6 @@ public partial class WallpaperConfigViewModel : ObservableObject
         }
     }
 
-    // Sequentially loads thumbnails for each gallery item, checking cancellation between items
-    // so the loop exits promptly when the gallery is reloaded. The semaphore inside
-    // GalleryItem.LoadThumbnailAsync caps concurrent image decodes to 4 at a time.
-    private static async Task LoadThumbnailsAsync(List<GalleryItem> items, CancellationToken ct)
-    {
-        foreach (var item in items)
-        {
-            if (ct.IsCancellationRequested)
-                return;
-            var bmp = await GalleryItem.LoadThumbnailAsync(item.FilePath);
-            if (ct.IsCancellationRequested)
-            {
-                // Cancelled after the decode finished — dispose the bitmap to avoid leaking
-                bmp?.Dispose();
-                return;
-            }
-            await Dispatcher.UIThread.InvokeAsync(() => item.Thumbnail = bmp);
-        }
-    }
 
     private async Task GallerySetAsCurrent(GalleryItem item)
     {
@@ -1108,5 +1146,39 @@ public partial class WallpaperConfigViewModel : ObservableObject
         {
             await ShowTransientStatusAsync($"✗ Error deleting wallpaper: {ex.Message}");
         }
+    }
+
+    // Derives a cron expression from the current schedule mode, interval, and interval type.
+    private string BuildSlideshowCronExpression()
+    {
+        if (_slideshowScheduleMode == SlideshowScheduleMode.Interval)
+            return BuildIntervalCron((int)(SlideshowInterval ?? _selectedIntervalType?.Minimum ?? 1), _selectedIntervalType?.Type ?? IntervalType.Minutes);
+
+        return SlideshowCronExpression;
+    }
+
+    // Converts a numeric interval and unit type to a valid cron expression.
+    // All field values are clamped to their legal ranges.
+    internal static string BuildIntervalCron(int interval, IntervalType type)
+    {
+        var n = Math.Max(1, interval);
+        return type switch
+        {
+            IntervalType.Seconds => $"*/{Math.Min(n, 59)} * * * * *",
+            IntervalType.Minutes => $"*/{Math.Min(n, 59)} * * * *",
+            IntervalType.Hours   => $"0 */{Math.Min(n, 23)} * * *",
+            IntervalType.Days    => $"0 0 */{Math.Min(n, 28)} * *",
+            IntervalType.Weeks   => $"0 0 */{Math.Min(n * 7, 28)} * *",
+            IntervalType.Months  => $"0 0 1 */{Math.Min(n, 12)} *",
+            _                    => "0 0 1 1 *", // Years
+        };
+    }
+
+    // Parses a cron expression, auto-detecting 5-field (standard) or 6-field (with seconds) format.
+    private static CronExpression ParseCronExpression(string expression)
+    {
+        var fields = expression.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var format = fields.Length == 6 ? CronFormat.IncludeSeconds : CronFormat.Standard;
+        return CronExpression.Parse(expression, format);
     }
 }

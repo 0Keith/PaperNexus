@@ -29,16 +29,28 @@ public enum SlideshowOrder
 public enum SlideshowScheduleMode
 {
     CronExpression,
-    IntervalMinutes,
-    IntervalHours,
+    IntervalMinutes, // deprecated — migrated to Interval on load
+    IntervalHours,   // deprecated — migrated to Interval on load
+    Interval,
+}
+
+public enum IntervalType
+{
+    Seconds,
+    Minutes,
+    Hours,
+    Days,
+    Weeks,
+    Months,
+    Years,
 }
 
 public class SlideshowSettings
 {
     public bool Enabled { get; set; } = true;
-    public SlideshowScheduleMode ScheduleMode { get; set; } = SlideshowScheduleMode.IntervalMinutes;
-    public int IntervalMinutes { get; set; } = 30;
-    public int IntervalHours { get; set; } = 1;
+    public SlideshowScheduleMode ScheduleMode { get; set; } = SlideshowScheduleMode.Interval;
+    public double Interval { get; set; } = 30;
+    public IntervalType IntervalType { get; set; } = IntervalType.Minutes;
     public string CronExpression { get; set; } = "*/30 * * * *";
     public SlideshowOrder Order { get; set; } = SlideshowOrder.NewestFirst;
     public WallpaperFillStyle FillStyle { get; set; } = WallpaperFillStyle.Fill;
@@ -169,10 +181,21 @@ public class WallpaperNexusSettings
         settings.Slideshow ??= defaultSlideshow;
         if (string.IsNullOrWhiteSpace(settings.Slideshow.CronExpression))
             settings.Slideshow.CronExpression = defaultSlideshow.CronExpression;
-        if (settings.Slideshow.IntervalMinutes <= 0)
-            settings.Slideshow.IntervalMinutes = defaultSlideshow.IntervalMinutes;
-        if (settings.Slideshow.IntervalHours <= 0)
-            settings.Slideshow.IntervalHours = defaultSlideshow.IntervalHours;
+
+        // Migrate deprecated interval modes
+        if (settings.Slideshow.ScheduleMode == SlideshowScheduleMode.IntervalMinutes)
+        {
+            settings.Slideshow.ScheduleMode = SlideshowScheduleMode.Interval;
+            settings.Slideshow.IntervalType = IntervalType.Minutes;
+        }
+        else if (settings.Slideshow.ScheduleMode == SlideshowScheduleMode.IntervalHours)
+        {
+            settings.Slideshow.ScheduleMode = SlideshowScheduleMode.Interval;
+            settings.Slideshow.IntervalType = IntervalType.Hours;
+        }
+
+        if (settings.Slideshow.Interval <= 0)
+            settings.Slideshow.Interval = defaultSlideshow.Interval;
 
         // Ensure download sub-object exists; RetentionDays of 0 would delete everything immediately
         var defaultDownload = new DownloadSettings();

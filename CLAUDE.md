@@ -78,12 +78,12 @@ PaperNexus/
 
 ## Dependencies
 
-Avalonia 11.3.12, CommunityToolkit.Mvvm 8.4.0, Cronos 0.11.1, Microsoft.Extensions.Hosting 10.0.3, Newtonsoft.Json 13.0.4, SixLabors.ImageSharp 3.1.12 + Drawing 2.1.7
+Avalonia 11.3.12, CommunityToolkit.Mvvm 8.4.0, Cronos 0.11.1, CronExpressionDescriptor 2.45.0, Microsoft.Extensions.Hosting 10.0.3, Newtonsoft.Json 13.0.4, SixLabors.ImageSharp 3.1.12 + Drawing 2.1.7
 
 ## Settings
 
 `Core/WallpaperNexusSettings.cs` → `%LOCALAPPDATA%\PaperNexus\settings.json`:
-- `SlideshowSettings` — `Enabled` flag, schedule mode, order (alphabetical/random/oldest/newest), fill style
+- `SlideshowSettings` — `Enabled` flag, schedule mode, interval (double) + `IntervalType` (Seconds/Minutes/Hours/Days/Weeks/Months/Years), cron expression, order (alphabetical/random/oldest/newest), fill style
 - `DownloadSettings` — folder path (default: `%USERPROFILE%\Pictures\PaperNexus`), resolution, retention days (default: 365)
 - `List<WallpaperSource>` — name, URL, `ImageUrlJPath`, `TitleJPath`, cron, enabled, `LastDownloadUtc`; defaults: "Bing Daily 4k" + "Spotlight Daily 4k"
 - `AnnotationSettings` — font (Cinzel, bundled), size (18), color (#F5F5F5), position, `OutlineEnabled`
@@ -100,6 +100,8 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 **Comments for intended behavior:** Use comments to document *why* and *what* a method or block is intended to do — especially for non-obvious logic, edge cases, and side-effect sequences.
 
 **Local vars over inline wrapping:** Extract method call arguments into named local variables rather than nesting inline. E.g., `var current = Path.GetFullPath(x); var install = Path.GetFullPath(y); string.Equals(current, install, ...)` over `string.Equals(Path.GetFullPath(x), Path.GetFullPath(y), ...)`.
+
+**Body blocks over expression bodies for multi-step logic:** Use `{ }` body blocks with local variables when a method or property involves more than one step. Reserve expression-bodied (`=>`) syntax for genuinely trivial single-expression members. Prefer readability over terseness.
 
 **Suppressed diagnostics:** CS8601-CS8604, CS8618-CS8619, CA1806, CA1835, CA1848 (all `none`). `<Nullable>enable</Nullable>` is set but warnings silenced. Don't add `#nullable` annotations unless asked.
 

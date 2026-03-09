@@ -293,7 +293,10 @@ internal sealed class SwitchWallpaperJob : IScheduleScopedJob
         var settings = await WallpaperNexusSettings.LoadAsync();
         if (!settings.Slideshow.Enabled)
             return new JobConfig();
-        var cronExpression = CronExpression.Parse(settings.Slideshow.CronExpression);
+        var stored = settings.Slideshow.CronExpression;
+        var fields = stored.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var format = fields.Length == 6 ? CronFormat.IncludeSeconds : CronFormat.Standard;
+        var cronExpression = CronExpression.Parse(stored, format);
         return new JobConfig(CronExpression: cronExpression);
     }
 
