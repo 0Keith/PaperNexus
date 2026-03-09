@@ -95,7 +95,7 @@
                     </Border>
                 </StackPanel>
 
-                <TabControl Padding="0">
+                <TabControl x:Name="MainTabControl" Padding="0" SelectionChanged="OnTabSelectionChanged">
                     <!-- Wallpaper Sources tab -->
                     <TabItem>
                         <TabItem.Header>
@@ -238,75 +238,80 @@
                             </Grid>
                             <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                                           VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding GalleryItems}">
+                                <ItemsControl x:Name="GalleryItemsControl"
+                                              ItemsSource="{Binding GalleryItems}"
+                                              ContainerPrepared="OnGalleryContainerPrepared"
+                                              ContainerClearing="OnGalleryContainerClearing">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <WrapPanel Orientation="Horizontal"/>
+                                            <VirtualizingStackPanel Orientation="Vertical"/>
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:GalleryItem">
-                                            <Border Width="136" Margin="3"
+                                            <Border Margin="0,2"
                                                     Background="#222222"
                                                     CornerRadius="4"
                                                     ClipToBounds="True"
                                                     BorderBrush="#383838"
                                                     BorderThickness="1">
-                                                <StackPanel>
-                                                    <!-- Thumbnail area -->
-                                                    <Grid Height="90" ClipToBounds="True">
-                                                        <!-- Placeholder while loading -->
+                                                <Grid RowDefinitions="Auto,Auto">
+                                                    <!-- Image fills full width; height auto-sizes from aspect ratio, capped at 280px -->
+                                                    <Grid Grid.Row="0" MaxHeight="280" ClipToBounds="True">
                                                         <Border Background="#2A2A2A"
                                                                 IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}">
                                                             <PathIcon Data="M21 19V5C21 3.9 20.1 3 19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19ZM8.5 13.5L11 16.51L14.5 12L19 18H5L8.5 13.5Z"
-                                                                      Width="22" Height="22" Opacity="0.2"/>
+                                                                      Width="28" Height="28" Opacity="0.2"
+                                                                      MinWidth="80" MinHeight="60"/>
                                                         </Border>
                                                         <Image Source="{Binding Thumbnail}"
-                                                               Stretch="UniformToFill"
+                                                               Stretch="Uniform"
+                                                               HorizontalAlignment="Center"
                                                                IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                                                        <!-- Ban overlay -->
-                                                        <Border Background="#AA660000"
-                                                                IsVisible="{Binding IsBanned}"/>
+                                                        <Border Background="#AA660000" IsVisible="{Binding IsBanned}"/>
+                                                        <!-- Left buttons: Set as current, Toggle favorite -->
+                                                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                                                    Spacing="4" Margin="6,0,0,6">
+                                                            <Button Command="{Binding SetAsCurrentCommand}"
+                                                                    Padding="6" ToolTip.Tip="Set as current wallpaper"
+                                                                    HorizontalContentAlignment="Center">
+                                                                <PathIcon Data="M8 5V19L19 12Z" Width="14" Height="14"/>
+                                                            </Button>
+                                                            <Button Command="{Binding ToggleFavoriteCommand}"
+                                                                    Padding="6" ToolTip.Tip="Toggle favorite"
+                                                                    HorizontalContentAlignment="Center">
+                                                                <PathIcon Data="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.03L12 21.35Z"
+                                                                          Width="14" Height="14"
+                                                                          Foreground="{Binding IsFavorite, Converter={StaticResource FavoriteColorConverter}}"/>
+                                                            </Button>
+                                                        </StackPanel>
+                                                        <!-- Right buttons: Toggle ban, Delete -->
+                                                        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                                    Spacing="4" Margin="0,0,6,6">
+                                                            <Button Command="{Binding ToggleBanCommand}"
+                                                                    Padding="6" ToolTip.Tip="Ban/unban from rotation"
+                                                                    HorizontalContentAlignment="Center">
+                                                                <PathIcon Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8 0-1.85.63-3.55 1.69-4.9L16.9 18.31C15.55 19.37 13.85 20 12 20zm6.31-3.1L7.1 5.69C8.45 4.63 10.15 4 12 4c4.42 0 8 3.58 8 8 0 1.85-.63 3.55-1.69 4.9z"
+                                                                          Width="14" Height="14"
+                                                                          Foreground="{Binding IsBanned, Converter={StaticResource BanColorConverter}}"/>
+                                                            </Button>
+                                                            <Button Command="{Binding DeleteCommand}"
+                                                                    Padding="6" ToolTip.Tip="Delete from disk"
+                                                                    HorizontalContentAlignment="Center">
+                                                                <PathIcon Data="M9 3H15L16 4H20V6H4V4H8L9 3ZM5 7H19L18.1 20.1C18 21.2 17.1 22 16 22H8C6.9 22 6 21.2 5.9 20.1L5 7Z"
+                                                                          Width="14" Height="14"
+                                                                          Foreground="#E06C75"/>
+                                                            </Button>
+                                                        </StackPanel>
                                                     </Grid>
-                                                    <!-- Display name -->
-                                                    <TextBlock Text="{Binding DisplayName}"
-                                                               FontSize="10" Padding="4,3,4,1"
+                                                    <!-- Title -->
+                                                    <TextBlock Grid.Row="1"
+                                                               Text="{Binding DisplayName}"
+                                                               FontSize="10" Padding="4,3"
                                                                TextTrimming="CharacterEllipsis"
+                                                               TextAlignment="Center"
                                                                ToolTip.Tip="{Binding DisplayName}"/>
-                                                    <!-- Action buttons -->
-                                                    <Grid ColumnDefinitions="*,*,*,*" Margin="2,1,2,4">
-                                                        <Button Grid.Column="0"
-                                                                Command="{Binding SetAsCurrentCommand}"
-                                                                Padding="2" ToolTip.Tip="Set as current wallpaper"
-                                                                HorizontalContentAlignment="Center">
-                                                            <PathIcon Data="M8 5V19L19 12Z" Width="10" Height="10"/>
-                                                        </Button>
-                                                        <Button Grid.Column="1"
-                                                                Command="{Binding ToggleFavoriteCommand}"
-                                                                Padding="2" ToolTip.Tip="Toggle favorite"
-                                                                HorizontalContentAlignment="Center">
-                                                            <PathIcon Data="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.03L12 21.35Z"
-                                                                      Width="10" Height="10"
-                                                                      Foreground="{Binding IsFavorite, Converter={StaticResource FavoriteColorConverter}}"/>
-                                                        </Button>
-                                                        <Button Grid.Column="2"
-                                                                Command="{Binding ToggleBanCommand}"
-                                                                Padding="2" ToolTip.Tip="Ban/unban from rotation"
-                                                                HorizontalContentAlignment="Center">
-                                                            <PathIcon Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8 0-1.85.63-3.55 1.69-4.9L16.9 18.31C15.55 19.37 13.85 20 12 20zm6.31-3.1L7.1 5.69C8.45 4.63 10.15 4 12 4c4.42 0 8 3.58 8 8 0 1.85-.63 3.55-1.69 4.9z"
-                                                                      Width="10" Height="10"
-                                                                      Foreground="{Binding IsBanned, Converter={StaticResource BanColorConverter}}"/>
-                                                        </Button>
-                                                        <Button Grid.Column="3"
-                                                                Command="{Binding DeleteCommand}"
-                                                                Padding="2" ToolTip.Tip="Delete from disk"
-                                                                HorizontalContentAlignment="Center">
-                                                            <PathIcon Data="M9 3H15L16 4H20V6H4V4H8L9 3ZM5 7H19L18.1 20.1C18 21.2 17.1 22 16 22H8C6.9 22 6 21.2 5.9 20.1L5 7Z"
-                                                                      Width="10" Height="10"
-                                                                      Foreground="#E06C75"/>
-                                                        </Button>
-                                                    </Grid>
-                                                </StackPanel>
+                                                </Grid>
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -394,31 +399,24 @@
                                 <!-- Slideshow Schedule -->
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="Schedule" FontSize="12" Opacity="0.6"/>
-                                    <StackPanel Orientation="Horizontal" Spacing="16">
-                                        <RadioButton Content="Interval (mins)"
-                                                     GroupName="ScheduleMode"
-                                                     IsChecked="{Binding IsIntervalMinutesMode}"/>
-                                        <RadioButton Content="Interval (hours)"
-                                                     GroupName="ScheduleMode"
-                                                     IsChecked="{Binding IsIntervalHoursMode}"/>
-                                        <RadioButton Content="Cron Expression"
-                                                     GroupName="ScheduleMode"
-                                                     IsChecked="{Binding IsCronMode}"/>
-                                    </StackPanel>
-                                    <NumericUpDown Value="{Binding SlideshowIntervalMinutes}"
-                                                   Minimum="1" Maximum="1440" Increment="5"
-                                                   FormatString="0"
-                                                   IsVisible="{Binding IsIntervalMinutesMode}"/>
-                                    <NumericUpDown Value="{Binding SlideshowIntervalHours}"
-                                                   Minimum="1" Maximum="23" Increment="1"
-                                                   FormatString="0"
-                                                   IsVisible="{Binding IsIntervalHoursMode}"/>
-                                    <StackPanel IsVisible="{Binding IsCronMode}" Spacing="2">
-                                        <TextBox Text="{Binding SlideshowCronExpression}"
-                                                 Watermark="e.g. */30 * * * *"/>
-                                        <TextBlock Text="5-field cron: min hour day month weekday"
-                                                   FontSize="11" Opacity="0.5"/>
-                                    </StackPanel>
+                                    <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.ScheduleModeOptions}"
+                                                             SelectedItem="{Binding SelectedScheduleMode}"
+                                                             HorizontalAlignment="Stretch"/>
+                                    <Grid ColumnDefinitions="*,6,Auto" IsVisible="{Binding IsIntervalMode}">
+                                        <NumericUpDown Grid.Column="0"
+                                                       Value="{Binding SlideshowInterval}"
+                                                       Minimum="{Binding IntervalMinimum}"
+                                                       Maximum="{Binding IntervalMaximum}"
+                                                       Increment="1" FormatString="0"/>
+                                        <v:NonScrollableComboBox Grid.Column="2" Width="100"
+                                                                 ItemsSource="{x:Static vm:WallpaperConfigViewModel.IntervalTypeOptions}"
+                                                                 SelectedItem="{Binding SelectedIntervalType}"/>
+                                    </Grid>
+                                    <TextBox IsVisible="{Binding IsCronMode}"
+                                             Text="{Binding SlideshowCronExpression}"
+                                             Watermark="e.g. */30 * * * *"/>
+                                    <TextBlock Text="{Binding ScheduleDescription}"
+                                               FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                                 </StackPanel>
 
                                 <!-- Separator -->

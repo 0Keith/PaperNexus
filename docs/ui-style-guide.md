@@ -79,6 +79,37 @@ public record MyOption(string Label, string Description, MyEnum Value)
 </StackPanel>
 ```
 
+### ComboBox with computed description
+
+When the description depends on more than just the selected item (e.g. a typed value, external state, or validation), bind the description TextBlock to a ViewModel property instead of the option's `Description` field. The ViewModel property reads the current selection and any dependent state to produce the string:
+
+```csharp
+public string MyDescription
+{
+    get
+    {
+        if (SelectedOption.Value == MyEnum.Special)
+            return ComputeDescriptionFrom(SomeOtherProperty);
+        return SelectedOption.Description;
+    }
+}
+```
+
+Notify it from any property that affects the output:
+
+```csharp
+set
+{
+    if (SetProperty(ref _selectedOption, value))
+        OnPropertyChanged(nameof(MyDescription));
+}
+partial void OnSomeOtherPropertyChanged(string value) => OnPropertyChanged(nameof(MyDescription));
+```
+
+```xml
+<TextBlock Text="{Binding MyDescription}" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+```
+
 ### Label + Toggle (right-aligned checkbox)
 
 For settings where a checkbox enables/disables the section:

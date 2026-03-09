@@ -58,16 +58,31 @@ public partial class GalleryItem : ObservableObject
     [RelayCommand]
     private Task Delete() => _delete(this);
 
-    // Clears the Thumbnail property before disposing so bindings see null immediately
-    // and do not attempt to render the bitmap after it is freed.
+    private CancellationTokenSource? _loadCts;
+
+    // Starts an async thumbnail load for this item. Cancels any previous in-flight load first.
+    public async Task LoadAsync()
+    {
+        _loadCts?.Cancel();
+        _loadCts = new CancellationTokenSource();
+        var ct = _loadCts.Token;
+        var bmp = await LoadThumbnailAsync(FilePath);
+        if (!ct.IsCancellationRequested)
+            Thumbnail = bmp;
+        else
+            bmp?.Dispose();
+    }
+
+    // Cancels any in-flight load and clears the thumbnail bitmap to free memory.
     public void DisposeThumbnail()
     {
+        _loadCts?.Cancel();
         var bmp = Thumbnail;
         Thumbnail = null;
         bmp?.Dispose();
     }
 
-    // Decodes the image at path, scales it to 200 px wide (height proportional), and
+    // Decodes the image at path, scales it to 600 px wide (height proportional), and
     // returns an Avalonia Bitmap. The semaphore limits concurrent decodes to 4 to
     // avoid exhausting memory when the gallery is large. Returns null on any error.
     internal static async Task<Bitmap?> LoadThumbnailAsync(string path)
@@ -78,8 +93,8 @@ public partial class GalleryItem : ObservableObject
             try
             {
                 using var img = await Image.LoadAsync(path);
-                // Width=200, Height=0 → height is computed to preserve aspect ratio
-                img.Mutate(x => x.Resize(200, 0));
+                // Width=600, Height=0 → height is computed to preserve aspect ratio
+                img.Mutate(x => x.Resize(600, 0));
                 using var ms = new MemoryStream();
                 await img.SaveAsPngAsync(ms);
                 ms.Position = 0;

@@ -85,6 +85,24 @@ public partial class MainWindow : Window
         UpdateButton.AddHandler(InputElement.PointerPressedEvent, OnUpdateButtonPointerPressed, RoutingStrategies.Tunnel);
     }
 
+    private void OnTabSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (MainTabControl?.SelectedIndex == 2 && DataContext is WallpaperConfigViewModel vm)
+            vm.LoadGalleryCommand.Execute(null);
+    }
+
+    private void OnGalleryContainerPrepared(object? sender, ContainerPreparedEventArgs e)
+    {
+        if (e.Container.DataContext is GalleryItem item)
+            _ = item.LoadAsync();
+    }
+
+    private void OnGalleryContainerClearing(object? sender, ContainerClearingEventArgs e)
+    {
+        if (e.Container.DataContext is GalleryItem item)
+            item.DisposeThumbnail();
+    }
+
     private async void OnWallpaperNameDoubleTapped(object? sender, TappedEventArgs e)
     {
         if (DataContext is not WallpaperConfigViewModel vm)
