@@ -21,10 +21,12 @@ PaperNexus is an automated wallpaper rotation app for Windows that lives quietly
 
 ## What It Does
 
-- **Fetches wallpapers automatically** from online sources (Bing Daily and more)
-- **Rotates your desktop** on a schedule — cron expressions, intervals, you name it
+- **Fetches wallpapers automatically** from online sources (Bing Daily, Spotlight, or any custom HTTP feed)
+- **Rotates your desktop** on a schedule — intervals (seconds to years) or full cron expressions
 - **Runs silently** in the system tray, minding its own business
 - **Annotates wallpapers** with optional title overlays (with auto-contrasting outline) so you know what you're looking at
+- **Favorites & bans** — heart a wallpaper to keep it around longer, or ban one you never want to see again
+- **Gallery view** — browse your wallpaper collection, set any as current, or manage favorites/bans
 - **Updates itself** in the background — no manual downloads required
 - **Starts with Windows** so your desktop is never boring, even on a Monday morning
 
@@ -40,6 +42,7 @@ PaperNexus will park itself in your system tray and start doing its thing. Right
 |---|---|
 | **Open Settings** | Configure sources, schedules, and display options |
 | **Next Wallpaper** | Can't wait? Skip ahead immediately |
+| **Random Wallpaper** | Feeling spontaneous? Pick one at random |
 | **Exit** | Say goodbye (but why would you?) |
 
 ## Building From Source
@@ -59,7 +62,9 @@ dotnet run --project PaperNexus
 # Or publish a self-contained exe
 dotnet publish PaperNexus/PaperNexus.csproj \
   -c Release -r win-x64 --self-contained true \
-  -p:PublishSingleFile=true -p:PublishTrimmed=false
+  -p:PublishSingleFile=true \
+  -p:IncludeNativeLibrariesForSelfExtract=true \
+  -p:PublishTrimmed=false
 ```
 
 Requires [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
@@ -97,7 +102,7 @@ Under the hood, PaperNexus uses scheduled background services to keep everything
 | **UI** | [Avalonia UI](https://avaloniaui.net/) 11.3 |
 | **Architecture** | MVVM with [CommunityToolkit.Mvvm](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/) |
 | **Image Processing** | [SixLabors.ImageSharp](https://sixlabors.com/products/imagesharp/) |
-| **Scheduling** | [Cronos](https://github.com/HangfireIO/Cronos) cron expressions |
+| **Scheduling** | [Cronos](https://github.com/HangfireIO/Cronos) + [CronExpressionDescriptor](https://github.com/bradymholt/cron-expression-descriptor) |
 | **DI & Hosting** | Microsoft.Extensions.Hosting |
 
 ## FAQ
@@ -112,7 +117,7 @@ A: Nah. It downloads wallpapers on a schedule (default: once daily from Bing) an
 A: The app is signed with a self-signed certificate. SmartScreen calms down after a few people download the same release. Click "More info" > "Run anyway" if you trust us (and you should, the code is right here).
 
 **Q: Can I add my own wallpaper sources?**
-A: Yes! Open Settings and add any HTTP feed URL that serves wallpaper images. Go wild.
+A: Yes! Open Settings, add any HTTP JSON feed URL, and configure the JPath expressions to point at the image URL and title fields. Go wild.
 
 **Q: It updated itself. Should I be concerned?**
 A: Only if you're concerned about getting bug fixes and features automatically. Updates come straight from this GitHub repo's Releases page.
