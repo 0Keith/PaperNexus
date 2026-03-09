@@ -107,8 +107,8 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 
 ## Build & CI/CD
 
-- **PR workflow:** restore → build (Release) → test (continue-on-error). `windows-latest`, `actions/checkout@v6`.
-- **Deploy workflow:** push to `main`/tags/manual → publish win-x64 single-file → sign exe → GitHub Release.
+- **PR workflow:** restore → build (Release) → test (continue-on-error). `ubuntu-latest`, `actions/checkout@v6`.
+- **Deploy workflow:** push to `main`/tags/manual → publish win-x64 single-file → sign exe → GitHub Release. `ubuntu-latest`; signing uses `openssl` + `osslsigncode` (Linux equivalents of `New-SelfSignedCertificate`/`signtool.exe`).
 - **Version:** Default `0.0.0`, CI sets `-p:Version=$buildNum.0.0`. Tags use `vN` format. Auto-updater compares `Version.Major` as integer.
 - **Code signing:** Self-signed cert, auto-generated on first run, stored as `SIGNING_CERTIFICATE`/`SIGNING_CERTIFICATE_PASSWORD` secrets. Requires `GH_PAT` for persistence. 5-year validity, auto-renews at 30 days remaining.
 - **Publishing:** `dotnet publish PaperNexus/PaperNexus.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false`
@@ -126,6 +126,7 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 - Never commit secrets. Check `dotnet list package --vulnerable`.
 - **Update `CLAUDE.md`** after structural/pattern changes
 - **No Linear issues** for this repo
-- "Remember" = update this file
+- "Remember" = update `CLAUDE.md` (not just the memory directory)
+- **Branch protection on `main`:** PRs required, `build` status check required, `enforce_admins: true` (owner cannot bypass)
 - **Always start work on a feature branch** — never commit directly to `main`; create a descriptive branch (e.g., `feature/wallpaper-preview`, `fix/auto-update`) before making any changes
 - **Comment addition tasks:** Add comments in small, focused batches (1–3 files at a time) rather than delegating all files to a single agent. Large batches risk code corruption.
