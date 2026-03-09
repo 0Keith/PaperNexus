@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
@@ -25,90 +25,94 @@ jobs:
       run: dotnet build --configuration Release --no-restore
 
     - name: Publish
-      shell: pwsh
       run: |
-        $tag = '${{ github.ref_name }}'
-        $runNumber = '${{ github.run_number }}'
-        $buildNum = if ($tag -match '^v(\d+)') { $Matches[1] } else { $runNumber }
-        dotnet publish PaperNexus/PaperNexus.csproj `
-          --configuration Release `
-          --runtime win-x64 `
-          --self-contained true `
-          -p:PublishSingleFile=true `
-          -p:IncludeNativeLibrariesForSelfExtract=true `
-          -p:PublishTrimmed=false `
-          -p:Version="$buildNum.0.0" `
+        tag="${{ github.ref_name }}"
+        runNumber="${{ github.run_number }}"
+        if [[ "$tag" =~ ^v([0-9]+) ]]; then
+          buildNum="${BASH_REMATCH[1]}"
+        else
+          buildNum="$runNumber"
+        fi
+        dotnet publish PaperNexus/PaperNexus.csproj \
+          --configuration Release \
+          --runtime win-x64 \
+          --self-contained true \
+          -p:PublishSingleFile=true \
+          -p:IncludeNativeLibrariesForSelfExtract=true \
+          -p:PublishTrimmed=false \
+          -p:Version="$buildNum.0.0" \
           --output ./publish/PaperNexus
+
+    - name: Install signing tools
+      run: sudo apt-get install -y osslsigncode
 
     - name: Sign executable (self-signed)
       env:
         SIGNING_CERTIFICATE: ${{ secrets.SIGNING_CERTIFICATE }}
         SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
         GH_TOKEN: ${{ secrets.GH_PAT }}
-      shell: pwsh
       run: |
-        $pfxPath = "$env:TEMP\papernexus-sign.pfx"
-        $certPassword = $env:SIGNING_CERTIFICATE_PASSWORD
-        $needsNewCert = $false
+        pfxPath="/tmp/papernexus-sign.pfx"
+        certPassword="$SIGNING_CERTIFICATE_PASSWORD"
+        needsNewCert=false
 
-        if ($env:SIGNING_CERTIFICATE) {
-          # Load the stored cert and check whether it is expired or expiring within 30 days
-          [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:SIGNING_CERTIFICATE))
-          $pfxPwd = ConvertTo-SecureString -String $certPassword -Force -AsPlainText
-          $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($pfxPath, $pfxPwd)
-          $daysUntilExpiry = ($cert.NotAfter - (Get-Date)).TotalDays
-          $cert.Dispose()
+        if [[ -n "$SIGNING_CERTIFICATE" ]]; then
+          echo "$SIGNING_CERTIFICATE" | base64 -d > "$pfxPath"
+          notAfter=$(openssl pkcs12 -in "$pfxPath" -passin "pass:$certPassword" -nokeys -clcerts 2>/dev/null \
+            | openssl x509 -noout -enddate | cut -d= -f2)
+          expiryEpoch=$(date -d "$notAfter" +%s)
+          nowEpoch=$(date +%s)
+          daysUntilExpiry=$(( (expiryEpoch - nowEpoch) / 86400 ))
 
-          if ($daysUntilExpiry -le 30) {
-            Write-Host "Certificate expires in $([math]::Floor($daysUntilExpiry)) day(s) — regenerating."
-            $needsNewCert = $true
-          } else {
-            Write-Host "Certificate valid for $([math]::Floor($daysUntilExpiry)) more day(s) — reusing."
-          }
-        } else {
-          # No cert stored yet — generate on first run
-          $needsNewCert = $true
-        }
+          if [[ $daysUntilExpiry -le 30 ]]; then
+            echo "Certificate expires in $daysUntilExpiry day(s) — regenerating."
+            needsNewCert=true
+          else
+            echo "Certificate valid for $daysUntilExpiry more day(s) — reusing."
+          fi
+        else
+          needsNewCert=true
+        fi
 
-        if ($needsNewCert) {
-          $certPassword = [System.Guid]::NewGuid().ToString("N")
-          $cert = New-SelfSignedCertificate `
-            -Subject "CN=PaperNexus" `
-            -CertStoreLocation "Cert:\CurrentUser\My" `
-            -Type CodeSigningCert `
-            -HashAlgorithm SHA256 `
-            -NotAfter (Get-Date).AddYears(5)
-          $pfxPwd = ConvertTo-SecureString -String $certPassword -Force -AsPlainText
-          Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $pfxPwd | Out-Null
+        if [[ "$needsNewCert" == "true" ]]; then
+          certPassword=$(openssl rand -hex 16)
+          openssl req -x509 -newkey rsa:2048 -keyout /tmp/key.pem -out /tmp/cert.pem \
+            -days 1825 -nodes -subj "/CN=PaperNexus"
+          openssl pkcs12 -export -out "$pfxPath" -inkey /tmp/key.pem -in /tmp/cert.pem \
+            -passout "pass:$certPassword"
+          rm -f /tmp/key.pem /tmp/cert.pem
 
-          if ($env:GH_TOKEN) {
-            $base64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($pfxPath))
-            gh secret set SIGNING_CERTIFICATE --body $base64 --repo '${{ github.repository }}'
-            gh secret set SIGNING_CERTIFICATE_PASSWORD --body $certPassword --repo '${{ github.repository }}'
-            Write-Host "Signing certificate generated and stored as repository secrets."
-          } else {
-            Write-Warning "GH_PAT not set — cert is ephemeral for this run. Add a GH_PAT secret (secrets:write) to persist it."
-          }
-        }
+          if [[ -n "$GH_TOKEN" ]]; then
+            base64 -w0 "$pfxPath" | gh secret set SIGNING_CERTIFICATE --repo '${{ github.repository }}'
+            gh secret set SIGNING_CERTIFICATE_PASSWORD --body "$certPassword" --repo '${{ github.repository }}'
+            echo "Signing certificate generated and stored as repository secrets."
+          else
+            echo "WARNING: GH_PAT not set — cert is ephemeral for this run. Add a GH_PAT secret (secrets:write) to persist it."
+          fi
+        fi
 
-        $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "signtool.exe" -Recurse |
-          Where-Object { $_.FullName -match 'x64' } |
-          Sort-Object FullName -Descending |
-          Select-Object -First 1 -ExpandProperty FullName
-
-        & $signtool sign /f $pfxPath /p $certPassword /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /v ./publish/PaperNexus/PaperNexus.exe
-        if ($LASTEXITCODE -ne 0) { throw "signtool exited with code $LASTEXITCODE" }
-
-        Remove-Item $pfxPath -Force
+        osslsigncode sign \
+          -pkcs12 "$pfxPath" \
+          -pass "$certPassword" \
+          -h sha256 \
+          -t http://timestamp.digicert.com \
+          -in ./publish/PaperNexus/PaperNexus.exe \
+          -out ./publish/PaperNexus/PaperNexus-signed.exe
+        mv ./publish/PaperNexus/PaperNexus-signed.exe ./publish/PaperNexus/PaperNexus.exe
+        rm -f "$pfxPath"
 
     - name: Create GitHub Release
-      shell: pwsh
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        $isTag = '${{ github.ref }}' -match '^refs/tags/'
-        $runNumber = '${{ github.run_number }}'
-        $releaseTag = if ($isTag) { '${{ github.ref_name }}' } else { "v$runNumber" }
-        $releaseTitle = if ($isTag) { "Paper Nexus ${{ github.ref_name }}" } else { "Paper Nexus v$runNumber" }
-        $notes = if ($isTag) { '--generate-notes' } else { '--notes "Automated build from main."' }
-        Invoke-Expression "gh release create '$releaseTag' --title '$releaseTitle' $notes ./publish/PaperNexus/PaperNexus.exe"
+        if [[ "${{ github.ref }}" =~ ^refs/tags/ ]]; then
+          gh release create "${{ github.ref_name }}" \
+            --title "Paper Nexus ${{ github.ref_name }}" \
+            --generate-notes \
+            ./publish/PaperNexus/PaperNexus.exe
+        else
+          gh release create "v${{ github.run_number }}" \
+            --title "Paper Nexus v${{ github.run_number }}" \
+            --notes "Automated build from main." \
+            ./publish/PaperNexus/PaperNexus.exe
+        fi
