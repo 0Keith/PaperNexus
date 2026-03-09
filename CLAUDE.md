@@ -83,11 +83,11 @@ Avalonia 11.3.12, CommunityToolkit.Mvvm 8.4.0, Cronos 0.11.1, CronExpressionDesc
 ## Settings
 
 `Core/WallpaperNexusSettings.cs` → `%LOCALAPPDATA%\PaperNexus\settings.json`:
-- `SlideshowSettings` — `Enabled` flag, schedule mode, interval (double) + `IntervalType` (Seconds/Minutes/Hours/Days/Weeks/Months/Years), cron expression, order (alphabetical/random/oldest/newest), fill style
-- `DownloadSettings` — folder path (default: `%USERPROFILE%\Pictures\PaperNexus`), resolution, retention days (default: 365)
-- `List<WallpaperSource>` — name, URL, `ImageUrlJPath`, `TitleJPath`, cron, enabled, `LastDownloadUtc`; defaults: "Bing Daily 4k" + "Spotlight Daily 4k"
+- `SlideshowSettings` — `Enabled` flag, schedule mode, interval (double) + `IntervalType` (Seconds/Minutes/Hours/Days/Weeks/Months/Years), cron expression, order (alphabetical/random/oldest/newest), fill style, `FavoritePriorityEnabled`, `FavoritePriorityWeight` (default: 3)
+- `DownloadSettings` — folder path (default: `%USERPROFILE%\Pictures\PaperNexus`), `ResolutionWidth`/`ResolutionHeight`, retention days (default: 365)
+- `List<WallpaperSource>` — name, URL, `ImageUrlJPath`, `TitleJPath`, cron, `IsEnabled`, `LastDownloadUtc`; defaults: "Bing Daily 4k" + "Spotlight Daily 4k"
 - `AnnotationSettings` — font (Cinzel, bundled), size (18), color (#F5F5F5), position, `OutlineEnabled`
-- `FavoriteWallpapers`, window position/size, `RunOnStartup`, `AutoUpdatesEnabled`, `DebugMode`, `CurrentWallpaperPath`
+- `FavoriteWallpapers`, `BannedWallpapers`, window position/size, `RunOnStartup`, `AutoUpdatesEnabled`, `DebugMode`, `AnnotateWallpaper`, `MinimizeToTray`, `CurrentWallpaperPath`
 
 ## Code Style
 
@@ -111,12 +111,8 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 - **Deploy workflow:** push to `main`/tags/manual → publish win-x64 single-file → sign exe → GitHub Release. `ubuntu-latest`; signing uses `openssl` + `osslsigncode` (Linux equivalents of `New-SelfSignedCertificate`/`signtool.exe`).
 - **Version:** Default `0.0.0`, CI sets `-p:Version=$buildNum.0.0`. Tags use `vN` format. Auto-updater compares `Version.Major` as integer.
 - **Code signing:** Self-signed cert, auto-generated on first run, stored as `SIGNING_CERTIFICATE`/`SIGNING_CERTIFICATE_PASSWORD` secrets. Requires `GH_PAT` for persistence. 5-year validity, auto-renews at 30 days remaining.
-- **Publishing:** `dotnet publish PaperNexus/PaperNexus.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false`
+- **Publishing:** `dotnet publish PaperNexus/PaperNexus.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false`
 - **Actions maintenance:** 30-day cycle. **Next update: March 28, 2026.**
-
-## Session Start Hook
-
-`.claude/hooks/session-start.sh` installs .NET 10 SDK and restores NuGet on remote sessions (`CLAUDE_CODE_REMOTE=true`).
 
 ## Guidelines
 
