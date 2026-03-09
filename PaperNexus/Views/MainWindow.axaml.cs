@@ -12,9 +12,38 @@ using System.Globalization;
 
 namespace PaperNexus.Views;
 
+// Strips the " - <urlfile>" suffix that was appended during download, returning
+// the human-readable wallpaper title for display in XAML bindings.
+public class PathToDisplayNameConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not string path || string.IsNullOrEmpty(path))
+            return string.Empty;
+        var nameWithoutExt = Path.GetFileNameWithoutExtension(path);
+        var lastSep = nameWithoutExt.LastIndexOf(" - ", StringComparison.Ordinal);
+        return lastSep > 0 ? nameWithoutExt[..lastSep] : nameWithoutExt;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 public class FavoriteColorConverter : IValueConverter
 {
     private static readonly IBrush ActiveBrush = new SolidColorBrush(Color.Parse("#E06C75"));
+    private static readonly IBrush InactiveBrush = new SolidColorBrush(Color.Parse("#888888"));
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? ActiveBrush : InactiveBrush;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+public class BanColorConverter : IValueConverter
+{
+    private static readonly IBrush ActiveBrush = new SolidColorBrush(Color.Parse("#F97316"));
     private static readonly IBrush InactiveBrush = new SolidColorBrush(Color.Parse("#888888"));
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
@@ -52,6 +81,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = new WallpaperConfigViewModel();
+        // Use the tunnel phase so Shift+Click can be intercepted before the button's own handler fires
         UpdateButton.AddHandler(InputElement.PointerPressedEvent, OnUpdateButtonPointerPressed, RoutingStrategies.Tunnel);
     }
 
@@ -63,6 +93,8 @@ public partial class MainWindow : Window
         await vm.ShowTransientStatusAsync(msg, 4000);
     }
 
+    // Easter egg: clicking the version label 5 times within 3 seconds shows a hidden message.
+    // The click counter resets if more than 3 seconds elapses between clicks.
     private async void OnVersionLabelPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var now = DateTime.UtcNow;
@@ -79,16 +111,22 @@ public partial class MainWindow : Window
         }
     }
 
+    // Shift+Click on the update button triggers a forced re-install of the current version,
+    // useful for testing the update pipeline without needing a newer build to be published.
     private void OnUpdateButtonPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (!e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             return;
 
+        // Mark handled so the normal click command does not also fire
         e.Handled = true;
         if (DataContext is WallpaperConfigViewModel vm)
             vm.CheckForUpdatesForceCommand.Execute(null);
     }
 
+    // Implements the Konami Code easter egg: tracks the key sequence and shows a message
+    // when the full sequence is entered. If a wrong key is pressed, the counter resets
+    // (but if the wrong key happens to be the first key in the sequence, start from 1).
     protected override async void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
@@ -109,6 +147,8 @@ public partial class MainWindow : Window
         }
     }
 
+    // Restores the saved window position and size from settings, then triggers the ViewModel
+    // to load all settings values into its properties so the UI reflects the current state.
     protected override async void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
@@ -145,6 +185,8 @@ public partial class MainWindow : Window
         await OpenEditDialog();
     }
 
+    // Opens the source edit dialog for the currently selected source.
+    // Replaces the item at its original index rather than appending to preserve list order.
     private async Task OpenEditDialog()
     {
         if (DataContext is not WallpaperConfigViewModel vm || vm.SelectedSource is null)
@@ -157,6 +199,7 @@ public partial class MainWindow : Window
             var index = vm.Sources.IndexOf(vm.SelectedSource);
             if (index < 0)
             {
+                // Source was removed while the dialog was open — just append the result
                 vm.Sources.Add(dialog.Result);
             }
             else
@@ -168,6 +211,59 @@ public partial class MainWindow : Window
         }
     }
 
+    private void DeleteSourceRow_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: WallpaperSource source } && DataContext is WallpaperConfigViewModel vm)
+            vm.Sources.Remove(source);
+    }
+
+    private void RemoveFavoriteRow_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: string path } && DataContext is WallpaperConfigViewModel vm)
+        {
+            vm.SelectedFavorite = path;
+            vm.RemoveFavoriteCommand.Execute(null);
+        }
+    }
+
+    private void SetFavoriteAsCurrentRow_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: string path } && DataContext is WallpaperConfigViewModel vm)
+        {
+            vm.SelectedFavorite = path;
+            vm.SetFavoriteAsCurrentCommand.Execute(null);
+        }
+    }
+
+    // Intercepts the checkbox when the user attempts to turn minimize-to-tray OFF.
+    // Reverts the checkbox first, then shows a warning dialog; only applies the change
+    // if the user explicitly confirms, preventing accidental loss of background operation.
+    private async void MinimizeToTray_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not WallpaperConfigViewModel vm)
+            return;
+
+        // Only intercept when toggling OFF (now unchecked)
+        if (MinimizeToTrayCheckBox.IsChecked.GetValueOrDefault())
+            return;
+
+        // Revert and confirm
+        MinimizeToTrayCheckBox.IsChecked = true;
+        vm.MinimizeToTray = true;
+
+        var confirmed = await ShowYesNoDialog(
+            "Disable Minimize to Tray",
+            "Without minimize to tray, closing the window will fully exit PaperNexus.\n\nAll the automatic greatness — scheduled wallpaper rotation, auto-downloads, and background updates — will stop until you manually reopen the app.\n\nDisable anyway?");
+
+        if (confirmed)
+        {
+            MinimizeToTrayCheckBox.IsChecked = false;
+            vm.MinimizeToTray = false;
+        }
+    }
+
+    // Shows a confirmation dialog before permanently deleting the current wallpaper file.
+    // The dialog is built programmatically rather than from AXAML to keep it self-contained.
     private async void DeleteWallpaper_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         var cancelBtn = new Button { Content = "Cancel" };
@@ -229,6 +325,9 @@ public partial class MainWindow : Window
         }
     }
 
+    // Persists window geometry and cleans up the ViewModel before the window closes.
+    // DataContext is nulled after Cleanup so that Avalonia bindings don't attempt
+    // to access disposed resources during the final rendering pass.
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         if (Application.Current is App { IsExiting: false })
@@ -265,6 +364,8 @@ public partial class MainWindow : Window
         "Okay fine. But we warned you. SEVENTEEN TIMES. Enable debug mode?",
     ];
 
+    // Requires the user to click through all 17 increasingly absurd confirmation dialogs
+    // before debug mode is enabled. If they cancel at any point the checkbox is left unchecked.
     private async void DebugMode_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not WallpaperConfigViewModel vm)
@@ -286,7 +387,6 @@ public partial class MainWindow : Window
 
             if (!confirmed)
             {
-                var remaining = DebugConfirmations.Length - i;
                 await vm.ShowTransientStatusAsync(
                     $"Debug mode cancelled. You only made it through {i} of {DebugConfirmations.Length} confirmations.", 5000);
                 return;
@@ -298,6 +398,9 @@ public partial class MainWindow : Window
         await vm.ShowTransientStatusAsync("Debug mode enabled. You absolute legend.", 5000);
     }
 
+    // Performs a factory reset after two confirmation dialogs: deletes all application data
+    // files in the install directory (settings, logs, timers, current.* wallpaper), then
+    // relaunches the exe so the app starts fresh. The user's wallpapers folder is untouched.
     private async void FactoryReset_Click(object? sender, RoutedEventArgs e)
     {
         var confirmed = await ShowYesNoDialog(
@@ -323,6 +426,7 @@ public partial class MainWindow : Window
             // Delete everything in the app directory except the running exe
             foreach (var file in Directory.GetFiles(appDir))
             {
+                // Skip the running exe — it cannot be deleted while in use and is not "data"
                 if (string.Equals(Path.GetFullPath(file), Path.GetFullPath(exePath),
                     StringComparison.OrdinalIgnoreCase))
                     continue;
@@ -347,6 +451,8 @@ public partial class MainWindow : Window
         }
     }
 
+    // Generic Yes/No modal dialog built programmatically. Returns true if the user
+    // clicks Yes, false if they click No or close the window.
     private async Task<bool> ShowYesNoDialog(string title, string message)
     {
         var noBtn = new Button { Content = "No" };

@@ -12,6 +12,8 @@ internal class HttpWallpaperSourceService
         _logger = logger.ThrowIfNull();
     }
 
+    // Fetches the JSON feed from the wallpaper source URL and returns all images
+    // extracted via the source's configured JPath expressions.
     public async Task<List<WallpaperImage>> GetImages(WallpaperSource source)
     {
         _logger.LogInformation($"Getting images from source '{source.Name}': {source.Url}");
@@ -30,12 +32,15 @@ internal class HttpWallpaperSourceService
         return images;
     }
 
+    // Uses the source's JPath expressions to extract parallel lists of image URLs and titles
+    // from the raw JSON, then zips them into WallpaperImage records.
     private static List<WallpaperImage> ParseImages(WallpaperSource source, string json)
     {
         var token = JToken.Parse(json);
         var imageUrls = token.SelectTokens(source.ImageUrlJPath).Select(t => t.Value<string>() ?? string.Empty).ToList();
         var titles = token.SelectTokens(source.TitleJPath).Select(t => t.Value<string>() ?? string.Empty).ToList();
 
+        // Zip stops at the shorter list, so mismatched result counts are handled gracefully
         return imageUrls
             .Zip(titles, (url, title) => new WallpaperImage { ImageUrl = url, Title = title })
             .ToList();

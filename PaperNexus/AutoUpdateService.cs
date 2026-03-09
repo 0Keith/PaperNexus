@@ -23,6 +23,10 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         _logger = logger.ThrowIfNull();
     }
 
+    // Checks GitHub Releases for a newer build and, if found (or if forceUpdate is set),
+    // downloads the signed exe, verifies its Authenticode signature, then launches a
+    // self-deleting batch script that swaps the binary while the app is not running.
+    // The current process calls Environment.Exit(0) after launching the updater script.
     public async Task CheckAsync(bool forceUpdate = false, IProgress<string>? progress = null)
     {
         var currentVersion = typeof(AutoUpdateService).Assembly.GetName().Version;
@@ -32,6 +36,7 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
             throw new InvalidOperationException("Cannot determine current assembly version.");
         }
 
+        // Version scheme is vN where N maps to Version.Major
         var currentBuild = currentVersion.Major;
         _logger.LogInformation("Checking for updates. Current build: v{Build}", currentBuild);
         progress?.Report($"Checking for updates (v{currentBuild})...");
@@ -67,6 +72,7 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
             throw new InvalidOperationException("Release version tag is empty.");
         }
 
+        // Tags are "vN" — strip the leading 'v' and parse as an integer build number
         var versionStr = tag.TrimStart('v');
         if (!int.TryParse(versionStr, out var latestBuild))
         {
@@ -91,6 +97,7 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
             throw new InvalidOperationException($"No assets found in release {tag}.");
         }
 
+        // Find the download URL for PaperNexus.exe in the release assets list
         string? downloadUrl = null;
         foreach (var asset in assetsElement.EnumerateArray())
         {
@@ -110,8 +117,10 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
 
         var exePath = Environment.ProcessPath
             ?? Path.Combine(AppContext.BaseDirectory, AssetName);
+        // Stage the download beside the running exe; the batch script will move it into place
         var newExePath = exePath + ".new";
         var backupPath = exePath + ".bak";
+        // Use a unique batch name to avoid collisions if a previous update was interrupted
         var batchPath = Path.Combine(Path.GetDirectoryName(exePath)!, $"update-{Guid.NewGuid():N}.bat");
 
         _logger.LogInformation("Downloading v{Latest} from {Url}", latestBuild, downloadUrl);
@@ -150,6 +159,13 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
             _logger.LogDebug("Zone.Identifier removal skipped: {Message}", ex.Message);
         }
 
+        // The batch script:
+        //  1. Waits 2 s for the current process to exit
+        //  2. Backs up the running exe
+        //  3. Moves the new exe into place
+        //  4. Launches the updated app
+        //  5. Waits 8 s and checks the process is running; if not, rolls back from backup
+        //  6. Deletes the backup and self-deletes
         await File.WriteAllTextAsync(batchPath,
             $"""
             @echo off
@@ -184,6 +200,9 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         Environment.Exit(0);
     }
 
+    // Checks that the file at filePath carries a valid Authenticode signature whose
+    // subject CN matches "PaperNexus". Returns false (rather than throwing) if the
+    // certificate is missing, invalid, or signed by an unexpected issuer.
     private bool VerifyAuthenticodeSignature(string filePath)
     {
         try
@@ -215,8 +234,12 @@ internal sealed class AutoUpdateJob : IScheduleScopedJob
         _checkForUpdates = checkForUpdates.ThrowIfNull();
     }
 
+    // Returns an empty config (no schedule) in debug mode or when auto-updates are disabled.
+    // Otherwise schedules a daily check at 03:00 and also runs once on startup.
     public async Task<JobConfig> GetJobConfigAsync()
     {
+        if (Program.IsDebugMode)
+            return new JobConfig();
         var settings = await WallpaperNexusSettings.LoadAsync();
         if (!settings.AutoUpdatesEnabled)
             return new JobConfig();

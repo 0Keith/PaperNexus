@@ -10,10 +10,17 @@ public partial class WallpaperSourceDialog : Window
 
     public WallpaperSourceDialog()
     {
+        Opacity = 0;
         InitializeComponent();
         TypeBox.SelectedIndex = 0;
         ImageUrlJPathBox.Text = "$[*].imageUrl";
         TitleJPathBox.Text = "$[*].title";
+    }
+
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        Opacity = 1;
     }
 
     public WallpaperSourceDialog(WallpaperSource source) : this()

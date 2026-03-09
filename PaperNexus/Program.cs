@@ -14,91 +14,144 @@ internal sealed class Program
     private const string MutexName = "PaperNexus_SingleInstance";
 
     internal static EventWaitHandle? ShowUIEvent { get; private set; }
+    internal static bool IsDebugMode { get; private set; }
 
     [STAThread]
     public static void Main(string[] args)
     {
-        var installDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "PaperNexus");
-        var installPath = Path.Combine(installDir, "PaperNexus.exe");
+        // Debug mode bypasses the install check and single-instance logic entirely.
+        if (TryRunDebugMode(args))
+            return;
 
-        var currentPath = Environment.ProcessPath
-            ?? Path.Combine(AppContext.BaseDirectory, "PaperNexus.exe");
+        var (installDir, installPath) = GetInstallPaths();
+        var currentPath = GetCurrentProcessPath();
 
-        var isInstalled = string.Equals(
-            Path.GetFullPath(currentPath),
-            Path.GetFullPath(installPath),
-            StringComparison.OrdinalIgnoreCase);
-
-        if (!isInstalled)
+        // If running from a location other than the install directory, perform
+        // first-run installation and then hand off to the installed copy.
+        if (!IsRunningFromInstallLocation(currentPath, installPath))
         {
-            // Not running from the install location.
-            // If an installed instance is already running, signal it to show UI.
-#pragma warning disable CA1416
-            if (EventWaitHandle.TryOpenExisting(EventName, out var existingEvent))
-            {
-                using (existingEvent)
-                    existingEvent.Set();
-                return;
-            }
-
-            // No running instance. Install (copy exe) and launch from install location.
-            try
-            {
-                Directory.CreateDirectory(installDir);
-                File.Copy(currentPath, installPath, overwrite: true);
-                MigrateFileIfNeeded("settings.json", currentPath, installDir);
-                MigrateFileIfNeeded("timers.json", currentPath, installDir);
-            }
-            catch (IOException)
-            {
-                // File may be locked by a running instance we could not detect.
-                // If the installed copy already exists, launch it anyway.
-                if (!File.Exists(installPath))
-                    return;
-            }
-
-            Process.Start(new ProcessStartInfo(installPath) { UseShellExecute = true });
-#pragma warning restore CA1416
+            HandleNotInstalledLaunch(currentPath, installDir, installPath);
             return;
         }
 
-        // Running from the install location — proceed as the primary instance.
+        RunAsPrimaryInstance(args);
+    }
 
-        // Enforce single instance so concurrent update batch scripts cannot spawn
-        // multiple copies that all download and re-launch, creating an infinite loop.
-        using var mutex = new Mutex(false, MutexName);
-        bool acquired;
+    private static bool TryRunDebugMode(string[] args)
+    {
+        if (!args.Contains("--debug"))
+            return false;
+        IsDebugMode = true;
+        RunApp(args);
+        return true;
+    }
+
+    private static (string installDir, string installPath) GetInstallPaths()
+    {
+        var path1 = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var installDir = Path.Combine(path1, "PaperNexus");
+        return (installDir, Path.Combine(installDir, "PaperNexus.exe"));
+    }
+
+    private static string GetCurrentProcessPath()
+    {
+        return Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "PaperNexus.exe");
+    }
+
+    private static bool IsRunningFromInstallLocation(string currentPath, string installPath)
+    {
+        var current = Path.GetFullPath(currentPath);
+        var install = Path.GetFullPath(installPath);
+        return string.Equals(current, install, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Handles startup when the exe is not yet at the install location.
+    // Signals any already-running instance first; if none is running, installs and relaunches.
+    private static void HandleNotInstalledLaunch(string currentPath, string installDir, string installPath)
+    {
+        // If a running instance exists, signal it to show its UI and exit without installing.
+        if (TrySignalExistingInstance())
+            return;
+
+        if (!TryInstall(currentPath, installDir, installPath))
+            return;
+
+        Process.Start(new ProcessStartInfo(installPath) { UseShellExecute = true });
+    }
+
+    // Copies the exe to the install directory and migrates any adjacent data files.
+    // Returns true if install succeeded or the installed copy already exists (race with another instance).
+    private static bool TryInstall(string currentPath, string installDir, string installPath)
+    {
         try
         {
-            acquired = mutex.WaitOne(0, exitContext: false);
+            Directory.CreateDirectory(installDir);
+            File.Copy(currentPath, installPath, overwrite: true);
+            // Carry over persisted data from beside the downloaded exe, if present.
+            MigrateFileIfNeeded("settings.json", currentPath, installDir);
+            MigrateFileIfNeeded("timers.json", currentPath, installDir);
+            return true;
         }
-        catch (AbandonedMutexException)
+        catch (IOException)
         {
-            acquired = true; // previous instance crashed; we now own the mutex
+            // File may be locked by a running instance we could not detect.
+            // Launch the existing copy if it's already there.
+            return File.Exists(installPath);
         }
+    }
 
-        if (!acquired)
+    // Enforces single-instance semantics: acquires the named mutex or signals the
+    // already-running instance to show its window, then runs the Avalonia app loop.
+    private static void RunAsPrimaryInstance(string[] args)
+    {
+        using var mutex = new Mutex(false, MutexName);
+        // If we can't own the mutex, another instance is already running.
+        if (!TryAcquireMutex(mutex))
         {
-            // Another installed instance is running — signal it to show UI.
-#pragma warning disable CA1416
-            if (EventWaitHandle.TryOpenExisting(EventName, out var existingEvent))
-            {
-                using (existingEvent)
-                    existingEvent.Set();
-            }
-#pragma warning restore CA1416
+            TrySignalExistingInstance();
             return;
         }
 
         // Create the IPC event handle for show-UI signals from other instances.
         // AutoReset: each Set() unblocks exactly one WaitOne().
         ShowUIEvent = new EventWaitHandle(false, EventResetMode.AutoReset, EventName);
+        RunApp(args);
+        ShowUIEvent.Dispose();
+        ShowUIEvent = null;
+    }
 
+    private static bool TryAcquireMutex(Mutex mutex)
+    {
+        try
+        {
+            return mutex.WaitOne(0, exitContext: false);
+        }
+        catch (AbandonedMutexException)
+        {
+            return true; // previous instance crashed; we now own the mutex
+        }
+    }
+
+    private static bool TrySignalExistingInstance()
+    {
+#pragma warning disable CA1416
+        if (!EventWaitHandle.TryOpenExisting(EventName, out var existingEvent))
+            return false;
+#pragma warning restore CA1416
+        using (existingEvent)
+            existingEvent.Set();
+        return true;
+    }
+
+    // Wires up global exception logging, then starts the Avalonia application loop.
+    // The FileLoggerProvider is kept alive for the duration of the process so all
+    // log messages are flushed before the process exits.
+    private static void RunApp(string[] args)
+    {
         using var loggerProvider = new FileLoggerProvider();
         var logger = loggerProvider.CreateLogger(nameof(Program));
 
+        // Catch exceptions that escape all managed thread roots (non-UI threads, finalizers, etc.)
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
             if (e.ExceptionObject is Exception ex)
@@ -107,27 +160,23 @@ internal sealed class Program
                 logger.LogCritical("Unhandled non-exception: {ExceptionObject}", e.ExceptionObject);
         };
 
+        // Prevent fire-and-forget tasks from silently swallowing exceptions
         TaskScheduler.UnobservedTaskException += (_, e) =>
         {
             logger.LogCritical(e.Exception, "Unobserved task exception");
+            // Mark as observed so the process does not crash on GC finalisation
             e.SetObserved();
         };
 
-        try
-        {
-            AppBuilder.Configure<App>()
-                .UsePlatformDetect()
-                .WithInterFont()
-                .LogToTrace()
-                .StartWithClassicDesktopLifetime(args);
-        }
-        finally
-        {
-            ShowUIEvent.Dispose();
-            ShowUIEvent = null;
-        }
+        AppBuilder.Configure<App>()
+            .UsePlatformDetect()
+            .WithInterFont()
+            .LogToTrace()
+            .StartWithClassicDesktopLifetime(args);
     }
 
+    // Copies a data file from alongside the source exe to the install directory,
+    // but only if it doesn't already exist at the destination (never overwrites).
     private static void MigrateFileIfNeeded(string fileName, string sourceExePath, string installDir)
     {
         var sourceDir = Path.GetDirectoryName(sourceExePath);

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -17,6 +17,8 @@ public static class Extensions
 
     public static bool IsNullOrWhiteSpace(this string value) => string.IsNullOrWhiteSpace(value);
 
+    // Reads every line from reader and logs it at the specified level.
+    // Useful for piping process stdout/stderr into the application logger.
     public static async Task CopyTo(this StreamReader reader, ILogger logger, LogLevel level)
     {
         reader.ThrowIfNull();
@@ -29,6 +31,8 @@ public static class Extensions
         }
     }
 
+    // Async-friendly semaphore acquisition that returns an IDisposable whose Dispose
+    // releases the semaphore, allowing usage in a `using` statement or `using var`.
     public static async Task<IDisposable> EnterAsync(this SemaphoreSlim semaphore)
     {
         semaphore.ThrowIfNull();
@@ -51,6 +55,8 @@ public static class Extensions
         return value1.CompareTo(value2) > 0 ? value1 : value2;
     }
 
+    // Returns an existing value for key, or creates and stores a new one using valueFactory.
+    // Not thread-safe — callers must synchronise if the dictionary is shared across threads.
     public static TValue GetOrAdd<TKey, TValue>(this Dictionary<TKey, TValue> items, TKey key, Func<TKey, TValue> valueFactory)
     {
         items.ThrowIfNull();

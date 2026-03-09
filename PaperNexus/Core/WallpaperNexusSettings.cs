@@ -42,6 +42,8 @@ public class SlideshowSettings
     public string CronExpression { get; set; } = "*/30 * * * *";
     public SlideshowOrder Order { get; set; } = SlideshowOrder.NewestFirst;
     public WallpaperFillStyle FillStyle { get; set; } = WallpaperFillStyle.Fill;
+    public bool FavoritePriorityEnabled { get; set; }
+    public int FavoritePriorityWeight { get; set; } = 3;
 }
 
 public enum WallpaperSourceType
@@ -97,7 +99,8 @@ public class DownloadSettings
 public class WallpaperNexusSettings
 {
     public static readonly string SettingsFilePath = Path.Combine(
-        AppContext.BaseDirectory, "settings.json");
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "PaperNexus", "settings.json");
 
     public SlideshowSettings Slideshow { get; set; } = new();
     public DownloadSettings Download { get; set; } = new();
@@ -108,7 +111,9 @@ public class WallpaperNexusSettings
     public bool RunOnStartup { get; set; } = true;
     public bool AutoUpdatesEnabled { get; set; } = true;
     public bool DebugMode { get; set; }
-    public List<string> FavoriteWallpapers { get; set; } = new();
+    public bool MinimizeToTray { get; set; } = true;
+    public List<string> FavoriteWallpapers { get; set; } = [];
+    public List<string> BannedWallpapers { get; set; } = [];
 
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public List<WallpaperSource> Sources { get; set; } = DefaultSources;
@@ -120,11 +125,11 @@ public class WallpaperNexusSettings
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Download.Folder);
 
-    public static List<WallpaperSource> DefaultSources => new()
-    {
+    public static List<WallpaperSource> DefaultSources =>
+    [
         new() { Name = "Bing Daily 4k", Url = "https://peapix.com/bing/feed?country=us" },
         new() { Name = "Spotlight Daily 4k", Url = "https://peapix.com/spotlight/feed" },
-    };
+    ];
 
     private static readonly JsonSerializerSettings JsonSettings = new()
     {
@@ -132,6 +137,9 @@ public class WallpaperNexusSettings
         Converters = { new StringEnumConverter() },
     };
 
+    // Reads settings.json and deserialises it; fills in defaults for any missing or
+    // invalid fields introduced by schema migrations. Returns a fresh default instance
+    // if the file does not yet exist or is corrupted.
     public static async Task<WallpaperNexusSettings> LoadAsync()
     {
         try
@@ -139,7 +147,8 @@ public class WallpaperNexusSettings
             if (File.Exists(SettingsFilePath))
             {
                 var json = await File.ReadAllTextAsync(SettingsFilePath);
-                var settings = JsonConvert.DeserializeObject<WallpaperNexusSettings>(json, JsonSettings) ?? new WallpaperNexusSettings();
+                var settings = JsonConvert.DeserializeObject<WallpaperNexusSettings>(json, JsonSettings)
+                    ?? new WallpaperNexusSettings();
                 ApplyDefaults(settings);
                 return settings;
             }
@@ -151,8 +160,11 @@ public class WallpaperNexusSettings
         return new WallpaperNexusSettings();
     }
 
+    // Guards against settings files written by older versions that omitted certain fields,
+    // or that contain zero/empty values that would break the scheduler or file paths.
     private static void ApplyDefaults(WallpaperNexusSettings settings)
     {
+        // Ensure slideshow sub-object exists and that its computed fields are valid
         var defaultSlideshow = new SlideshowSettings();
         settings.Slideshow ??= defaultSlideshow;
         if (string.IsNullOrWhiteSpace(settings.Slideshow.CronExpression))
@@ -162,6 +174,7 @@ public class WallpaperNexusSettings
         if (settings.Slideshow.IntervalHours <= 0)
             settings.Slideshow.IntervalHours = defaultSlideshow.IntervalHours;
 
+        // Ensure download sub-object exists; RetentionDays of 0 would delete everything immediately
         var defaultDownload = new DownloadSettings();
         settings.Download ??= defaultDownload;
         if (string.IsNullOrWhiteSpace(settings.Download.Folder))
@@ -169,10 +182,16 @@ public class WallpaperNexusSettings
         if (settings.Download.RetentionDays <= 0)
             settings.Download.RetentionDays = defaultDownload.RetentionDays;
 
+        // Initialise reference-type properties that may be null after JSON deserialisation
         settings.CurrentWallpaperPath ??= string.Empty;
         settings.Annotation ??= new AnnotationSettings();
-        settings.FavoriteWallpapers ??= new List<string>();
+        settings.FavoriteWallpapers ??= [];
+        settings.BannedWallpapers ??= [];
+        // A weight of 0 or less would make favorite priority a no-op
+        if (settings.Slideshow.FavoritePriorityWeight <= 0)
+            settings.Slideshow.FavoritePriorityWeight = 3;
 
+        // If sources list was cleared or never saved, restore the built-in defaults
         if (settings.Sources is null || settings.Sources.Count == 0)
             settings.Sources = DefaultSources;
     }

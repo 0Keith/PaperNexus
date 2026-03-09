@@ -22,6 +22,9 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         ExecuteOnStartup = true;
     }
 
+    // Returns the soonest upcoming cron occurrence across all enabled sources so the
+    // legacy scheduler wakes up at the right time. Falls back to 1 hour if no source
+    // has a next occurrence within that window.
     protected override async Task<DateTimeOffset> GetNextExecutionAsync(JobExecutionContext context)
     {
         var settings = await WallpaperNexusSettings.LoadAsync();
@@ -38,6 +41,8 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
 
     public Task DownloadAllAsync() => DownloadFromSourcesAsync(_ => true);
 
+    // Scheduled execution: only downloads from sources whose cron interval has elapsed
+    // since the last successful download, skipping recently-updated sources.
     protected override Task Execute() => DownloadFromSourcesAsync(source =>
     {
         if (!IsOverdue(source))
@@ -48,6 +53,9 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         return true;
     });
 
+    // Core download loop: iterates enabled sources that pass the caller-supplied filter,
+    // then triggers retention cleanup and persists the updated LastDownloadUtc timestamps.
+    // Cleanup and save are skipped entirely if no sources were actually downloaded.
     private async Task DownloadFromSourcesAsync(Func<WallpaperSource, bool> filter)
     {
         var settings = await WallpaperNexusSettings.LoadAsync();
@@ -80,6 +88,9 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         source.LastDownloadUtc = DateTimeOffset.UtcNow;
     }
 
+    // Returns true if the source has never been downloaded, or if the next cron occurrence
+    // after the last download has already passed. An invalid cron expression is treated
+    // as always-overdue so a misconfigured source never silently stalls.
     private static bool IsOverdue(WallpaperSource source)
     {
         if (source.LastDownloadUtc is null)
@@ -88,6 +99,7 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         try
         {
             var cron = CronExpression.Parse(source.CronExpression);
+            // Compute the next fire time relative to the last successful download
             var next = cron.GetNextOccurrence(source.LastDownloadUtc.Value, TimeZoneInfo.Local);
             return next.HasValue && next.Value <= DateTimeOffset.UtcNow;
         }
@@ -97,8 +109,12 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         }
     }
 
+    // Downloads a single wallpaper image to the configured folder.
+    // The filename is derived from the sanitised title plus the URL's filename component
+    // so that the original source identifier is preserved for deduplication.
     public async Task Download(WallpaperImage data, WallpaperNexusSettings settings)
     {
+        // Strip characters that are invalid in file names, and cap length to avoid MAX_PATH issues
         var title = new string(data.Title
             .Where(c => !InvalidFileNameChars.Contains(c))
             .Take(200)
@@ -107,8 +123,11 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         var ext = Path.GetExtension(urlFile);
         if (string.IsNullOrEmpty(ext))
             ext = ".png";
+        // Append the URL filename stem so re-downloads of the same title remain distinct
         title += " - " + Path.GetFileNameWithoutExtension(urlFile);
         var path = Path.Combine(settings.Download.Folder, title + ext);
+
+        // Guard against a malicious title that contains ".." path traversal sequences
         var fullPath = Path.GetFullPath(path);
         var folder = Path.GetFullPath(settings.Download.Folder).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         if (!fullPath.StartsWith(folder, StringComparison.OrdinalIgnoreCase))
@@ -116,12 +135,14 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
             Logger.LogWarning("Path traversal blocked: {Path}", fullPath);
             return;
         }
+        // Skip existing files unless a debugger is attached (useful for re-testing download logic)
         if (!Debugger.IsAttached && File.Exists(path))
             return;
 
         Logger.LogInformation($"Downloading Image: {data.Title}");
         var watch = Stopwatch.StartNew();
         using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        // Use ResponseHeadersRead to start timing from the first byte, not after full download
         using var response = await client.GetAsync(data.ImageUrl, HttpCompletionOption.ResponseHeadersRead);
         if (!response.IsSuccessStatusCode)
         {
@@ -134,6 +155,8 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         Logger.LogInformation($"Download Complete: {watch.Elapsed}");
     }
 
+    // Deletes wallpaper files older than the configured retention period.
+    // Favorited files are excluded from cleanup regardless of age.
     private async Task CleanupOldImages(WallpaperNexusSettings settings)
     {
         var favorites = new HashSet<string>(

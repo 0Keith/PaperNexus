@@ -17,18 +17,26 @@
 
     <Window.Resources>
         <v:FavoriteColorConverter x:Key="FavoriteColorConverter"/>
+        <v:BanColorConverter x:Key="BanColorConverter"/>
+        <v:PathToDisplayNameConverter x:Key="PathToDisplayNameConverter"/>
     </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Button:disabled">
+            <Setter Property="Opacity" Value="0.35"/>
+        </Style>
+    </Window.Styles>
 
     <Grid RowDefinitions="*,Auto" Margin="20">
         <!-- Two-column layout -->
         <Grid Grid.Row="0" ColumnDefinitions="*,16,*">
 
-            <!-- Left column: Current Wallpaper + Wallpaper Sources -->
+            <!-- Left column: Current Wallpaper + Tabs -->
             <DockPanel Grid.Column="0">
 
                 <!-- Current Wallpaper -->
                 <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
-                    <Grid ColumnDefinitions="Auto,4,Auto,4,Auto,4,Auto,4,Auto">
+                    <Grid ColumnDefinitions="Auto,4,Auto,4,Auto">
                         <TextBlock Grid.Column="0" Text="Current Wallpaper" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         <Button Grid.Column="2"
                                 Command="{Binding NextWallpaperCommand}"
@@ -43,24 +51,6 @@
                                 Padding="8,4">
                             <PathIcon Data="M1 7H10V17H14V22H1Z M11 1H23V16H11Z M2.5,11A1.5,1.5,0,1,1,5.5,11A1.5,1.5,0,1,1,2.5,11Z M5.5,14A1.5,1.5,0,1,1,8.5,14A1.5,1.5,0,1,1,5.5,14Z M8.5,19A1.5,1.5,0,1,1,11.5,19A1.5,1.5,0,1,1,8.5,19Z M13,4.5A1.5,1.5,0,1,1,16,4.5A1.5,1.5,0,1,1,13,4.5Z M18,4.5A1.5,1.5,0,1,1,21,4.5A1.5,1.5,0,1,1,18,4.5Z M13,12.5A1.5,1.5,0,1,1,16,12.5A1.5,1.5,0,1,1,13,12.5Z M18,12.5A1.5,1.5,0,1,1,21,12.5A1.5,1.5,0,1,1,18,12.5Z"
                                       Width="12" Height="12"/>
-                        </Button>
-                        <Button Grid.Column="6"
-                                Command="{Binding ToggleFavoriteCommand}"
-                                IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                ToolTip.Tip="Toggle favorite"
-                                Padding="8,4">
-                            <PathIcon Data="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.03L12 21.35Z"
-                                      Width="12" Height="12"
-                                      Foreground="{Binding IsCurrentWallpaperFavorited, Converter={StaticResource FavoriteColorConverter}}"/>
-                        </Button>
-                        <Button Grid.Column="8"
-                                Click="DeleteWallpaper_Click"
-                                IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                ToolTip.Tip="Delete current wallpaper"
-                                Padding="8,4">
-                            <PathIcon Data="M9 3H15L16 4H20V6H4V4H8L9 3ZM5 7H19L18.1 20.1C18 21.2 17.1 22 16 22H8C6.9 22 6 21.2 5.9 20.1L5 7ZM10 10V19H12V10H10ZM14 10V19H16V10H14Z"
-                                      Width="12" Height="12"
-                                      Foreground="#E06C75"/>
                         </Button>
                     </Grid>
                     <Button Command="{Binding OpenCurrentWallpaperCommand}"
@@ -78,83 +68,253 @@
                             CornerRadius="4" Padding="4" Margin="0,4,0,0"
                             MaxHeight="180"
                             IsVisible="{Binding PreviewImage, Converter={x:Static ObjectConverters.IsNotNull}}">
-                        <Image Source="{Binding PreviewImage}"
-                               Stretch="Uniform"
-                               MaxHeight="170"/>
+                        <Grid>
+                            <Image Source="{Binding PreviewImage}"
+                                   Stretch="Uniform"
+                                   MaxHeight="170"/>
+                            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                        Orientation="Horizontal" Spacing="4" Margin="0,0,4,4">
+                                <Button Command="{Binding ToggleFavoriteCommand}"
+                                        IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                        ToolTip.Tip="Toggle favorite"
+                                        Padding="5,4">
+                                    <PathIcon Data="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.03L12 21.35Z"
+                                              Width="12" Height="12"
+                                              Foreground="{Binding IsCurrentWallpaperFavorited, Converter={StaticResource FavoriteColorConverter}}"/>
+                                </Button>
+                                <Button Click="DeleteWallpaper_Click"
+                                        IsEnabled="{Binding CurrentWallpaperPath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                        ToolTip.Tip="Delete current wallpaper"
+                                        Padding="5,4">
+                                    <PathIcon Data="M9 3H15L16 4H20V6H4V4H8L9 3ZM5 7H19L18.1 20.1C18 21.2 17.1 22 16 22H8C6.9 22 6 21.2 5.9 20.1L5 7ZM10 10V19H12V10H10ZM14 10V19H16V10H14Z"
+                                              Width="12" Height="12"
+                                              Foreground="#E06C75"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
                     </Border>
                 </StackPanel>
 
-                <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,4,Auto,*,Auto,4,Auto,4,Auto" Margin="0,0,0,6">
-                    <TextBlock Grid.Column="0" Text="Wallpaper Sources" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <Button Grid.Column="2"
-                            Command="{Binding DownloadNowCommand}"
-                            ToolTip.Tip="Download wallpapers from all enabled sources now"
-                            Padding="8,4">
-                        <PathIcon Data="M5 20H19V18H5V20ZM19 9H15V3H9V9H5L12 16L19 9Z"
-                                  Width="12" Height="12"/>
-                    </Button>
-                    <Button Grid.Column="4"
-                            Click="AddSource_Click"
-                            ToolTip.Tip="Add a new wallpaper source"
-                            Padding="8,4">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <PathIcon Data="M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z"
-                                      Width="12" Height="12"/>
-                            <TextBlock Text="Add" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                    <Button Grid.Column="6"
-                            Click="EditSource_Click"
-                            IsEnabled="{Binding SelectedSource, Converter={x:Static ObjectConverters.IsNotNull}}"
-                            ToolTip.Tip="Edit selected wallpaper source"
-                            Padding="8,4">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <PathIcon Data="M3 17.25V21H6.75L17.81 9.94L14.06 6.19L3 17.25ZM20.71 7.04C21.1 6.65 21.1 6.02 20.71 5.63L18.37 3.29C17.98 2.9 17.35 2.9 16.96 3.29L15.13 5.12L18.88 8.87L20.71 7.04Z"
-                                      Width="12" Height="12"/>
-                            <TextBlock Text="Edit" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                    <Button Grid.Column="8"
-                            Command="{Binding DeleteSourceCommand}"
-                            IsEnabled="{Binding SelectedSource, Converter={x:Static ObjectConverters.IsNotNull}}"
-                            ToolTip.Tip="Delete selected wallpaper source"
-                            Padding="8,4">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <PathIcon Data="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12Z"
-                                      Width="12" Height="12"/>
-                            <TextBlock Text="Delete" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                </Grid>
-                <ListBox ItemsSource="{Binding Sources}"
-                         SelectedItem="{Binding SelectedSource}"
-                         Background="#1E1E1E"
-                         BorderBrush="#555"
-                         BorderThickness="1"
-                         DoubleTapped="SourceList_DoubleTapped">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <Grid ColumnDefinitions="Auto,8,*" Margin="2,4">
-                                <CheckBox Grid.Column="0"
-                                          IsChecked="{Binding IsEnabled, Mode=TwoWay}"
-                                          VerticalAlignment="Top"
-                                          Margin="0,2,0,0"/>
-                                <StackPanel Grid.Column="2" Spacing="2">
-                                    <TextBlock Text="{Binding Name}"
-                                               FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding Url}"
-                                               FontSize="11"
-                                               Opacity="0.55"
-                                               TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="{Binding CronExpression}"
-                                               FontSize="11"
-                                               Opacity="0.45"
-                                               FontFamily="Consolas,Courier New,monospace"/>
-                                </StackPanel>
+                <TabControl Padding="0">
+                    <!-- Wallpaper Sources tab -->
+                    <TabItem>
+                        <TabItem.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <PathIcon Data="M21 3H3C2 3 1 4 1 5V19C1 21 2 21 3 21H21C22 21 23 21 23 19V5C23 4 22 3 21 3ZM21 19H3V5H21V19ZM13 10H17V12H13V10ZM13 14H17V16H13V14ZM7 10H11V16H7V10Z"
+                                          Width="14" Height="14"/>
+                                <TextBlock Text="Wallpaper Sources" FontSize="11"/>
+                            </StackPanel>
+                        </TabItem.Header>
+                        <DockPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,4,Auto,4,Auto" Margin="0,6,0,6">
+                                <Button Grid.Column="0"
+                                        Command="{Binding DownloadNowCommand}"
+                                        ToolTip.Tip="Download wallpapers from all enabled sources now"
+                                        Padding="8,4">
+                                    <PathIcon Data="M5 20H19V18H5V20ZM19 9H15V3H9V9H5L12 16L19 9Z"
+                                              Width="12" Height="12"/>
+                                </Button>
+                                <Button Grid.Column="2"
+                                        Click="AddSource_Click"
+                                        ToolTip.Tip="Add a new wallpaper source"
+                                        Padding="8,4">
+                                    <PathIcon Data="M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z"
+                                              Width="12" Height="12"/>
+                                </Button>
+                                <Button Grid.Column="4"
+                                        Click="EditSource_Click"
+                                        IsEnabled="{Binding SelectedSource, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                        ToolTip.Tip="Edit selected wallpaper source"
+                                        Padding="8,4">
+                                    <PathIcon Data="M3 17.25V21H6.75L17.81 9.94L14.06 6.19L3 17.25ZM20.71 7.04C21.1 6.65 21.1 6.02 20.71 5.63L18.37 3.29C17.98 2.9 17.35 2.9 16.96 3.29L15.13 5.12L18.88 8.87L20.71 7.04Z"
+                                              Width="12" Height="12"/>
+                                </Button>
                             </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                            <ListBox ItemsSource="{Binding Sources}"
+                                     SelectedItem="{Binding SelectedSource}"
+                                     Background="#1E1E1E"
+                                     BorderBrush="#555"
+                                     BorderThickness="1"
+                                     DoubleTapped="SourceList_DoubleTapped">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="Auto,8,*,4,Auto" Margin="2,4">
+                                            <CheckBox Grid.Column="0"
+                                                      IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                      VerticalAlignment="Top"
+                                                      Margin="0,2,0,0"/>
+                                            <StackPanel Grid.Column="2" Spacing="2">
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding Url}"
+                                                           FontSize="11"
+                                                           Opacity="0.5"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding CronExpression}"
+                                                           FontSize="11"
+                                                           Opacity="0.5"
+                                                           FontFamily="Consolas,Courier New,monospace"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="4"
+                                                    Click="DeleteSourceRow_Click"
+                                                    ToolTip.Tip="Delete this source"
+                                                    Padding="4,2" VerticalAlignment="Center">
+                                                <PathIcon Data="M9 3H15L16 4H20V6H4V4H8L9 3ZM5 7H19L18.1 20.1C18 21.2 17.1 22 16 22H8C6.9 22 6 21.2 5.9 20.1L5 7Z"
+                                                          Width="10" Height="10" Foreground="#E06C75"/>
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </TabItem>
+
+                    <!-- Favorites tab -->
+                    <TabItem>
+                        <TabItem.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <PathIcon Data="M12 21.35L10.55 20.03C5.4 15.36 2 12.27 2 8.5C2 5.41 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.08C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.41 22 8.5C22 12.27 18.6 15.36 13.45 20.03L12 21.35Z"
+                                          Width="14" Height="14"/>
+                                <TextBlock Text="Favorites" FontSize="11"/>
+                            </StackPanel>
+                        </TabItem.Header>
+                        <DockPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                            <ListBox ItemsSource="{Binding FavoriteWallpapers}"
+                                     SelectedItem="{Binding SelectedFavorite}"
+                                     Background="#1E1E1E"
+                                     BorderBrush="#555"
+                                     BorderThickness="1">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="*,4,Auto,4,Auto" Margin="2,4">
+                                            <StackPanel Grid.Column="0" Spacing="2">
+                                                <TextBlock Text="{Binding Converter={StaticResource PathToDisplayNameConverter}}"
+                                                           FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding}"
+                                                           FontSize="11"
+                                                           Opacity="0.5"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           FontFamily="Consolas,Courier New,monospace"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="2"
+                                                    Click="SetFavoriteAsCurrentRow_Click"
+                                                    ToolTip.Tip="Set as current wallpaper"
+                                                    Padding="4,2" VerticalAlignment="Center">
+                                                <PathIcon Data="M8 5V19L19 12Z" Width="10" Height="10"/>
+                                            </Button>
+                                            <Button Grid.Column="4"
+                                                    Click="RemoveFavoriteRow_Click"
+                                                    ToolTip.Tip="Remove from favorites"
+                                                    Padding="4,2" VerticalAlignment="Center">
+                                                <PathIcon Data="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12Z"
+                                                          Width="10" Height="10"/>
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </TabItem>
+
+                    <!-- Gallery tab -->
+                    <TabItem>
+                        <TabItem.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <PathIcon Data="M22 16V4C22 2.9 21.1 2 20 2H8C6.9 2 6 2.9 6 4V16C6 17.1 6.9 18 8 18H20C21.1 18 22 17.1 22 16ZM11 12L13.03 14.71L16 11L20 16H8L11 12ZM2 6V20C2 21.1 2.9 22 4 22H18V20H4V6H2Z"
+                                          Width="14" Height="14"/>
+                                <TextBlock Text="Gallery" FontSize="11"/>
+                            </StackPanel>
+                        </TabItem.Header>
+                        <DockPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto" Margin="0,6,0,6">
+                                <Button Grid.Column="0"
+                                        Command="{Binding LoadGalleryCommand}"
+                                        ToolTip.Tip="Refresh gallery"
+                                        Padding="8,4">
+                                    <PathIcon Data="M12 6V9L16 5L12 1V4C7.58 4 4 7.58 4 12C4 13.57 4.46 15.03 5.24 16.26L6.7 14.8C6.25 13.97 6 13.01 6 12C6 8.69 8.69 6 12 6ZM18.76 7.74L17.3 9.2C17.74 10.04 18 10.99 18 12C18 15.31 15.31 18 12 18V15L8 19L12 23V20C16.42 20 20 16.42 20 12C20 10.43 19.54 8.97 18.76 7.74Z"
+                                              Width="12" Height="12"/>
+                                </Button>
+                            </Grid>
+                            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                          VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding GalleryItems}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:GalleryItem">
+                                            <Border Width="136" Margin="3"
+                                                    Background="#222222"
+                                                    CornerRadius="4"
+                                                    ClipToBounds="True"
+                                                    BorderBrush="#383838"
+                                                    BorderThickness="1">
+                                                <StackPanel>
+                                                    <!-- Thumbnail area -->
+                                                    <Grid Height="90" ClipToBounds="True">
+                                                        <!-- Placeholder while loading -->
+                                                        <Border Background="#2A2A2A"
+                                                                IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}">
+                                                            <PathIcon Data="M21 19V5C21 3.9 20.1 3 19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19ZM8.5 13.5L11 16.51L14.5 12L19 18H5L8.5 13.5Z"
+                                                                      Width="22" Height="22" Opacity="0.2"/>
+                                                        </Border>
+                                                        <Image Source="{Binding Thumbnail}"
+                                                               Stretch="UniformToFill"
+                                                               IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                        <!-- Ban overlay -->
+                                                        <Border Background="#AA660000"
+                                                                IsVisible="{Binding IsBanned}"/>
+                                                    </Grid>
+                                                    <!-- Display name -->
+                                                    <TextBlock Text="{Binding DisplayName}"
+                                                               FontSize="10" Padding="4,3,4,1"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               ToolTip.Tip="{Binding DisplayName}"/>
+                                                    <!-- Action buttons -->
+                                                    <Grid ColumnDefinitions="*,*,*,*" Margin="2,1,2,4">
+                                                        <Button Grid.Column="0"
+                                                                Command="{Binding SetAsCurrentCommand}"
+                                                                Padding="2" ToolTip.Tip="Set as current wallpaper"
+                                                                HorizontalContentAlignment="Center">
+                                                            <PathIcon Data="M8 5V19L19 12Z" Width="10" Height="10"/>
+                                                        </Button>
+                                                        <Button Grid.Column="1"
+                                                                Command="{Binding ToggleFavoriteCommand}"
+                                                                Padding="2" ToolTip.Tip="Toggle favorite"
+                                                                HorizontalContentAlignment="Center">
+                                                            <PathIcon Data="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.03L12 21.35Z"
+                                                                      Width="10" Height="10"
+                                                                      Foreground="{Binding IsFavorite, Converter={StaticResource FavoriteColorConverter}}"/>
+                                                        </Button>
+                                                        <Button Grid.Column="2"
+                                                                Command="{Binding ToggleBanCommand}"
+                                                                Padding="2" ToolTip.Tip="Ban/unban from rotation"
+                                                                HorizontalContentAlignment="Center">
+                                                            <PathIcon Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8 0-1.85.63-3.55 1.69-4.9L16.9 18.31C15.55 19.37 13.85 20 12 20zm6.31-3.1L7.1 5.69C8.45 4.63 10.15 4 12 4c4.42 0 8 3.58 8 8 0 1.85-.63 3.55-1.69 4.9z"
+                                                                      Width="10" Height="10"
+                                                                      Foreground="{Binding IsBanned, Converter={StaticResource BanColorConverter}}"/>
+                                                        </Button>
+                                                        <Button Grid.Column="3"
+                                                                Command="{Binding DeleteCommand}"
+                                                                Padding="2" ToolTip.Tip="Delete from disk"
+                                                                HorizontalContentAlignment="Center">
+                                                            <PathIcon Data="M9 3H15L16 4H20V6H4V4H8L9 3ZM5 7H19L18.1 20.1C18 21.2 17.1 22 16 22H8C6.9 22 6 21.2 5.9 20.1L5 7Z"
+                                                                      Width="10" Height="10"
+                                                                      Foreground="#E06C75"/>
+                                                        </Button>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </TabItem>
+                </TabControl>
             </DockPanel>
 
             <!-- Right column: All other settings -->
@@ -173,7 +333,8 @@
                                     <TextBox Grid.Column="0" Text="{Binding Folder}"
                                              Watermark="e.g. C:/Users/YourName/Wallpapers"/>
                                     <Button Grid.Column="2" Click="BrowseFolder_Click"
-                                            ToolTip.Tip="Browse for wallpapers folder">
+                                            ToolTip.Tip="Browse for wallpapers folder"
+                                            Padding="8,4">
                                         <StackPanel Orientation="Horizontal" Spacing="4">
                                             <PathIcon Data="M10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6H12L10 4Z"
                                                       Width="14" Height="14"/>
@@ -183,11 +344,14 @@
                                     <Button Grid.Column="4"
                                             Command="{Binding OpenFolderCommand}"
                                             IsEnabled="{Binding Folder, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                            ToolTip.Tip="Open folder in Explorer">
+                                            ToolTip.Tip="Open folder in Explorer"
+                                            Padding="8,4">
                                         <PathIcon Data="M20 6H12L10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6ZM15 15H13V17H11V15H9V13H11V11H13V13H15V15Z"
                                                   Width="14" Height="14"/>
                                     </Button>
                                 </Grid>
+                                <TextBlock Text="Where downloaded wallpapers are stored on disk"
+                                           FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                             </StackPanel>
 
                             <!-- Separator -->
@@ -199,6 +363,8 @@
                                 <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.ResolutionOptions}"
                                           SelectedItem="{Binding SelectedResolution}"
                                           HorizontalAlignment="Stretch"/>
+                                <TextBlock Text="{Binding SelectedResolution.Description}"
+                                           FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                             </StackPanel>
 
                             <!-- Separator -->
@@ -210,6 +376,8 @@
                                 <NumericUpDown Value="{Binding RetentionDays}"
                                                Minimum="1" Maximum="3650" Increment="30"
                                                FormatString="0"/>
+                                <TextBlock Text="Wallpapers older than this are automatically deleted, favorites are always kept"
+                                           FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -222,60 +390,78 @@
                                 <CheckBox Grid.Column="1" Content="Enabled" IsChecked="{Binding SlideshowEnabled}" VerticalAlignment="Center"/>
                             </Grid>
 
-                            <!-- Slideshow Schedule -->
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Schedule" FontSize="12" Opacity="0.6"/>
-                                <StackPanel Orientation="Horizontal" Spacing="16">
-                                    <RadioButton Content="Interval (mins)"
-                                                 GroupName="ScheduleMode"
-                                                 IsChecked="{Binding IsIntervalMinutesMode}"/>
-                                    <RadioButton Content="Interval (hours)"
-                                                 GroupName="ScheduleMode"
-                                                 IsChecked="{Binding IsIntervalHoursMode}"/>
-                                    <RadioButton Content="Cron Expression"
-                                                 GroupName="ScheduleMode"
-                                                 IsChecked="{Binding IsCronMode}"/>
+                            <StackPanel Spacing="12" IsVisible="{Binding SlideshowEnabled}">
+                                <!-- Slideshow Schedule -->
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Schedule" FontSize="12" Opacity="0.6"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="16">
+                                        <RadioButton Content="Interval (mins)"
+                                                     GroupName="ScheduleMode"
+                                                     IsChecked="{Binding IsIntervalMinutesMode}"/>
+                                        <RadioButton Content="Interval (hours)"
+                                                     GroupName="ScheduleMode"
+                                                     IsChecked="{Binding IsIntervalHoursMode}"/>
+                                        <RadioButton Content="Cron Expression"
+                                                     GroupName="ScheduleMode"
+                                                     IsChecked="{Binding IsCronMode}"/>
+                                    </StackPanel>
+                                    <NumericUpDown Value="{Binding SlideshowIntervalMinutes}"
+                                                   Minimum="1" Maximum="1440" Increment="5"
+                                                   FormatString="0"
+                                                   IsVisible="{Binding IsIntervalMinutesMode}"/>
+                                    <NumericUpDown Value="{Binding SlideshowIntervalHours}"
+                                                   Minimum="1" Maximum="23" Increment="1"
+                                                   FormatString="0"
+                                                   IsVisible="{Binding IsIntervalHoursMode}"/>
+                                    <StackPanel IsVisible="{Binding IsCronMode}" Spacing="2">
+                                        <TextBox Text="{Binding SlideshowCronExpression}"
+                                                 Watermark="e.g. */30 * * * *"/>
+                                        <TextBlock Text="5-field cron: min hour day month weekday"
+                                                   FontSize="11" Opacity="0.5"/>
+                                    </StackPanel>
                                 </StackPanel>
-                                <NumericUpDown Value="{Binding SlideshowIntervalMinutes}"
-                                               Minimum="1" Maximum="1440" Increment="5"
-                                               FormatString="0"
-                                               IsVisible="{Binding IsIntervalMinutesMode}"/>
-                                <NumericUpDown Value="{Binding SlideshowIntervalHours}"
-                                               Minimum="1" Maximum="23" Increment="1"
-                                               FormatString="0"
-                                               IsVisible="{Binding IsIntervalHoursMode}"/>
-                                <StackPanel IsVisible="{Binding IsCronMode}" Spacing="2">
-                                    <TextBox Text="{Binding SlideshowCronExpression}"
-                                             Watermark="e.g. */30 * * * *"/>
-                                    <TextBlock Text="5-field cron: min hour day month weekday"
-                                               FontSize="11" Opacity="0.6"/>
+
+                                <!-- Separator -->
+                                <Border Height="1" Background="#333"/>
+
+                                <!-- Slideshow Order -->
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Order" FontSize="12" Opacity="0.6"/>
+                                    <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.SlideshowOrderOptions}"
+                                              SelectedItem="{Binding SelectedSlideshowOrder}"
+                                              HorizontalAlignment="Stretch"/>
+                                    <TextBlock Text="{Binding SelectedSlideshowOrder.Description}"
+                                               FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                                 </StackPanel>
-                            </StackPanel>
 
-                            <!-- Separator -->
-                            <Border Height="1" Background="#333"/>
+                                <!-- Separator -->
+                                <Border Height="1" Background="#333"/>
 
-                            <!-- Slideshow Order -->
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Order" FontSize="12" Opacity="0.6"/>
-                                <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.SlideshowOrderOptions}"
-                                          SelectedItem="{Binding SelectedSlideshowOrder}"
-                                          HorizontalAlignment="Stretch"/>
-                                <TextBlock Text="Alphabetical: cycle A→Z  •  Oldest/Newest: cycle by file date  •  Random: pick randomly"
-                                           FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
-                            </StackPanel>
+                                <!-- Prioritize Favorites -->
+                                <StackPanel Spacing="4">
+                                    <CheckBox Content="Prioritize Favorites" IsChecked="{Binding FavoritePriorityEnabled}"
+                                              ToolTip.Tip="Pick favorites more often during random selection"/>
+                                    <StackPanel Spacing="4" IsVisible="{Binding FavoritePriorityEnabled}">
+                                        <NumericUpDown Value="{Binding FavoritePriorityWeight}"
+                                                       Minimum="2" Maximum="20" Increment="1"
+                                                       FormatString="0"/>
+                                        <TextBlock Text="Weight: extra selection weight for favorites in random mode"
+                                                   FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </StackPanel>
 
-                            <!-- Separator -->
-                            <Border Height="1" Background="#333"/>
+                                <!-- Separator -->
+                                <Border Height="1" Background="#333"/>
 
-                            <!-- Fill Style -->
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Fill Style" FontSize="12" Opacity="0.6"/>
-                                <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.FillStyleOptions}"
-                                          SelectedItem="{Binding SelectedFillStyle}"
-                                          HorizontalAlignment="Stretch"/>
-                                <TextBlock Text="Fill: crop to fill screen  •  Fit: letterbox  •  Stretch: distort to fit  •  Tile: repeat  •  Center: no scaling  •  Span: stretch across monitors"
-                                           FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+                                <!-- Fill Style -->
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Fill Style" FontSize="12" Opacity="0.6"/>
+                                    <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.FillStyleOptions}"
+                                              SelectedItem="{Binding SelectedFillStyle}"
+                                              HorizontalAlignment="Stretch"/>
+                                    <TextBlock Text="{Binding SelectedFillStyle.Description}"
+                                               FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+                                </StackPanel>
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -284,14 +470,36 @@
                     <Border Background="#1E1E1E" BorderBrush="#444" BorderThickness="1" CornerRadius="6" Padding="12">
                         <StackPanel Spacing="12">
                             <TextBlock Text="General Settings" FontWeight="SemiBold" FontSize="13" Opacity="0.85"/>
-                            <CheckBox Content="Run on startup"
-                                      IsChecked="{Binding RunOnStartup}"/>
+                            <StackPanel Spacing="4">
+                                <CheckBox Content="Run on startup"
+                                          IsChecked="{Binding RunOnStartup}"/>
+                                <TextBlock Text="Automatically launch PaperNexus when Windows starts"
+                                           FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+                            </StackPanel>
                             <Border Height="1" Background="#333"/>
-                            <CheckBox Content="Automatic updates"
-                                      IsChecked="{Binding AutoUpdatesEnabled}"/>
+                            <StackPanel Spacing="4">
+                                <CheckBox x:Name="MinimizeToTrayCheckBox"
+                                          Content="Minimize to system tray on close"
+                                          IsChecked="{Binding MinimizeToTray}"
+                                          Click="MinimizeToTray_Click"
+                                          ToolTip.Tip="When disabled, closing the window will fully exit PaperNexus"/>
+                                <TextBlock Text="When disabled, closing the window will fully exit PaperNexus"
+                                           FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+                            </StackPanel>
                             <Border Height="1" Background="#333"/>
-                            <CheckBox Content="Show title annotation on wallpaper"
-                                      IsChecked="{Binding AnnotateWallpaper}"/>
+                            <StackPanel Spacing="4">
+                                <CheckBox Content="Automatic updates"
+                                          IsChecked="{Binding AutoUpdatesEnabled}"/>
+                                <TextBlock Text="Silently check for and install new versions in the background"
+                                           FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Border Height="1" Background="#333"/>
+                            <StackPanel Spacing="4">
+                                <CheckBox Content="Show title annotation on wallpaper"
+                                          IsChecked="{Binding AnnotateWallpaper}"/>
+                                <TextBlock Text="Overlay the wallpaper title on the image when it is set"
+                                           FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+                            </StackPanel>
                             <StackPanel Spacing="8" Margin="24,0,0,0"
                                         IsVisible="{Binding AnnotateWallpaper}">
                                 <StackPanel Spacing="4">
@@ -299,6 +507,8 @@
                                     <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.FontFamilyOptions}"
                                                   SelectedItem="{Binding AnnotationFontFamily}"
                                                   HorizontalAlignment="Stretch"/>
+                                    <TextBlock Text="Typeface used to render the annotation text"
+                                               FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                                 </StackPanel>
                                 <Grid ColumnDefinitions="*,12,*" >
                                     <StackPanel Grid.Column="0" Spacing="4">
@@ -318,16 +528,26 @@
                                     <v:NonScrollableComboBox ItemsSource="{x:Static vm:WallpaperConfigViewModel.AnnotationPositionOptions}"
                                                   SelectedItem="{Binding SelectedAnnotationPosition}"
                                                   HorizontalAlignment="Stretch"/>
+                                    <TextBlock Text="{Binding SelectedAnnotationPosition.Description}"
+                                               FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                                 </StackPanel>
-                                <CheckBox Content="Text outline"
-                                          ToolTip.Tip="Draw a contrasting outline around the annotation text"
-                                          IsChecked="{Binding AnnotationOutlineEnabled}"/>
+                                <StackPanel Spacing="4">
+                                    <CheckBox Content="Text outline"
+                                              ToolTip.Tip="Draw a contrasting outline around the annotation text"
+                                              IsChecked="{Binding AnnotationOutlineEnabled}"/>
+                                    <TextBlock Text="Draw a contrasting outline around the text for better readability on bright images"
+                                               FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+                                </StackPanel>
                             </StackPanel>
                             <Border Height="1" Background="#333"/>
-                            <CheckBox x:Name="DebugModeCheckBox"
-                                      Content="Debug mode"
-                                      IsChecked="{Binding DebugMode}"
-                                      Click="DebugMode_Click"/>
+                            <StackPanel Spacing="4">
+                                <CheckBox x:Name="DebugModeCheckBox"
+                                          Content="Debug mode"
+                                          IsChecked="{Binding DebugMode}"
+                                          Click="DebugMode_Click"/>
+                                <TextBlock Text="Skip auto-install on launch and enable verbose logging"
+                                           FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 
@@ -346,7 +566,7 @@
                         Padding="5,2" Opacity="0.6">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <PathIcon Data="M12 5V1L7 6L12 11V7C15.31 7 18 9.69 18 13C18 16.31 15.31 19 12 19C8.69 19 6 16.31 6 13H4C4 17.42 7.58 21 12 21C16.42 21 20 17.42 20 13C20 8.58 16.42 5 12 5Z"
-                                  Width="12" Height="12"
+                                  Width="14" Height="14"
                                   Foreground="#E06C75"/>
                         <TextBlock Text="Factory Reset" FontSize="11" VerticalAlignment="Center"
                                    Foreground="#E06C75"/>

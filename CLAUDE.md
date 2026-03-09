@@ -9,9 +9,13 @@
 ```bash
 dotnet restore PaperNexus.sln
 dotnet build PaperNexus.sln --configuration Release
-dotnet run --project PaperNexus
+dotnet run --project PaperNexus --configuration Release -- --debug
 dotnet test --configuration Release
 ```
+
+**Always use `--debug` when running locally.** Without it, `dotnet run` triggers the auto-install path (copies exe to `%LOCALAPPDATA%\PaperNexus\`) and exits immediately — the window never appears directly.
+
+After launching, monitor the background task output for runtime errors. Watch for unhandled exceptions, AVLN binding errors, or service failures.
 
 ## Repository Structure
 
@@ -68,6 +72,12 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 
 **Button tooltips required:** Every `Button` in AXAML must have `ToolTip.Tip`. Tray `NativeMenuItem`s exempt.
 
+**Action buttons belong on the item they act on:** Buttons or controls that require a selection (e.g. "Set as current", "Remove") should live on the row/card of the item they modify, not in a separate toolbar. Toolbars are for global actions only.
+
+**Comments for intended behavior:** Use comments to document *why* and *what* a method or block is intended to do — especially for non-obvious logic, edge cases, and side-effect sequences.
+
+**Local vars over inline wrapping:** Extract method call arguments into named local variables rather than nesting inline. E.g., `var current = Path.GetFullPath(x); var install = Path.GetFullPath(y); string.Equals(current, install, ...)` over `string.Equals(Path.GetFullPath(x), Path.GetFullPath(y), ...)`.
+
 **Suppressed diagnostics:** CS8601-CS8604, CS8618-CS8619, CA1806, CA1835, CA1848 (all `none`). `<Nullable>enable</Nullable>` is set but warnings silenced. Don't add `#nullable` annotations unless asked.
 
 ## Build & CI/CD
@@ -92,3 +102,4 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 - **Update `CLAUDE.md`** after structural/pattern changes
 - **No Linear issues** for this repo
 - "Remember" = update this file
+- **Comment addition tasks:** Add comments in small, focused batches (1–3 files at a time) rather than delegating all files to a single agent. Large batches risk code corruption (e.g., invalid syntax introduced alongside comment text).

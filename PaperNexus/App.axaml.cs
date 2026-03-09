@@ -52,6 +52,7 @@ public partial class App : Application
                 {
                     services.AddLogging(b => b.AddProvider(new FileLoggerProvider()));
                     services.AddSingleton<HttpWallpaperSourceService>();
+                    // Auto-discover and register all IAddSingleton / IAddHostedSingleton / IScheduleScopedJob implementations
                     services.AddServicesFrom(typeof(App).Assembly);
                 })
                 .Build();
@@ -67,15 +68,18 @@ public partial class App : Application
 
             var launchedOnStartup = desktop.Args?.Contains("--startup") == true;
 
-            // Show splash screen while background services start (skip on startup)
-            if (!launchedOnStartup)
+            // Show splash screen while background services start (skip on startup and debug mode)
+            if (!launchedOnStartup && !Program.IsDebugMode)
             {
                 _splashScreen = new SplashScreen();
                 _splashScreen.Show();
             }
 
-            // Close the splash once the background host has started, but show it for at least 2 seconds
-            _ = Task.WhenAll(_backgroundHost.StartAsync(), Task.Delay(2000)).ContinueWith(_ =>
+            // Close the splash once the background host has started, but show it for at least 2 seconds.
+            // In debug mode skip the delay and go straight to the main window — avoids a window-count-zero
+            // gap that would trigger OnLastWindowClose shutdown before the main window opens.
+            var splashDelay = Program.IsDebugMode ? Task.CompletedTask : Task.Delay(2000);
+            _ = Task.WhenAll(_backgroundHost.StartAsync(), splashDelay).ContinueWith(_ =>
                 Dispatcher.UIThread.Post(() =>
                 {
                     _splashScreen?.Close();
@@ -92,6 +96,7 @@ public partial class App : Application
             {
                 _ = Task.Run(() =>
                 {
+                    // Poll with a 1-second timeout so we can check _exiting without blocking forever
                     while (!_exiting)
                     {
                         try
@@ -104,6 +109,7 @@ public partial class App : Application
                         }
                         catch (ObjectDisposedException)
                         {
+                            // Event was disposed during shutdown — exit the listener loop
                             break;
                         }
                     }
@@ -114,6 +120,9 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
+    // Builds the system tray icon and context menu.
+    // Each menu action runs switcher/downloader work on a background thread to avoid
+    // blocking the UI thread, then surfaces errors through the settings window if it is open.
     private void SetupTrayIcon(IClassicDesktopStyleApplicationLifetime desktop)
     {
         var menu = new NativeMenu();
@@ -131,6 +140,7 @@ public partial class App : Application
                 if (switcher is null)
                     return;
                 var next = await Task.Run(switcher.SwitchToNextAsync);
+                // If no wallpaper was found, trigger a fresh download then retry the switch
                 if (next is null)
                 {
                     var downloader = _backgroundHost?.Services.GetService<IDownloadWallpapers>();
@@ -162,6 +172,7 @@ public partial class App : Application
                 if (switcher is null)
                     return;
                 var next = await Task.Run(switcher.SwitchToRandomAsync);
+                // Same fallback pattern as "Next Wallpaper" — download if the folder is empty
                 if (next is null)
                 {
                     var downloader = _backgroundHost?.Services.GetService<IDownloadWallpapers>();
@@ -198,9 +209,11 @@ public partial class App : Application
         };
         _trayIcon.Clicked += (_, _) => ShowMainWindow();
 
-        TrayIcon.SetIcons(this, new TrayIcons { _trayIcon });
+        TrayIcon.SetIcons(this, [_trayIcon]);
     }
 
+    // Ensures the settings window is created if needed, then brings it to the foreground.
+    // Always called via Dispatcher.UIThread.Post to be safe from background threads.
     private void ShowMainWindow()
     {
         Dispatcher.UIThread.Post(() =>
@@ -221,7 +234,9 @@ public partial class App : Application
         });
     }
 
-    private void OnMainWindowClosed(object? sender, EventArgs e)
+    // Called when the settings window is closed. Decides whether to stay resident in
+    // the tray or to shut down, based on the MinimizeToTray setting and debug mode.
+    private async void OnMainWindowClosed(object? sender, EventArgs e)
     {
         if (_mainWindow is not null)
         {
@@ -231,11 +246,33 @@ public partial class App : Application
 
         // Reclaim UI memory now that the settings window is closed
         GC.Collect(2, GCCollectionMode.Forced, blocking: false);
+
+        if (ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
+            return;
+
+        // In debug mode, always exit on close
+        if (Program.IsDebugMode)
+        {
+            ExitApplication(desktop);
+            return;
+        }
+
+        // Check if minimize-to-tray is disabled; if so, exit on close
+        try
+        {
+            var settings = await WallpaperNexusSettings.LoadAsync();
+            if (!settings.MinimizeToTray)
+                ExitApplication(desktop);
+        }
+        catch { }
     }
 
+    // Performs a graceful shutdown: hides the tray icon, stops background services
+    // with a 3-second timeout, then forces process exit to clean up any stray threads.
     private async void ExitApplication(IClassicDesktopStyleApplicationLifetime desktop)
     {
         _exiting = true;
+        // Hide the icon immediately so the user doesn't see a phantom tray entry
         if (_trayIcon != null)
             _trayIcon.IsVisible = false;
         if (_backgroundHost is not null)
@@ -245,9 +282,11 @@ public partial class App : Application
             catch (Exception ex) { Logger?.LogError(ex, "Error stopping background host during exit."); }
         }
         desktop.Shutdown();
+        // Call Environment.Exit to ensure background threads (IPC listener, etc.) are terminated
         Environment.Exit(0);
     }
 
+    // Loads the app logo asset and scales it to the standard 32×32 tray icon size.
     private static WindowIcon CreateTrayIcon()
     {
         using var stream = AssetLoader.Open(new Uri("avares://PaperNexus/Assets/logo.png"));
@@ -259,6 +298,8 @@ public partial class App : Application
         return new WindowIcon(new Avalonia.Media.Imaging.Bitmap(ms));
     }
 
+    // Helper that renders a 16×16 menu icon using a SixLabors drawing callback,
+    // then converts it to an Avalonia Bitmap via an in-memory PNG stream.
     private static Avalonia.Media.Imaging.Bitmap CreateMenuIcon(Action<IImageProcessingContext> draw)
     {
         using var img = new Image<Rgba32>(16, 16);
@@ -295,17 +336,21 @@ public partial class App : Application
         ctx.Fill(Color.Tomato, new RectangularPolygon(7, 2, 2, 7));
     });
 
+    // Adds or removes the Windows startup registry entry under HKCU\...\Run.
+    // Also removes legacy key names from earlier app versions to clean up on upgrade.
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     internal static void UpdateStartupRegistration(bool enable)
     {
         using var key = Registry.CurrentUser.OpenSubKey(
             @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", writable: true);
+        // Clean up old names from previous app identity
         key?.DeleteValue("Excogitated Wallpaper Service", throwOnMissingValue: false);
         key?.DeleteValue("Wallpaper Nexus", throwOnMissingValue: false);
         if (enable)
         {
             var exePath = Environment.ProcessPath
                 ?? Path.ChangeExtension(Assembly.GetEntryAssembly()!.Location, ".exe");
+            // Pass --startup so the app knows it was launched by Windows at login
             key?.SetValue("PaperNexus", $"\"{exePath}\" --startup");
         }
         else
