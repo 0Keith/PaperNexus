@@ -21,22 +21,42 @@ After launching, monitor the background task output for runtime errors. Watch fo
 
 ```
 PaperNexus/
-├── PaperNexus.sln
-├── CLAUDE.md, .editorconfig, .gitignore
-├── .claude/                        # Config, hooks, commands
-├── .github/workflows/              # pull-request.yml, deploy-wallpaper-service.yml
-├── PaperNexus.Tests/               # Unit tests (xUnit + NSubstitute)
-└── PaperNexus/                     # Main project
-    ├── App.axaml(.cs)              # App root, tray icon, startup
-    ├── Program.cs                  # Entry point, auto-install, single-instance, IPC
-    ├── AutoUpdateService.cs        # Silent auto-update via GitHub Releases
-    ├── DownloadWallpapers.cs       # Scheduled wallpaper downloader
-    ├── HttpWallpaperSourceService.cs # HTTP feed client
-    ├── NativeMethods.cs            # P/Invoke for Windows wallpaper API
-    ├── SwitchWallpaper.cs          # Wallpaper switching logic
-    ├── Core/                       # DI, logging, scheduling, settings
-    ├── ViewModels/                 # MVVM ViewModels (CommunityToolkit.Mvvm)
-    └── Views/                      # Avalonia AXAML views
+├── PaperNexus.sln                       # Solution file
+├── CLAUDE.md                            # AI assistant guide (this file)
+├── .editorconfig                        # C# code style rules & diagnostics
+├── .gitignore                           # Standard Visual Studio .gitignore
+├── .claude/                             # Claude Code configuration
+├── .github/
+│   └── workflows/
+│       ├── pull-request.yml             # PR build verification
+│       └── deploy-wallpaper-service.yml # Release builds + code signing
+├── docs/
+│   └── ui-style-guide.md               # Avalonia AXAML patterns reference
+├── PaperNexus.Tests/                    # Unit tests (xUnit + NSubstitute)
+└── PaperNexus/                          # Main project
+    ├── PaperNexus.csproj
+    ├── App.axaml(.cs)                   # App root, tray icon, startup
+    ├── Program.cs                       # Entry point, auto-install, single-instance, IPC
+    ├── AutoUpdateService.cs             # Silent auto-update via GitHub Releases + job wrapper
+    ├── DownloadWallpapers.cs            # Scheduled wallpaper downloader
+    ├── HttpWallpaperSourceService.cs    # HTTP feed client + WallpaperImage DTO
+    ├── NativeMethods.cs                 # P/Invoke for Windows wallpaper API
+    ├── SwitchWallpaper.cs               # Wallpaper switching logic + job wrapper
+    ├── Assets/                          # logo.ico, logo.png, bundled fonts
+    ├── Core/                            # DI, logging, scheduling, settings
+    │   ├── Bootstrapper.cs             # DI helpers, IAddSingleton<T>, AddServicesFrom()
+    │   ├── Extensions.cs               # Utility extension methods
+    │   ├── FileLogger.cs               # File-based ILogger implementation (async queue)
+    │   ├── ScheduledService.cs         # ScheduledJobService base, IScheduleScopedJob
+    │   └── WallpaperNexusSettings.cs   # Settings model, enums, LoadAsync/SaveAsync
+    ├── ViewModels/
+    │   ├── WallpaperConfigViewModel.cs # MVVM ViewModel (CommunityToolkit.Mvvm)
+    │   └── GalleryItem.cs              # Gallery item view model
+    └── Views/
+        ├── MainWindow.axaml(.cs)       # Settings window
+        ├── SplashScreen.axaml(.cs)     # Startup splash
+        ├── WallpaperSourceDialog.axaml(.cs)  # Add/edit wallpaper source dialog
+        └── NonScrollableComboBox.cs    # ComboBox that ignores scroll unless dropdown is open
 ```
 
 ## Key Architecture
@@ -48,8 +68,11 @@ PaperNexus/
 - **Auto-Update:** Queries GitHub Releases API, compares `vN` tag as integer against `Assembly.Version.Major`, downloads exe, swaps via self-deleting batch script with rollback.
 - **Auto-Install:** First run copies exe to `%LOCALAPPDATA%\PaperNexus\`, migrates settings, relaunches.
 - **Single Instance:** Named `Mutex` + `EventWaitHandle` for IPC (signals running instance to show UI).
-- **Tray-only:** `ShutdownMode.OnExplicitShutdown`. Menu: "Open Settings", "Next Wallpaper", "Exit".
+- **Tray-only:** `ShutdownMode.OnExplicitShutdown`. Menu: "Open Settings", "Next Wallpaper", "Random Wallpaper", "Exit". Each item has a programmatically-drawn SixLabors icon.
 - **Wallpaper Processing:** Writes to `current.png`/`.jpg`. Title overlay via SixLabors at switch time. PNG preferred; JPEG fallback if >16 MB.
+- **`ISwitchWallpaper`:** Exposes `WallpaperChanged` event, `SwitchToNextAsync()`, and `SwitchToRandomAsync()`.
+- **Wallpaper Sources (JPath-based):** `HttpWallpaperSourceService` uses Newtonsoft `SelectTokens` with `ImageUrlJPath`/`TitleJPath`. Sources edited via `WallpaperSourceDialog` (name, URL, JPath, cron, enabled toggle, live Test button).
+- **`NonScrollableComboBox`:** Suppresses scroll wheel unless dropdown is open — prevents accidental changes while scrolling the settings page.
 - **Favorites:** Heart toggle, stored in `settings.json`, excluded from retention cleanup.
 - **Windows Startup:** Registry key at `HKCU\...\Run\PaperNexus`.
 
@@ -60,11 +83,11 @@ Avalonia 11.3.12, CommunityToolkit.Mvvm 8.4.0, Cronos 0.11.1, CronExpressionDesc
 ## Settings
 
 `Core/WallpaperNexusSettings.cs` → `%LOCALAPPDATA%\PaperNexus\settings.json`:
-- `SlideshowSettings` — schedule mode (dropdown), interval (double, minutes or hours), cron expression, order, fill style
-- `DownloadSettings` — folder path, resolution, retention days
-- `List<WallpaperSource>` — name, URL, cron, enabled (default: Bing Daily)
-- `AnnotationSettings` — font (Cinzel, bundled), size (18), color (#F5F5F5), position, outline (OutlineEnabled)
-- `FavoriteWallpapers`, window position/size, `RunOnStartup`, `CurrentWallpaperPath`
+- `SlideshowSettings` — `Enabled` flag, schedule mode, interval (double) + `IntervalType` (Seconds/Minutes/Hours/Days/Weeks/Months/Years), cron expression, order (alphabetical/random/oldest/newest), fill style
+- `DownloadSettings` — folder path (default: `%USERPROFILE%\Pictures\PaperNexus`), resolution, retention days (default: 365)
+- `List<WallpaperSource>` — name, URL, `ImageUrlJPath`, `TitleJPath`, cron, enabled, `LastDownloadUtc`; defaults: "Bing Daily 4k" + "Spotlight Daily 4k"
+- `AnnotationSettings` — font (Cinzel, bundled), size (18), color (#F5F5F5), position, `OutlineEnabled`
+- `FavoriteWallpapers`, window position/size, `RunOnStartup`, `AutoUpdatesEnabled`, `DebugMode`, `CurrentWallpaperPath`
 
 ## Code Style
 
@@ -104,4 +127,5 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 - **Update `CLAUDE.md`** after structural/pattern changes
 - **No Linear issues** for this repo
 - "Remember" = update this file
-- **Comment addition tasks:** Add comments in small, focused batches (1–3 files at a time) rather than delegating all files to a single agent. Large batches risk code corruption (e.g., invalid syntax introduced alongside comment text).
+- **Always start work on a feature branch** — never commit directly to `main`; create a descriptive branch (e.g., `feature/wallpaper-preview`, `fix/auto-update`) before making any changes
+- **Comment addition tasks:** Add comments in small, focused batches (1–3 files at a time) rather than delegating all files to a single agent. Large batches risk code corruption.
