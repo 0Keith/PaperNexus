@@ -202,13 +202,25 @@ public abstract class ScheduledJobService : IHostedService
 
     // Persists the execution result for this job to both the in-memory cache and timers.json.
     // The whole dictionary is serialised on each save to keep the file self-consistent.
+    // Writes to a temp file then renames atomically so a mid-write crash cannot corrupt the file.
     private async Task SaveContext(JobExecutionContext context)
     {
         _timers[JobName] = context;
         using (await _timerLock.EnterAsync())
         {
             var json = JsonConvert.SerializeObject(_timers, Formatting.Indented);
-            await File.WriteAllTextAsync(_timerFile.FullName, json);
+            var dir = _timerFile.DirectoryName!;
+            var tempPath = Path.Combine(dir, $".timers-{Guid.NewGuid():N}.tmp");
+            try
+            {
+                await File.WriteAllTextAsync(tempPath, json);
+                File.Move(tempPath, _timerFile.FullName, overwrite: true);
+            }
+            catch
+            {
+                try { File.Delete(tempPath); } catch { }
+                throw;
+            }
         }
     }
 }
@@ -379,13 +391,25 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService where TJob 
     }
 
     // Persists this job's execution result to the shared timers.json file.
+    // Writes to a temp file then renames atomically so a mid-write crash cannot corrupt the file.
     private async Task SaveContext(JobExecutionContext context)
     {
         _timers[_jobName] = context;
         using (await _timerLock.EnterAsync())
         {
             var json = JsonConvert.SerializeObject(_timers, Formatting.Indented);
-            await File.WriteAllTextAsync(_timerFile.FullName, json);
+            var dir = _timerFile.DirectoryName!;
+            var tempPath = Path.Combine(dir, $".timers-{Guid.NewGuid():N}.tmp");
+            try
+            {
+                await File.WriteAllTextAsync(tempPath, json);
+                File.Move(tempPath, _timerFile.FullName, overwrite: true);
+            }
+            catch
+            {
+                try { File.Delete(tempPath); } catch { }
+                throw;
+            }
         }
     }
 }
