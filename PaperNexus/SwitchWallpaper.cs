@@ -225,7 +225,10 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
         if (ms.Length <= SizeCeiling)
         {
             currentPath = Path.Combine(AppContext.BaseDirectory, "current.png");
-            await File.WriteAllBytesAsync(currentPath, ms.ToArray()).ConfigureAwait(false);
+            // Seek to the start and copy the stream directly — avoids allocating a second byte[] copy of the encoded image
+            ms.Position = 0;
+            using var pngFile = new FileStream(currentPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+            await ms.CopyToAsync(pngFile).ConfigureAwait(false);
             // Remove the alternate format file so Windows doesn't pick up a stale version
             File.Delete(Path.Combine(AppContext.BaseDirectory, "current.jpg"));
         }
@@ -240,14 +243,17 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
                 if (ms.Length <= SizeCeiling)
                     break;
             }
-            await File.WriteAllBytesAsync(currentPath, ms.ToArray()).ConfigureAwait(false);
+            // Seek to the start and copy the stream directly — avoids allocating a second byte[] copy of the encoded image
+            ms.Position = 0;
+            using var jpgFile = new FileStream(currentPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+            await ms.CopyToAsync(jpgFile).ConfigureAwait(false);
             File.Delete(Path.Combine(AppContext.BaseDirectory, "current.png"));
         }
 
         if (OperatingSystem.IsWindows())
             ApplyFillStyle(settings.Slideshow.FillStyle);
         NativeMethods.SetDesktopWallpaper(currentPath);
-        _logger.LogInformation($"Switching wallpaper to: {next}");
+        _logger.LogInformation("Switching wallpaper to: {Path}", next);
 
         // Persist the original source path (not the processed current.* path) so ordering is stable across restarts
         settings.CurrentWallpaperPath = next;
