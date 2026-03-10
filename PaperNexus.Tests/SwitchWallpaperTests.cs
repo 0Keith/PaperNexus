@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using PaperNexus.Core;
 using Xunit;
 
 namespace PaperNexus.Tests;
@@ -88,5 +89,46 @@ public class SwitchWallpaperTests : IAsyncLifetime, IDisposable
         var jpgExists = File.Exists(TestHelpers.JpgPath);
         Assert.True(pngExists || jpgExists, "At least one current file should exist");
         Assert.False(pngExists && jpgExists, "Only one format should exist at a time");
+    }
+
+    [Fact]
+    public async Task SwitchToNext_FolderDoesNotExist_ReturnsNull()
+    {
+        // Arrange: point settings at a folder that was never created
+        var missingFolder = Path.Combine(Path.GetTempPath(), $"PaperNexus_Missing_{Guid.NewGuid():N}");
+        await TestHelpers.WriteSettingsAsync(missingFolder);
+
+        var switcher = new SwitchWallpaper(NullLogger<SwitchWallpaper>.Instance);
+
+        // Act — should not throw DirectoryNotFoundException
+        var result = await switcher.SwitchToNextAsync();
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task SwitchToNext_AllWallpapersBanned_ReturnsNull()
+    {
+        // Arrange: one wallpaper, but it is in the banned list
+        var wallpaperPath = Path.Combine(_wallpaperDir, "banned.png");
+        TestHelpers.CreateSmallPng(wallpaperPath);
+        TestHelpers.Cleanup();
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _wallpaperDir },
+            BannedWallpapers = [wallpaperPath],
+            Sources = [],
+        };
+        await settings.SaveAsync();
+
+        var switcher = new SwitchWallpaper(NullLogger<SwitchWallpaper>.Instance);
+
+        // Act
+        var result = await switcher.SwitchToNextAsync();
+
+        // Assert: banned file excluded → candidate pool is empty → null
+        Assert.Null(result);
     }
 }
