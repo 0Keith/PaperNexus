@@ -89,14 +89,18 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         }
     }
 
+    // Downloads all images for a single source using a shared HttpClient for the batch,
+    // so N images from the same host reuse one socket pool rather than creating N pools.
     private async Task DownloadSource(WallpaperSource source, WallpaperNexusSettings settings)
     {
         var images = await _sourceService.GetImages(source);
+        // A single client is shared across all images in this source batch for socket efficiency.
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         foreach (var image in images)
         {
             try
             {
-                await Download(image, settings);
+                await Download(image, settings, client);
             }
             catch (Exception ex)
             {
@@ -132,7 +136,9 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
     // Downloads a single wallpaper image to the configured folder.
     // The filename is derived from the sanitised title plus the URL's filename component
     // so that the original source identifier is preserved for deduplication.
-    public async Task Download(WallpaperImage data, WallpaperNexusSettings settings)
+    // An optional HttpClient may be supplied by the caller to share a socket pool across
+    // multiple images; if omitted a short-lived client is created for this call only.
+    public async Task Download(WallpaperImage data, WallpaperNexusSettings settings, HttpClient? client = null)
     {
         // Strip characters that are invalid in file names, and cap length to avoid MAX_PATH issues
         var title = new string(data.Title
@@ -161,19 +167,31 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
 
         Logger.LogInformation($"Downloading Image: {data.Title}");
         var watch = Stopwatch.StartNew();
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        // Use ResponseHeadersRead to start timing from the first byte, not after full download
-        using var response = await client.GetAsync(data.ImageUrl, HttpCompletionOption.ResponseHeadersRead);
-        if (!response.IsSuccessStatusCode)
+        // Use the caller-supplied client when available; otherwise create a short-lived one
+        // (the caller is responsible for disposing a shared client).
+        var ownClient = client is null;
+        var httpClient = client ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        try
         {
-            var message = await response.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"HTTP {(int)response.StatusCode} {response.StatusCode} downloading '{data.ImageUrl}': {message}");
-        }
+            // Use ResponseHeadersRead to start timing from the first byte, not after full download
+            using var response = await httpClient.GetAsync(data.ImageUrl, HttpCompletionOption.ResponseHeadersRead);
+            if (!response.IsSuccessStatusCode)
+            {
+                var message = await response.Content.ReadAsStringAsync();
+                throw new HttpRequestException($"HTTP {(int)response.StatusCode} {response.StatusCode} downloading '{data.ImageUrl}': {message}");
+            }
 
-        // Stream directly to disk so large images (4K+) don't require a full in-memory buffer
-        using var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
-        await response.Content.CopyToAsync(fileStream);
-        Logger.LogInformation($"Download Complete: {watch.Elapsed}");
+            // Stream directly to disk so large images (4K+) don't require a full in-memory buffer
+            using var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+            await response.Content.CopyToAsync(fileStream);
+            Logger.LogInformation($"Download Complete: {watch.Elapsed}");
+        }
+        finally
+        {
+            // Only dispose the client if we created it; callers own shared clients
+            if (ownClient)
+                httpClient.Dispose();
+        }
     }
 
     // Deletes wallpaper files older than the configured retention period.

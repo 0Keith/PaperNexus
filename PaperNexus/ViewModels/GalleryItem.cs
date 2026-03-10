@@ -60,12 +60,17 @@ public partial class GalleryItem : ObservableObject
 
     private CancellationTokenSource? _loadCts;
 
-    // Starts an async thumbnail load for this item. Cancels any previous in-flight load first.
+    // Starts an async thumbnail load for this item. Cancels and disposes any previous
+    // in-flight load first so the old CancellationTokenSource does not leak.
     public async Task LoadAsync()
     {
-        _loadCts?.Cancel();
+        // Swap in a fresh CTS and dispose the old one to avoid a handle leak.
+        var oldCts = _loadCts;
+        oldCts?.Cancel();
         _loadCts = new CancellationTokenSource();
         var ct = _loadCts.Token;
+        oldCts?.Dispose();
+
         var bmp = await LoadThumbnailAsync(FilePath);
         if (!ct.IsCancellationRequested)
             Thumbnail = bmp;
@@ -73,10 +78,15 @@ public partial class GalleryItem : ObservableObject
             bmp?.Dispose();
     }
 
-    // Cancels any in-flight load and clears the thumbnail bitmap to free memory.
+    // Cancels any in-flight load, disposes the CancellationTokenSource, and clears
+    // the thumbnail bitmap to free both managed and unmanaged memory.
     public void DisposeThumbnail()
     {
-        _loadCts?.Cancel();
+        var cts = _loadCts;
+        _loadCts = null;
+        cts?.Cancel();
+        cts?.Dispose();
+
         var bmp = Thumbnail;
         Thumbnail = null;
         bmp?.Dispose();
