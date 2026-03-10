@@ -1,4 +1,8 @@
 using Cronos;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Processing;
 
 namespace PaperNexus;
 
@@ -185,12 +189,56 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
             using var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
             await response.Content.CopyToAsync(fileStream);
             Logger.LogInformation($"Download Complete: {watch.Elapsed}");
+            // Re-encode to the user's configured resolution cap after the download completes,
+            // so a partial resize failure cannot corrupt the downloaded file.
+            await ApplyResolutionCapAsync(path, settings);
         }
         finally
         {
             // Only dispose the client if we created it; callers own shared clients
             if (ownClient)
                 httpClient.Dispose();
+        }
+    }
+
+    // Resizes the image at filePath to fit within the user-configured resolution cap,
+    // preserving the original aspect ratio and never upscaling. If the resolution
+    // setting is "Native" (width or height == 0) or the image already fits within the
+    // cap, the file is left unchanged. The file is re-encoded in-place using the same
+    // format (PNG or JPEG) so the filename and extension are preserved.
+    internal async Task ApplyResolutionCapAsync(string filePath, WallpaperNexusSettings settings)
+    {
+        var maxWidth = settings.Download.ResolutionWidth;
+        var maxHeight = settings.Download.ResolutionHeight;
+
+        // Resolution == 0 means "Native" — no cap applied
+        if (maxWidth <= 0 || maxHeight <= 0)
+            return;
+
+        using var img = await Image.LoadAsync(filePath).ConfigureAwait(false);
+
+        // Only shrink; never upscale an image that is already within the cap
+        if (img.Width <= maxWidth && img.Height <= maxHeight)
+            return;
+
+        // ResizeMode.Max fits the image inside the target box while preserving aspect ratio
+        var targetSize = new SixLabors.ImageSharp.Size(maxWidth, maxHeight);
+        img.Mutate(ctx => ctx.Resize(new ResizeOptions { Size = targetSize, Mode = ResizeMode.Max }));
+        Logger.LogInformation(
+            "Resized '{File}' to fit within {Width}×{Height}.",
+            Path.GetFileName(filePath), maxWidth, maxHeight);
+
+        var ext = Path.GetExtension(filePath);
+        if (ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
+        {
+            // Re-encode as high-quality JPEG so the lossy format is applied only once
+            await img.SaveAsJpegAsync(filePath, new JpegEncoder { Quality = 95 }).ConfigureAwait(false);
+        }
+        else
+        {
+            // PNG: lossless re-encode at 8-bit RGB (drops alpha, consistent with wallpaper encoding)
+            await img.SaveAsPngAsync(filePath, new PngEncoder { ColorType = PngColorType.Rgb, BitDepth = PngBitDepth.Bit8 }).ConfigureAwait(false);
         }
     }
 

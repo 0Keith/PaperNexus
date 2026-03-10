@@ -200,4 +200,78 @@ public class DownloadWallpapersTests : IDisposable
         // Assert: recent file is kept
         Assert.True(File.Exists(recentPath), "Recently downloaded file should not be deleted");
     }
+
+    [Fact]
+    public async Task ApplyResolutionCap_NativeSetting_LeavesFileSizeUnchanged()
+    {
+        // Arrange: a 200×200 image with no cap (ResolutionWidth == 0 means "Native")
+        var source = new HttpWallpaperSourceService(NullLogger<HttpWallpaperSourceService>.Instance);
+        var sut = new DownloadWallpapers(NullLogger<DownloadWallpapers>.Instance, source);
+
+        var filePath = Path.Combine(_downloadDir, "native.png");
+        TestHelpers.CreateTestPng(filePath, 200, 200);
+        var originalLength = new FileInfo(filePath).Length;
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir, ResolutionWidth = 0, ResolutionHeight = 0 },
+        };
+
+        // Act
+        await sut.ApplyResolutionCapAsync(filePath, settings);
+
+        // Assert: file is unchanged when resolution is set to Native
+        Assert.Equal(originalLength, new FileInfo(filePath).Length);
+    }
+
+    [Fact]
+    public async Task ApplyResolutionCap_ImageAlreadyWithinCap_LeavesFileSizeUnchanged()
+    {
+        // Arrange: a 100×100 image with a cap of 1920×1080 — image is already within the cap
+        var source = new HttpWallpaperSourceService(NullLogger<HttpWallpaperSourceService>.Instance);
+        var sut = new DownloadWallpapers(NullLogger<DownloadWallpapers>.Instance, source);
+
+        var filePath = Path.Combine(_downloadDir, "small.png");
+        TestHelpers.CreateTestPng(filePath, 100, 100);
+        var originalLength = new FileInfo(filePath).Length;
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir, ResolutionWidth = 1920, ResolutionHeight = 1080 },
+        };
+
+        // Act
+        await sut.ApplyResolutionCapAsync(filePath, settings);
+
+        // Assert: small image must not be upscaled — file stays at original size
+        Assert.Equal(originalLength, new FileInfo(filePath).Length);
+    }
+
+    [Fact]
+    public async Task ApplyResolutionCap_OversizedImage_ReducesDimensions()
+    {
+        // Arrange: a 400×300 image capped at 200×200.
+        // The image should be scaled down so neither dimension exceeds the cap.
+        var source = new HttpWallpaperSourceService(NullLogger<HttpWallpaperSourceService>.Instance);
+        var sut = new DownloadWallpapers(NullLogger<DownloadWallpapers>.Instance, source);
+
+        var filePath = Path.Combine(_downloadDir, "large.png");
+        TestHelpers.CreateTestPng(filePath, 400, 300);
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir, ResolutionWidth = 200, ResolutionHeight = 200 },
+        };
+
+        // Act
+        await sut.ApplyResolutionCapAsync(filePath, settings);
+
+        // Assert: resulting image fits within the cap and aspect ratio is preserved (400:300 → 200:150)
+        using var img = SixLabors.ImageSharp.Image.Load(filePath);
+        Assert.True(img.Width <= 200, $"Width {img.Width} should be ≤ 200");
+        Assert.True(img.Height <= 200, $"Height {img.Height} should be ≤ 200");
+        // Exact expected size: 200×150 (width-constrained; aspect ratio 4:3 preserved)
+        Assert.Equal(200, img.Width);
+        Assert.Equal(150, img.Height);
+    }
 }
