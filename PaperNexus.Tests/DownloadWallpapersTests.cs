@@ -119,4 +119,85 @@ public class DownloadWallpapersTests : IDisposable
         var remaining = await File.ReadAllBytesAsync(secondPath);
         Assert.Equal(originalBytes, remaining);
     }
+
+    [Fact]
+    public async Task CleanupOldImages_DeletesExpiredFiles_AndPrunesBannedList()
+    {
+        // Arrange: one expired file referenced in BannedWallpapers
+        var source = new HttpWallpaperSourceService(NullLogger<HttpWallpaperSourceService>.Instance);
+        var sut = new DownloadWallpapers(NullLogger<DownloadWallpapers>.Instance, source);
+
+        var expiredPath = Path.Combine(_downloadDir, "old.png");
+        TestHelpers.CreateSmallPng(expiredPath);
+        // Backdate last-write to well past the retention window
+        File.SetLastWriteTimeUtc(expiredPath, DateTime.UtcNow.AddDays(-400));
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir, RetentionDays = 365 },
+            BannedWallpapers = [expiredPath],
+        };
+
+        // Act
+        await sut.CleanupOldImages(settings);
+
+        // Assert: file is deleted and the stale banned entry is removed
+        Assert.False(File.Exists(expiredPath), "Expired file should be deleted");
+        Assert.Empty(settings.BannedWallpapers);
+    }
+
+    [Fact]
+    public async Task CleanupOldImages_FavoritedFile_IsNotDeleted_ButStaleFavoritesArePruned()
+    {
+        // Arrange: one expired file that is favorited (should survive deletion),
+        // plus one stale favorite entry pointing to a file that no longer exists.
+        var source = new HttpWallpaperSourceService(NullLogger<HttpWallpaperSourceService>.Instance);
+        var sut = new DownloadWallpapers(NullLogger<DownloadWallpapers>.Instance, source);
+
+        var favoritePath = Path.Combine(_downloadDir, "favorite.png");
+        TestHelpers.CreateSmallPng(favoritePath);
+        File.SetLastWriteTimeUtc(favoritePath, DateTime.UtcNow.AddDays(-400));
+
+        // This path is in favorites but does not exist on disk (manually deleted outside the app)
+        var staleGhostPath = Path.Combine(_downloadDir, "ghost.png");
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir, RetentionDays = 365 },
+            FavoriteWallpapers = [favoritePath, staleGhostPath],
+        };
+
+        // Act
+        await sut.CleanupOldImages(settings);
+
+        // Assert: favorited file preserved on disk
+        Assert.True(File.Exists(favoritePath), "Favorited file should survive retention cleanup");
+        // The favorited file's path stays in the list (it still exists)
+        Assert.Contains(favoritePath, settings.FavoriteWallpapers);
+        // The ghost path (file was deleted outside the app) is pruned from the list
+        Assert.DoesNotContain(staleGhostPath, settings.FavoriteWallpapers);
+    }
+
+    [Fact]
+    public async Task CleanupOldImages_RecentFile_IsNotDeleted()
+    {
+        // Arrange: a recent file that is within the retention window
+        var source = new HttpWallpaperSourceService(NullLogger<HttpWallpaperSourceService>.Instance);
+        var sut = new DownloadWallpapers(NullLogger<DownloadWallpapers>.Instance, source);
+
+        var recentPath = Path.Combine(_downloadDir, "recent.png");
+        TestHelpers.CreateSmallPng(recentPath);
+        // Last-write is now (within retention window)
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir, RetentionDays = 365 },
+        };
+
+        // Act
+        await sut.CleanupOldImages(settings);
+
+        // Assert: recent file is kept
+        Assert.True(File.Exists(recentPath), "Recently downloaded file should not be deleted");
+    }
 }

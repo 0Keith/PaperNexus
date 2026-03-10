@@ -194,17 +194,43 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         }
     }
 
-    // Deletes wallpaper files older than the configured retention period.
-    // Favorited files are excluded from cleanup regardless of age.
-    private async Task CleanupOldImages(WallpaperNexusSettings settings)
+    // Deletes wallpaper files older than the configured retention period and prunes
+    // stale paths from FavoriteWallpapers and BannedWallpapers. Favorited files are
+    // excluded from the age-based deletion but their paths are still pruned if the file
+    // no longer exists (e.g. manually deleted outside the app). The caller is responsible
+    // for saving settings after this method returns.
+    internal async Task CleanupOldImages(WallpaperNexusSettings settings)
     {
         var favorites = new HashSet<string>(
             settings.FavoriteWallpapers ?? [],
             StringComparer.OrdinalIgnoreCase);
         var files = new DirectoryInfo(settings.Download.Folder).EnumerateFiles();
         var cutoff = DateTime.UtcNow.AddDays(-settings.Download.RetentionDays);
+        var deleted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in files)
+        {
             if (cutoff > file.LastWriteTimeUtc && !favorites.Contains(file.FullName))
+            {
                 file.Delete();
+                deleted.Add(file.FullName);
+            }
+        }
+
+        // Collect paths that are referenced in the special lists but no longer on disk.
+        // This handles both files just deleted above and files removed outside the app.
+        var existingFiles = new HashSet<string>(
+            new DirectoryInfo(settings.Download.Folder).EnumerateFiles().Select(f => f.FullName),
+            StringComparer.OrdinalIgnoreCase);
+
+        var staleCount = 0;
+        staleCount += settings.FavoriteWallpapers.RemoveAll(p => !existingFiles.Contains(p));
+        staleCount += settings.BannedWallpapers.RemoveAll(p => !existingFiles.Contains(p));
+
+        if (deleted.Count > 0 || staleCount > 0)
+            Logger.LogInformation(
+                "Retention cleanup: {Deleted} file(s) deleted, {Stale} stale list entries pruned.",
+                deleted.Count, staleCount);
+
+        await Task.CompletedTask; // preserve async signature for future I/O operations
     }
 }
