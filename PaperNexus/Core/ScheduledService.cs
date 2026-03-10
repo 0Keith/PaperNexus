@@ -188,7 +188,7 @@ public abstract class ScheduledJobService : IHostedService
             {
                 var json = await File.ReadAllTextAsync(_timerFile.FullName);
                 var timers = JsonConvert.DeserializeObject<Dictionary<string, JobExecutionContext>>(json);
-                if (timers.TryGetValue(JobName, out context))
+                if (timers != null && timers.TryGetValue(JobName, out context))
                 {
                     // Warm the in-memory cache for all jobs at once to reduce future file reads
                     foreach (var timer in timers)
@@ -367,7 +367,7 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService where TJob 
             {
                 var json = await File.ReadAllTextAsync(_timerFile.FullName);
                 var timers = JsonConvert.DeserializeObject<Dictionary<string, JobExecutionContext>>(json);
-                if (timers.TryGetValue(_jobName, out context))
+                if (timers != null && timers.TryGetValue(_jobName, out context))
                 {
                     foreach (var timer in timers)
                         _timers.TryAdd(timer.Key, timer.Value);
