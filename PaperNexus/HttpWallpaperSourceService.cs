@@ -14,19 +14,21 @@ internal class HttpWallpaperSourceService
 
     // Fetches the JSON feed from the wallpaper source URL and returns all images
     // extracted via the source's configured JPath expressions.
-    public async Task<List<WallpaperImage>> GetImages(WallpaperSource source)
+    // The optional cancellationToken is forwarded to the HTTP call so callers
+    // can cancel in-flight requests (e.g. when the Test dialog is closed mid-request).
+    public async Task<List<WallpaperImage>> GetImagesAsync(WallpaperSource source, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Getting images from source '{Name}': {Url}", source.Name, source.Url);
         var watch = Stopwatch.StartNew();
         using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        using var getResponse = await client.GetAsync(source.Url);
+        using var getResponse = await client.GetAsync(source.Url, cancellationToken);
         if (!getResponse.IsSuccessStatusCode)
         {
-            var msg = await getResponse.Content.ReadAsStringAsync();
+            var msg = await getResponse.Content.ReadAsStringAsync(cancellationToken);
             throw new HttpRequestException($"HTTP {(int)getResponse.StatusCode} {getResponse.StatusCode} from '{source.Url}': {msg}");
         }
 
-        var json = await getResponse.Content.ReadAsStringAsync();
+        var json = await getResponse.Content.ReadAsStringAsync(cancellationToken);
         var images = ParseImages(source, json);
         _logger.LogInformation("Got {Count} image(s) from '{Name}' in {Elapsed}", images.Count, source.Name, watch.Elapsed);
         return images;

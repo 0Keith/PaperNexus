@@ -8,6 +8,10 @@ public partial class WallpaperSourceDialog : Window
 {
     public WallpaperSource? Result { get; private set; }
 
+    // Tracks any in-flight Test request so it can be cancelled if the user clicks
+    // Test again or closes the dialog before the previous request completes.
+    private CancellationTokenSource? _testCts;
+
     public WallpaperSourceDialog()
     {
         Opacity = 0;
@@ -50,6 +54,15 @@ public partial class WallpaperSourceDialog : Window
         if (!ValidateHttpsUrl(url))
             return;
 
+        // Cancel any previous in-flight test before starting a new one.
+        // This prevents stale responses from arriving out of order if the user
+        // edits the URL and clicks Test again before the first request finishes.
+        var oldCts = _testCts;
+        oldCts?.Cancel();
+        oldCts?.Dispose();
+        _testCts = new CancellationTokenSource();
+        var ct = _testCts.Token;
+
         TestButtonText.Text = "Testing…";
         try
         {
@@ -61,10 +74,14 @@ public partial class WallpaperSourceDialog : Window
                 ImageUrlJPath = imageUrlJPath,
                 TitleJPath = titleJPath,
             };
-            var images = await service.GetImages(source);
+            var images = await service.GetImagesAsync(source, ct);
             var preview = images.Select(img =>
                 $"Title: {img.Title}\nImage: {img.ImageUrl}");
             ShowTestResult($"Success — {images.Count} image(s) found.\n\n{string.Join("\n\n", preview)}");
+        }
+        catch (OperationCanceledException)
+        {
+            // Test was superseded by a new request — silently discard the result
         }
         catch (Exception ex)
         {
@@ -140,6 +157,17 @@ public partial class WallpaperSourceDialog : Window
     private void Cancel_Click(object? sender, RoutedEventArgs e)
     {
         Close(false);
+    }
+
+    // Cancel and dispose any in-flight test request when the dialog is closed,
+    // regardless of whether it was dismissed via Save, Cancel, or the title-bar X.
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        var cts = _testCts;
+        _testCts = null;
+        cts?.Cancel();
+        cts?.Dispose();
     }
 
     private void HideMessages()

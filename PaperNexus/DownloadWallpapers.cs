@@ -97,7 +97,7 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
     // so N images from the same host reuse one socket pool rather than creating N pools.
     private async Task DownloadSource(WallpaperSource source, WallpaperNexusSettings settings)
     {
-        var images = await _sourceService.GetImages(source);
+        var images = await _sourceService.GetImagesAsync(source);
         // A single client is shared across all images in this source batch for socket efficiency.
         using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         foreach (var image in images)
