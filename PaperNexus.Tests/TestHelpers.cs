@@ -16,6 +16,14 @@ internal static class TestHelpers
         img.SaveAsPng(path);
     }
 
+    // Creates a solid-colour PNG at the specified pixel dimensions.
+    // Useful for testing resize and resolution-cap logic with controlled image sizes.
+    internal static void CreateTestPng(string path, int width, int height, byte r = 100, byte g = 150, byte b = 200)
+    {
+        using var img = new Image<Rgb24>(width, height, new Rgb24(r, g, b));
+        img.SaveAsPng(path);
+    }
+
     internal static void CreateSmallJpeg(string path, byte r = 200, byte g = 100, byte b = 50)
     {
         using var img = new Image<Rgb24>(100, 100, new Rgb24(r, g, b));

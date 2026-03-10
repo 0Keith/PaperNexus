@@ -61,9 +61,10 @@ public static class Bootstrapper
 
         foreach (var jobType in jobTypes)
         {
-            var addMethod = typeof(Bootstrapper)
+            var method = typeof(Bootstrapper)
                 .GetMethod(nameof(AddScheduledJobHostedService), BindingFlags.Static | BindingFlags.NonPublic)
-                .MakeGenericMethod(jobType);
+                ?? throw new InvalidOperationException($"Bootstrapper helper method '{nameof(AddScheduledJobHostedService)}' not found via reflection.");
+            var addMethod = method.MakeGenericMethod(jobType);
             addMethod.Invoke(null, new object[] { services });
         }
 

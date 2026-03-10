@@ -10,12 +10,13 @@ namespace PaperNexus.Core;
 
 public static class Extensions
 {
+    // Guards against null arguments: throws ArgumentNullException naming the actual
+    // argument expression at the call site (via CallerArgumentExpression) rather than
+    // the generic local name "value", making the exception message immediately useful.
     public static T ThrowIfNull<T>(this T value, [CallerArgumentExpression("value")] string parameterName = null)
     {
-        return value ?? throw new ArgumentNullException(nameof(value));
+        return value ?? throw new ArgumentNullException(parameterName);
     }
-
-    public static bool IsNullOrWhiteSpace(this string value) => string.IsNullOrWhiteSpace(value);
 
     // Reads every line from reader and logs it at the specified level.
     // Useful for piping process stdout/stderr into the application logger.

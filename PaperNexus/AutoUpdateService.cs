@@ -126,18 +126,19 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         _logger.LogInformation("Downloading v{Latest} from {Url}", latestBuild, downloadUrl);
         progress?.Report($"Downloading {tag}...");
 
-        byte[] bytes;
         try
         {
-            bytes = await client.GetByteArrayAsync(downloadUrl);
+            // Stream directly to disk rather than buffering the full exe in memory (50+ MB)
+            using var response = await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
+            response.EnsureSuccessStatusCode();
+            using var fileStream = new FileStream(newExePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+            await response.Content.CopyToAsync(fileStream);
         }
         catch (Exception ex)
         {
             _logger.LogWarning("Download failed: {Message}", ex.Message);
             throw;
         }
-
-        await File.WriteAllBytesAsync(newExePath, bytes);
 
         // Verify the downloaded exe has a valid Authenticode signature from PaperNexus.
         // This prevents executing a tampered or unsigned binary.

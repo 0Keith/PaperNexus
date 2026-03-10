@@ -31,9 +31,12 @@ public class FileLoggerProvider : ILoggerProvider, IAsyncDisposable
         await Task.WhenAny(_writeTask, Task.Delay(5000));
     }
 
+    private const long MaxLogBytes = 5 * 1024 * 1024; // 5 MB per log file
+
     // Background writer loop: waits for queued messages (with a 5 s timeout to re-check Running),
     // then drains the queue into the log file in a single append. Uses FileShare.ReadWrite so the
     // file can be tailed by external tools while the app is running.
+    // Rotates the log file to .1.log when it exceeds MaxLogBytes, keeping one previous generation.
     private async Task StartWriter()
     {
         var assName = Assembly.GetEntryAssembly()?.GetName().Name ?? "app";
@@ -42,6 +45,8 @@ public class FileLoggerProvider : ILoggerProvider, IAsyncDisposable
         var logFile = new FileInfo(logFileName);
         if (!logFile.Directory.Exists)
             logFile.Directory.Create();
+        // Rotate on startup if the log from the previous session is already over the limit
+        RotateIfNeeded(logFile);
         while (Running)
         {
             try
@@ -50,6 +55,8 @@ public class FileLoggerProvider : ILoggerProvider, IAsyncDisposable
                 await _messageCount.WaitAsync(5000);
                 if (_messages.Count > 0)
                 {
+                    logFile.Refresh();
+                    RotateIfNeeded(logFile);
                     using var stream = logFile.Open(FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
                     using var writer = new StreamWriter(stream);
                     while (_messages.TryDequeue(out var message))
@@ -61,6 +68,20 @@ public class FileLoggerProvider : ILoggerProvider, IAsyncDisposable
                 Console.WriteLine(e);
             }
         }
+    }
+
+    // Renames the active log to .1.log (overwriting any previous rotation) when it exceeds MaxLogBytes.
+    private static void RotateIfNeeded(FileInfo logFile)
+    {
+        try
+        {
+            if (logFile.Exists && logFile.Length >= MaxLogBytes)
+            {
+                var rotated = Path.ChangeExtension(logFile.FullName, ".1.log");
+                logFile.MoveTo(rotated, overwrite: true);
+            }
+        }
+        catch { }
     }
 
     public ILogger CreateLogger(string categoryName) => new FileLogger(categoryName, this);

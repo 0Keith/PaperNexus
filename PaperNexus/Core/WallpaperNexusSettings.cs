@@ -219,9 +219,23 @@ public class WallpaperNexusSettings
             settings.Sources = DefaultSources;
     }
 
+    // Writes to a temporary file then renames it over the real settings path.
+    // This ensures the settings file is never left in a partial/corrupt state if the
+    // process is killed mid-write; the old file is preserved until the rename succeeds.
     public async Task SaveAsync()
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(SettingsFilePath));
-        await File.WriteAllTextAsync(SettingsFilePath, JsonConvert.SerializeObject(this, JsonSettings));
+        var dir = Path.GetDirectoryName(SettingsFilePath)!;
+        Directory.CreateDirectory(dir);
+        var tempPath = Path.Combine(dir, $".settings-{Guid.NewGuid():N}.tmp");
+        try
+        {
+            await File.WriteAllTextAsync(tempPath, JsonConvert.SerializeObject(this, JsonSettings));
+            File.Move(tempPath, SettingsFilePath, overwrite: true);
+        }
+        catch
+        {
+            try { File.Delete(tempPath); } catch { }
+            throw;
+        }
     }
 }

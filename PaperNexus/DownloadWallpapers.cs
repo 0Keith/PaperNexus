@@ -1,4 +1,8 @@
 using Cronos;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Processing;
 
 namespace PaperNexus;
 
@@ -24,17 +28,25 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
 
     // Returns the soonest upcoming cron occurrence across all enabled sources so the
     // legacy scheduler wakes up at the right time. Falls back to 1 hour if no source
-    // has a next occurrence within that window.
+    // has a next occurrence within that window. Sources with an invalid cron expression
+    // are skipped rather than crashing the scheduler into a 1-minute error loop.
     protected override async Task<DateTimeOffset> GetNextExecutionAsync(JobExecutionContext context)
     {
         var settings = await WallpaperNexusSettings.LoadAsync();
         var earliest = DateTimeOffset.Now.AddHours(1);
         foreach (var source in settings.Sources.Where(s => s.IsEnabled))
         {
-            var expression = CronExpression.Parse(source.CronExpression);
-            var next = expression.GetNextOccurrence(DateTimeOffset.UtcNow, TimeZoneInfo.Local);
-            if (next.HasValue && next.Value < earliest)
-                earliest = next.Value;
+            try
+            {
+                var expression = CronExpression.Parse(source.CronExpression);
+                var next = expression.GetNextOccurrence(DateTimeOffset.UtcNow, TimeZoneInfo.Local);
+                if (next.HasValue && next.Value < earliest)
+                    earliest = next.Value;
+            }
+            catch (CronFormatException)
+            {
+                Logger.LogWarning("Source '{Source}' has invalid cron expression '{Expression}' — skipping for next-execution calculation.", source.Name, source.CronExpression);
+            }
         }
         return earliest;
     }
@@ -70,8 +82,17 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         var downloaded = false;
         foreach (var source in settings.Sources.Where(s => s.IsEnabled && filter(s)))
         {
-            await DownloadSource(source, settings);
-            downloaded = true;
+            try
+            {
+                await DownloadSource(source, settings);
+                downloaded = true;
+            }
+            catch (Exception ex)
+            {
+                // Log and continue so a failed source (e.g. unreachable feed URL) does not
+                // block remaining sources from running or prevent timestamps from being saved.
+                Logger.LogError(ex, "Failed to download from source '{Source}' — skipping.", source.Name);
+            }
         }
         if (downloaded)
         {
@@ -80,11 +101,26 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         }
     }
 
+    // Downloads all images for a single source using a shared HttpClient for the batch,
+    // so N images from the same host reuse one socket pool rather than creating N pools.
     private async Task DownloadSource(WallpaperSource source, WallpaperNexusSettings settings)
     {
-        var images = await _sourceService.GetImages(source);
+        var images = await _sourceService.GetImagesAsync(source);
+        // A single client is shared across all images in this source batch for socket efficiency.
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         foreach (var image in images)
-            await Download(image, settings);
+        {
+            try
+            {
+                await Download(image, settings, client);
+            }
+            catch (Exception ex)
+            {
+                // Log and continue so one failed image does not abort the rest of the source's images.
+                // The source's LastDownloadUtc is still updated below so it is not retried immediately.
+                Logger.LogWarning(ex, "Failed to download image '{Title}' from source '{Source}' — skipping.", image.Title, source.Name);
+            }
+        }
         source.LastDownloadUtc = DateTimeOffset.UtcNow;
     }
 
@@ -112,7 +148,9 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
     // Downloads a single wallpaper image to the configured folder.
     // The filename is derived from the sanitised title plus the URL's filename component
     // so that the original source identifier is preserved for deduplication.
-    public async Task Download(WallpaperImage data, WallpaperNexusSettings settings)
+    // An optional HttpClient may be supplied by the caller to share a socket pool across
+    // multiple images; if omitted a short-lived client is created for this call only.
+    public async Task Download(WallpaperImage data, WallpaperNexusSettings settings, HttpClient? client = null)
     {
         // Strip characters that are invalid in file names, and cap length to avoid MAX_PATH issues
         var title = new string(data.Title
@@ -141,31 +179,114 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
 
         Logger.LogInformation($"Downloading Image: {data.Title}");
         var watch = Stopwatch.StartNew();
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        // Use ResponseHeadersRead to start timing from the first byte, not after full download
-        using var response = await client.GetAsync(data.ImageUrl, HttpCompletionOption.ResponseHeadersRead);
-        if (!response.IsSuccessStatusCode)
+        // Use the caller-supplied client when available; otherwise create a short-lived one
+        // (the caller is responsible for disposing a shared client).
+        var ownClient = client is null;
+        var httpClient = client ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        try
         {
-            var message = await response.Content.ReadAsStringAsync();
-            throw new Exception($"{response.StatusCode} : {message}");
-        }
+            // Use ResponseHeadersRead to start timing from the first byte, not after full download
+            using var response = await httpClient.GetAsync(data.ImageUrl, HttpCompletionOption.ResponseHeadersRead);
+            if (!response.IsSuccessStatusCode)
+            {
+                var message = await response.Content.ReadAsStringAsync();
+                throw new HttpRequestException($"HTTP {(int)response.StatusCode} {response.StatusCode} downloading '{data.ImageUrl}': {message}");
+            }
 
-        var bytes = await response.Content.ReadAsByteArrayAsync();
-        await File.WriteAllBytesAsync(path, bytes);
-        Logger.LogInformation($"Download Complete: {watch.Elapsed}");
+            // Stream directly to disk so large images (4K+) don't require a full in-memory buffer
+            using var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+            await response.Content.CopyToAsync(fileStream);
+            Logger.LogInformation($"Download Complete: {watch.Elapsed}");
+            // Re-encode to the user's configured resolution cap after the download completes,
+            // so a partial resize failure cannot corrupt the downloaded file.
+            await ApplyResolutionCapAsync(path, settings);
+        }
+        finally
+        {
+            // Only dispose the client if we created it; callers own shared clients
+            if (ownClient)
+                httpClient.Dispose();
+        }
     }
 
-    // Deletes wallpaper files older than the configured retention period.
-    // Favorited files are excluded from cleanup regardless of age.
-    private async Task CleanupOldImages(WallpaperNexusSettings settings)
+    // Resizes the image at filePath to fit within the user-configured resolution cap,
+    // preserving the original aspect ratio and never upscaling. If the resolution
+    // setting is "Native" (width or height == 0) or the image already fits within the
+    // cap, the file is left unchanged. The file is re-encoded in-place using the same
+    // format (PNG or JPEG) so the filename and extension are preserved.
+    internal async Task ApplyResolutionCapAsync(string filePath, WallpaperNexusSettings settings)
+    {
+        var maxWidth = settings.Download.ResolutionWidth;
+        var maxHeight = settings.Download.ResolutionHeight;
+
+        // Resolution == 0 means "Native" — no cap applied
+        if (maxWidth <= 0 || maxHeight <= 0)
+            return;
+
+        using var img = await Image.LoadAsync(filePath).ConfigureAwait(false);
+
+        // Only shrink; never upscale an image that is already within the cap
+        if (img.Width <= maxWidth && img.Height <= maxHeight)
+            return;
+
+        // ResizeMode.Max fits the image inside the target box while preserving aspect ratio
+        var targetSize = new SixLabors.ImageSharp.Size(maxWidth, maxHeight);
+        img.Mutate(ctx => ctx.Resize(new ResizeOptions { Size = targetSize, Mode = ResizeMode.Max }));
+        Logger.LogInformation(
+            "Resized '{File}' to fit within {Width}×{Height}.",
+            Path.GetFileName(filePath), maxWidth, maxHeight);
+
+        var ext = Path.GetExtension(filePath);
+        if (ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
+        {
+            // Re-encode as high-quality JPEG so the lossy format is applied only once
+            await img.SaveAsJpegAsync(filePath, new JpegEncoder { Quality = 95 }).ConfigureAwait(false);
+        }
+        else
+        {
+            // PNG: lossless re-encode at 8-bit RGB (drops alpha, consistent with wallpaper encoding)
+            await img.SaveAsPngAsync(filePath, new PngEncoder { ColorType = PngColorType.Rgb, BitDepth = PngBitDepth.Bit8 }).ConfigureAwait(false);
+        }
+    }
+
+    // Deletes wallpaper files older than the configured retention period and prunes
+    // stale paths from FavoriteWallpapers and BannedWallpapers. Favorited files are
+    // excluded from the age-based deletion but their paths are still pruned if the file
+    // no longer exists (e.g. manually deleted outside the app). The caller is responsible
+    // for saving settings after this method returns.
+    internal async Task CleanupOldImages(WallpaperNexusSettings settings)
     {
         var favorites = new HashSet<string>(
             settings.FavoriteWallpapers ?? [],
             StringComparer.OrdinalIgnoreCase);
         var files = new DirectoryInfo(settings.Download.Folder).EnumerateFiles();
         var cutoff = DateTime.UtcNow.AddDays(-settings.Download.RetentionDays);
+        var deleted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in files)
+        {
             if (cutoff > file.LastWriteTimeUtc && !favorites.Contains(file.FullName))
+            {
                 file.Delete();
+                deleted.Add(file.FullName);
+            }
+        }
+
+        // Collect paths that are referenced in the special lists but no longer on disk.
+        // This handles both files just deleted above and files removed outside the app.
+        var existingFiles = new HashSet<string>(
+            new DirectoryInfo(settings.Download.Folder).EnumerateFiles().Select(f => f.FullName),
+            StringComparer.OrdinalIgnoreCase);
+
+        var staleCount = 0;
+        staleCount += settings.FavoriteWallpapers.RemoveAll(p => !existingFiles.Contains(p));
+        staleCount += settings.BannedWallpapers.RemoveAll(p => !existingFiles.Contains(p));
+
+        if (deleted.Count > 0 || staleCount > 0)
+            Logger.LogInformation(
+                "Retention cleanup: {Deleted} file(s) deleted, {Stale} stale list entries pruned.",
+                deleted.Count, staleCount);
+
+        await Task.CompletedTask; // preserve async signature for future I/O operations
     }
 }

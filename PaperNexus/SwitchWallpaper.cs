@@ -143,13 +143,18 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
         return await ApplyWallpaperAsync(path, settings).ConfigureAwait(false);
     }
 
-    private static List<FileInfo> GetWallpaperFiles(string folder) =>
-        new DirectoryInfo(folder)
+    private static List<FileInfo> GetWallpaperFiles(string folder)
+    {
+        // Return empty list rather than throwing DirectoryNotFoundException if folder hasn't been created yet
+        if (!Directory.Exists(folder))
+            return [];
+        return new DirectoryInfo(folder)
             .EnumerateFiles()
             .Where(f => f.Extension.Equals(".png", StringComparison.OrdinalIgnoreCase)
                      || f.Extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
                      || f.Extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
             .ToList();
+    }
 
     // Applies the chosen wallpaper: optionally composites the title annotation, encodes
     // to the processed current file, sets the Windows desktop wallpaper, and persists the
@@ -178,7 +183,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
             var font = new Font(fontFamily, fontSize);
             var color = Color.WhiteSmoke;
             try { color = Color.ParseHex(annotation.Color); }
-            catch { }
+            catch (Exception ex) { _logger.LogWarning(ex, "Invalid annotation color '{Color}', using default.", annotation.Color); }
             // Choose outline colour based on perceived brightness: dark outline for light text, light for dark
             var pixel = color.ToPixel<Rgba32>();
             var outlineColor = pixel.R + pixel.G + pixel.B > 382 ? Color.Black : Color.White;
@@ -220,7 +225,10 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
         if (ms.Length <= SizeCeiling)
         {
             currentPath = Path.Combine(AppContext.BaseDirectory, "current.png");
-            await File.WriteAllBytesAsync(currentPath, ms.ToArray()).ConfigureAwait(false);
+            // Seek to the start and copy the stream directly — avoids allocating a second byte[] copy of the encoded image
+            ms.Position = 0;
+            using var pngFile = new FileStream(currentPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+            await ms.CopyToAsync(pngFile).ConfigureAwait(false);
             // Remove the alternate format file so Windows doesn't pick up a stale version
             File.Delete(Path.Combine(AppContext.BaseDirectory, "current.jpg"));
         }
@@ -235,14 +243,20 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
                 if (ms.Length <= SizeCeiling)
                     break;
             }
-            await File.WriteAllBytesAsync(currentPath, ms.ToArray()).ConfigureAwait(false);
+            // Seek to the start and copy the stream directly — avoids allocating a second byte[] copy of the encoded image
+            ms.Position = 0;
+            using var jpgFile = new FileStream(currentPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+            await ms.CopyToAsync(jpgFile).ConfigureAwait(false);
             File.Delete(Path.Combine(AppContext.BaseDirectory, "current.png"));
         }
 
         if (OperatingSystem.IsWindows())
             ApplyFillStyle(settings.Slideshow.FillStyle);
-        NativeMethods.SetDesktopWallpaper(currentPath);
-        _logger.LogInformation($"Switching wallpaper to: {next}");
+        // Log a warning if the Win32 API call reports failure so silent wallpaper-not-set bugs surface in logs
+        var wallpaperSet = NativeMethods.SetDesktopWallpaper(currentPath);
+        if (!wallpaperSet)
+            _logger.LogWarning("SystemParametersInfo(SPI_SETDESKWALLPAPER) returned 0 for path: {Path}", currentPath);
+        _logger.LogInformation("Switching wallpaper to: {Path}", next);
 
         // Persist the original source path (not the processed current.* path) so ordering is stable across restarts
         settings.CurrentWallpaperPath = next;
@@ -286,18 +300,27 @@ internal sealed class SwitchWallpaperJob : IScheduleScopedJob
         _logger = logger.ThrowIfNull();
     }
 
-    // Returns an empty config (no schedule) when the slideshow is disabled.
-    // Otherwise parses the stored cron expression to schedule automatic wallpaper rotation.
+    // Returns an empty config (no schedule) when the slideshow is disabled or when the
+    // stored cron expression is invalid. An invalid expression is treated as disabled rather
+    // than crashing the scheduler into a 1-minute error loop; the user can fix it in settings.
     public async Task<JobConfig> GetJobConfigAsync()
     {
         var settings = await WallpaperNexusSettings.LoadAsync();
         if (!settings.Slideshow.Enabled)
             return new JobConfig();
         var stored = settings.Slideshow.CronExpression;
-        var fields = stored.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var format = fields.Length == 6 ? CronFormat.IncludeSeconds : CronFormat.Standard;
-        var cronExpression = CronExpression.Parse(stored, format);
-        return new JobConfig(CronExpression: cronExpression);
+        try
+        {
+            var fields = stored.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var format = fields.Length == 6 ? CronFormat.IncludeSeconds : CronFormat.Standard;
+            var cronExpression = CronExpression.Parse(stored, format);
+            return new JobConfig(CronExpression: cronExpression);
+        }
+        catch (CronFormatException)
+        {
+            _logger.LogWarning("Slideshow cron expression '{Expression}' is invalid — wallpaper switching disabled until corrected.", stored);
+            return new JobConfig();
+        }
     }
 
     public async Task ExecuteAsync()

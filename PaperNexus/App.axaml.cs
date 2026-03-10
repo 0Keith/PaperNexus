@@ -264,7 +264,7 @@ public partial class App : Application
             if (!settings.MinimizeToTray)
                 ExitApplication(desktop);
         }
-        catch { }
+        catch (Exception ex) { Logger?.LogWarning(ex, "Failed to load settings when checking MinimizeToTray; staying resident."); }
     }
 
     // Performs a graceful shutdown: hides the tray icon, stops background services
