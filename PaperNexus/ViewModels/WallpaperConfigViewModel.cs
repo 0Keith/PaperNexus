@@ -971,10 +971,13 @@ public partial class WallpaperConfigViewModel : ObservableObject
     // Cancels any previously running transient message so overlapping calls don't race.
     internal async Task ShowTransientStatusAsync(string message, int durationMs = 3000)
     {
-        // Cancel the previous delay so the old message doesn't clear the new one prematurely
-        _statusCts.Cancel();
+        // Cancel the previous delay so the old message doesn't clear the new one prematurely.
+        // Dispose immediately after cancellation; the awaiting call has already observed the cancel.
+        var oldCts = _statusCts;
+        oldCts.Cancel();
         _statusCts = new CancellationTokenSource();
         var cts = _statusCts;
+        oldCts.Dispose();
 
         StatusMessage = message;
         try
