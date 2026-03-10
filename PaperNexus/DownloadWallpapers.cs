@@ -28,17 +28,25 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
 
     // Returns the soonest upcoming cron occurrence across all enabled sources so the
     // legacy scheduler wakes up at the right time. Falls back to 1 hour if no source
-    // has a next occurrence within that window.
+    // has a next occurrence within that window. Sources with an invalid cron expression
+    // are skipped rather than crashing the scheduler into a 1-minute error loop.
     protected override async Task<DateTimeOffset> GetNextExecutionAsync(JobExecutionContext context)
     {
         var settings = await WallpaperNexusSettings.LoadAsync();
         var earliest = DateTimeOffset.Now.AddHours(1);
         foreach (var source in settings.Sources.Where(s => s.IsEnabled))
         {
-            var expression = CronExpression.Parse(source.CronExpression);
-            var next = expression.GetNextOccurrence(DateTimeOffset.UtcNow, TimeZoneInfo.Local);
-            if (next.HasValue && next.Value < earliest)
-                earliest = next.Value;
+            try
+            {
+                var expression = CronExpression.Parse(source.CronExpression);
+                var next = expression.GetNextOccurrence(DateTimeOffset.UtcNow, TimeZoneInfo.Local);
+                if (next.HasValue && next.Value < earliest)
+                    earliest = next.Value;
+            }
+            catch (CronFormatException)
+            {
+                Logger.LogWarning("Source '{Source}' has invalid cron expression '{Expression}' — skipping for next-execution calculation.", source.Name, source.CronExpression);
+            }
         }
         return earliest;
     }

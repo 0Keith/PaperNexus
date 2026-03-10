@@ -297,18 +297,27 @@ internal sealed class SwitchWallpaperJob : IScheduleScopedJob
         _logger = logger.ThrowIfNull();
     }
 
-    // Returns an empty config (no schedule) when the slideshow is disabled.
-    // Otherwise parses the stored cron expression to schedule automatic wallpaper rotation.
+    // Returns an empty config (no schedule) when the slideshow is disabled or when the
+    // stored cron expression is invalid. An invalid expression is treated as disabled rather
+    // than crashing the scheduler into a 1-minute error loop; the user can fix it in settings.
     public async Task<JobConfig> GetJobConfigAsync()
     {
         var settings = await WallpaperNexusSettings.LoadAsync();
         if (!settings.Slideshow.Enabled)
             return new JobConfig();
         var stored = settings.Slideshow.CronExpression;
-        var fields = stored.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var format = fields.Length == 6 ? CronFormat.IncludeSeconds : CronFormat.Standard;
-        var cronExpression = CronExpression.Parse(stored, format);
-        return new JobConfig(CronExpression: cronExpression);
+        try
+        {
+            var fields = stored.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var format = fields.Length == 6 ? CronFormat.IncludeSeconds : CronFormat.Standard;
+            var cronExpression = CronExpression.Parse(stored, format);
+            return new JobConfig(CronExpression: cronExpression);
+        }
+        catch (CronFormatException)
+        {
+            _logger.LogWarning("Slideshow cron expression '{Expression}' is invalid — wallpaper switching disabled until corrected.", stored);
+            return new JobConfig();
+        }
     }
 
     public async Task ExecuteAsync()
