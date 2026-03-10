@@ -23,7 +23,7 @@ internal class HttpWallpaperSourceService
         if (!getResponse.IsSuccessStatusCode)
         {
             var msg = await getResponse.Content.ReadAsStringAsync();
-            throw new Exception(msg);
+            throw new HttpRequestException($"HTTP {(int)getResponse.StatusCode} {getResponse.StatusCode} from '{source.Url}': {msg}");
         }
 
         var json = await getResponse.Content.ReadAsStringAsync();

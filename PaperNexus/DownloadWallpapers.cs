@@ -147,7 +147,7 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         if (!response.IsSuccessStatusCode)
         {
             var message = await response.Content.ReadAsStringAsync();
-            throw new Exception($"{response.StatusCode} : {message}");
+            throw new HttpRequestException($"HTTP {(int)response.StatusCode} {response.StatusCode} downloading '{data.ImageUrl}': {message}");
         }
 
         var bytes = await response.Content.ReadAsByteArrayAsync();
