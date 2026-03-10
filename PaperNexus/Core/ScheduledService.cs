@@ -170,59 +170,8 @@ public abstract class ScheduledJobService : IHostedService
         }
     }
 
-    // Shared in-process cache keyed by job name to avoid reading timers.json on every loop iteration.
-    private static readonly SemaphoreSlim _timerLock = new(1);
-    private static readonly FileInfo _timerFile = new(Path.Combine(AppContext.BaseDirectory, "timers.json"));
-    private static readonly ConcurrentDictionary<string, JobExecutionContext> _timers = new();
-
-    // Returns the last execution context from the in-memory cache, falling back to timers.json
-    // on first access. All jobs share the same file; the full dictionary is loaded to warm the cache.
-    private async ValueTask<JobExecutionContext> LoadContext()
-    {
-        if (_timers.TryGetValue(JobName, out var context))
-            return context;
-        using (await _timerLock.EnterAsync())
-        {
-            _timerFile.Refresh();
-            if (_timerFile.Exists)
-            {
-                var json = await File.ReadAllTextAsync(_timerFile.FullName);
-                var timers = JsonConvert.DeserializeObject<Dictionary<string, JobExecutionContext>>(json);
-                if (timers != null && timers.TryGetValue(JobName, out context))
-                {
-                    // Warm the in-memory cache for all jobs at once to reduce future file reads
-                    foreach (var timer in timers)
-                        _timers.TryAdd(timer.Key, timer.Value);
-                    return context;
-                }
-            }
-            return default;
-        }
-    }
-
-    // Persists the execution result for this job to both the in-memory cache and timers.json.
-    // The whole dictionary is serialised on each save to keep the file self-consistent.
-    // Writes to a temp file then renames atomically so a mid-write crash cannot corrupt the file.
-    private async Task SaveContext(JobExecutionContext context)
-    {
-        _timers[JobName] = context;
-        using (await _timerLock.EnterAsync())
-        {
-            var json = JsonConvert.SerializeObject(_timers, Formatting.Indented);
-            var dir = _timerFile.DirectoryName!;
-            var tempPath = Path.Combine(dir, $".timers-{Guid.NewGuid():N}.tmp");
-            try
-            {
-                await File.WriteAllTextAsync(tempPath, json);
-                File.Move(tempPath, _timerFile.FullName, overwrite: true);
-            }
-            catch
-            {
-                try { File.Delete(tempPath); } catch { }
-                throw;
-            }
-        }
-    }
+    private ValueTask<JobExecutionContext> LoadContext() => JobTimerStore.LoadContextAsync(JobName);
+    private Task SaveContext(JobExecutionContext context) => JobTimerStore.SaveContextAsync(JobName, context);
 }
 
 // Generic IHostedService wrapper for IScheduleScopedJob implementations.
@@ -361,49 +310,70 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService where TJob 
         }
     }
 
-    // Shared across all ScheduledJobHostedService<T> instances in the process.
-    private static readonly SemaphoreSlim _timerLock = new(1);
-    private static readonly FileInfo _timerFile = new(Path.Combine(AppContext.BaseDirectory, "timers.json"));
-    private static readonly ConcurrentDictionary<string, JobExecutionContext> _timers = new();
+    private ValueTask<JobExecutionContext> LoadContext() => JobTimerStore.LoadContextAsync(_jobName);
+    private Task SaveContext(JobExecutionContext context) => JobTimerStore.SaveContextAsync(_jobName, context);
+}
 
-    // Returns the last execution context from the in-memory cache, falling back to timers.json
-    // on first access. Warms the cache for all jobs to minimise file I/O on subsequent calls.
-    private async ValueTask<JobExecutionContext> LoadContext()
+// Centralised, process-wide timer persistence store shared by all job scheduler types.
+//
+// Previously, ScheduledJobService and ScheduledJobHostedService<T> each declared their own
+// static _timerLock/_timerFile/_timers fields and duplicate LoadContext/SaveContext methods.
+// Because static fields on a generic type are per-type-argument, every
+// ScheduledJobHostedService<TJob> had its own isolated _timers dictionary. On each save
+// it serialised only its one entry to timers.json, silently overwriting every other job's
+// persisted context. This made ExecuteOnStartupAfterFailure unreliable for all jobs other
+// than the last one to write. JobTimerStore fixes this by being the single shared owner of
+// the in-memory cache and the file — all scheduler implementations call into it.
+internal static class JobTimerStore
+{
+    // Single lock and file reference shared across every job scheduler in the process.
+    private static readonly SemaphoreSlim _lock = new(1);
+    private static readonly FileInfo _file = new(Path.Combine(AppContext.BaseDirectory, "timers.json"));
+    private static readonly ConcurrentDictionary<string, JobExecutionContext> _cache = new();
+
+    // Returns the last execution context for jobName from the in-memory cache.
+    // On first access (cache miss) reads and deserialises timers.json, warming the cache
+    // for all jobs at once to minimise future file I/O.
+    internal static async ValueTask<JobExecutionContext> LoadContextAsync(string jobName)
     {
-        if (_timers.TryGetValue(_jobName, out var context))
+        if (_cache.TryGetValue(jobName, out var context))
             return context;
-        using (await _timerLock.EnterAsync())
+
+        using (await _lock.EnterAsync())
         {
-            _timerFile.Refresh();
-            if (_timerFile.Exists)
+            _file.Refresh();
+            if (_file.Exists)
             {
-                var json = await File.ReadAllTextAsync(_timerFile.FullName);
-                var timers = JsonConvert.DeserializeObject<Dictionary<string, JobExecutionContext>>(json);
-                if (timers != null && timers.TryGetValue(_jobName, out context))
+                var json = await File.ReadAllTextAsync(_file.FullName);
+                var all = JsonConvert.DeserializeObject<Dictionary<string, JobExecutionContext>>(json);
+                if (all is not null)
                 {
-                    foreach (var timer in timers)
-                        _timers.TryAdd(timer.Key, timer.Value);
-                    return context;
+                    // Warm cache for all jobs at once so the next call for any job is a cache hit
+                    foreach (var entry in all)
+                        _cache.TryAdd(entry.Key, entry.Value);
+                    if (_cache.TryGetValue(jobName, out context))
+                        return context;
                 }
             }
             return default;
         }
     }
 
-    // Persists this job's execution result to the shared timers.json file.
-    // Writes to a temp file then renames atomically so a mid-write crash cannot corrupt the file.
-    private async Task SaveContext(JobExecutionContext context)
+    // Writes jobName's execution result to the in-memory cache and persists the full
+    // dictionary to timers.json atomically (write-to-temp + rename) so no other job's
+    // entry is lost even if this write races with another job's save.
+    internal static async Task SaveContextAsync(string jobName, JobExecutionContext context)
     {
-        _timers[_jobName] = context;
-        using (await _timerLock.EnterAsync())
+        _cache[jobName] = context;
+        using (await _lock.EnterAsync())
         {
-            var json = JsonConvert.SerializeObject(_timers, Formatting.Indented);
-            var dir = _timerFile.DirectoryName!;
+            var json = JsonConvert.SerializeObject(_cache, Formatting.Indented);
+            var dir = _file.DirectoryName!;
             var tempPath = Path.Combine(dir, $".timers-{Guid.NewGuid():N}.tmp");
             try
             {
                 await File.WriteAllTextAsync(tempPath, json);
-                File.Move(tempPath, _timerFile.FullName, overwrite: true);
+                File.Move(tempPath, _file.FullName, overwrite: true);
             }
             catch
             {
