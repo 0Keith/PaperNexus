@@ -178,7 +178,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
             var font = new Font(fontFamily, fontSize);
             var color = Color.WhiteSmoke;
             try { color = Color.ParseHex(annotation.Color); }
-            catch { }
+            catch (Exception ex) { _logger.LogWarning(ex, "Invalid annotation color '{Color}', using default.", annotation.Color); }
             // Choose outline colour based on perceived brightness: dark outline for light text, light for dark
             var pixel = color.ToPixel<Rgba32>();
             var outlineColor = pixel.R + pixel.G + pixel.B > 382 ? Color.Black : Color.White;

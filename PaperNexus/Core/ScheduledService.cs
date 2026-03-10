@@ -163,7 +163,7 @@ public abstract class ScheduledJobService : IHostedService
                         ErrorMessage = ex.ToString(),
                     });
                 }
-                catch { }
+                catch (Exception saveEx) { Logger.LogWarning(saveEx, "Failed to persist job context for {JobName} after error.", JobName); }
                 // Back off for 1 minute before retrying after an unhandled exception
                 await Task.Delay(maxDelay, cancellationToken);
             }
@@ -342,7 +342,7 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService where TJob 
                         ErrorMessage = ex.ToString(),
                     });
                 }
-                catch { }
+                catch (Exception saveEx) { _logger.LogWarning(saveEx, "Failed to persist job context for {JobName} after error.", _jobName); }
                 // Back off 1 minute before retrying after an unhandled exception
                 await Task.Delay(maxDelay, cancellationToken);
             }
