@@ -286,7 +286,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private string? _selectedFavorite;
 
     private bool _isLoading;
+    private bool _hasPendingSave;
     private CancellationTokenSource _statusCts = new();
+    private CancellationTokenSource _saveCts = new();
 
 
     // Initialises all observable properties to sensible defaults and resolves
@@ -427,12 +429,37 @@ public partial class WallpaperConfigViewModel : ObservableObject
     }
 
     // Guards against property-change callbacks firing during LoadAsync (which sets many
-    // properties at once) and causing a flood of redundant save operations.
+    // properties at once) and causing a flood of redundant save operations. Outside of
+    // loading, debounces rapid bursts of property changes (e.g. typing a path, adjusting
+    // a slider) into a single save after a brief quiet period, reducing disk I/O and
+    // preventing the "✓ Settings saved." toast from firing on every keystroke.
     private void TriggerSave()
     {
         if (_isLoading)
             return;
-        _ = SaveSettingsAsync();
+        _ = DebouncedSaveAsync();
+    }
+
+    private const int SaveDebounceMs = 500;
+
+    // Cancels any pending debounce timer and restarts it. Only the call that survives
+    // the full delay actually writes to disk, so rapid changes coalesce into one save.
+    private async Task DebouncedSaveAsync()
+    {
+        var oldCts = _saveCts;
+        oldCts.Cancel();
+        _saveCts = new CancellationTokenSource();
+        var cts = _saveCts;
+        oldCts.Dispose();
+
+        _hasPendingSave = true;
+        try
+        {
+            await Task.Delay(SaveDebounceMs, cts.Token);
+            _hasPendingSave = false;
+            await SaveSettingsAsync();
+        }
+        catch (OperationCanceledException) { }
     }
 
     // Populates all ViewModel properties from persisted settings without triggering
@@ -952,6 +979,16 @@ public partial class WallpaperConfigViewModel : ObservableObject
         // Cancel any pending status-clear or gallery-load operations
         _statusCts.Cancel();
         _statusCts.Dispose();
+
+        // If a debounced save is pending, flush it immediately before cancelling so that
+        // changes made just before the window closes are not silently discarded.
+        if (_hasPendingSave)
+        {
+            _hasPendingSave = false;
+            _ = SaveSettingsAsync();
+        }
+        _saveCts.Cancel();
+        _saveCts.Dispose();
 
         // Free the preview bitmap's unmanaged memory
         var image = PreviewImage;
