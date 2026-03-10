@@ -143,13 +143,18 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
         return await ApplyWallpaperAsync(path, settings).ConfigureAwait(false);
     }
 
-    private static List<FileInfo> GetWallpaperFiles(string folder) =>
-        new DirectoryInfo(folder)
+    private static List<FileInfo> GetWallpaperFiles(string folder)
+    {
+        // Return empty list rather than throwing DirectoryNotFoundException if folder hasn't been created yet
+        if (!Directory.Exists(folder))
+            return [];
+        return new DirectoryInfo(folder)
             .EnumerateFiles()
             .Where(f => f.Extension.Equals(".png", StringComparison.OrdinalIgnoreCase)
                      || f.Extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
                      || f.Extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
             .ToList();
+    }
 
     // Applies the chosen wallpaper: optionally composites the title annotation, encodes
     // to the processed current file, sets the Windows desktop wallpaper, and persists the
