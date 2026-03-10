@@ -15,8 +15,6 @@ public static class Extensions
         return value ?? throw new ArgumentNullException(nameof(value));
     }
 
-    public static bool IsNullOrWhiteSpace(this string value) => string.IsNullOrWhiteSpace(value);
-
     // Reads every line from reader and logs it at the specified level.
     // Useful for piping process stdout/stderr into the application logger.
     public static async Task CopyTo(this StreamReader reader, ILogger logger, LogLevel level)
