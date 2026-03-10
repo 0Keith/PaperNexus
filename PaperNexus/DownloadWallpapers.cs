@@ -150,8 +150,9 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
             throw new HttpRequestException($"HTTP {(int)response.StatusCode} {response.StatusCode} downloading '{data.ImageUrl}': {message}");
         }
 
-        var bytes = await response.Content.ReadAsByteArrayAsync();
-        await File.WriteAllBytesAsync(path, bytes);
+        // Stream directly to disk so large images (4K+) don't require a full in-memory buffer
+        using var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+        await response.Content.CopyToAsync(fileStream);
         Logger.LogInformation($"Download Complete: {watch.Elapsed}");
     }
 
