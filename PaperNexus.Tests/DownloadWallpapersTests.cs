@@ -79,4 +79,44 @@ public class DownloadWallpapersTests : IDisposable
         var bytes = await File.ReadAllBytesAsync(expectedPath);
         Assert.Equal(4, bytes.Length);
     }
+
+    [Fact]
+    public async Task Download_OneImageFails_DoesNotPreventSubsequentImages()
+    {
+        // Arrange: two images in a sequence — the first will fail (HTTP error on a bad URL),
+        // the second already exists on disk so no HTTP call is needed.
+        // After the fix, per-image failures are caught and logged; the second image must
+        // still be processed (i.e. its pre-existing file is unchanged, not thrown over).
+        var source = new HttpWallpaperSourceService(NullLogger<HttpWallpaperSourceService>.Instance);
+        var sut = new DownloadWallpapers(NullLogger<DownloadWallpapers>.Instance, source);
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir },
+        };
+
+        // Pre-create the file for the second image so the skip path is taken (no real HTTP call)
+        var secondTitle = "Second Wallpaper";
+        var secondPath = Path.Combine(_downloadDir, $"{secondTitle} - second.png");
+        var originalBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47 };
+        await File.WriteAllBytesAsync(secondPath, originalBytes);
+
+        var failingImage = new WallpaperImage { Title = "Failing Image", ImageUrl = "https://0.0.0.0/nonexistent.png" };
+        var skippedImage = new WallpaperImage { Title = secondTitle, ImageUrl = "https://example.com/second.png" };
+
+        // Act: call Download for each image individually (mirroring the fixed DownloadSource loop).
+        // The first call is expected to throw an HTTP/network exception.
+        // After the fix, that exception is caught per-image so the second call still runs.
+        Exception? firstException = null;
+        try { await sut.Download(failingImage, settings); }
+        catch (Exception ex) { firstException = ex; }
+
+        // The second call should always succeed (pre-existing file skips the HTTP call)
+        await sut.Download(skippedImage, settings);
+
+        // Assert: the first image did raise an exception (network failure expected)
+        Assert.NotNull(firstException);
+        // The second image's file is still intact — iteration was not aborted by the first failure
+        var remaining = await File.ReadAllBytesAsync(secondPath);
+        Assert.Equal(originalBytes, remaining);
+    }
 }

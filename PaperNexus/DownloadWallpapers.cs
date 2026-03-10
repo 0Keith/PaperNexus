@@ -70,8 +70,17 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         var downloaded = false;
         foreach (var source in settings.Sources.Where(s => s.IsEnabled && filter(s)))
         {
-            await DownloadSource(source, settings);
-            downloaded = true;
+            try
+            {
+                await DownloadSource(source, settings);
+                downloaded = true;
+            }
+            catch (Exception ex)
+            {
+                // Log and continue so a failed source (e.g. unreachable feed URL) does not
+                // block remaining sources from running or prevent timestamps from being saved.
+                Logger.LogError(ex, "Failed to download from source '{Source}' — skipping.", source.Name);
+            }
         }
         if (downloaded)
         {
@@ -84,7 +93,18 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
     {
         var images = await _sourceService.GetImages(source);
         foreach (var image in images)
-            await Download(image, settings);
+        {
+            try
+            {
+                await Download(image, settings);
+            }
+            catch (Exception ex)
+            {
+                // Log and continue so one failed image does not abort the rest of the source's images.
+                // The source's LastDownloadUtc is still updated below so it is not retried immediately.
+                Logger.LogWarning(ex, "Failed to download image '{Title}' from source '{Source}' — skipping.", image.Title, source.Name);
+            }
+        }
         source.LastDownloadUtc = DateTimeOffset.UtcNow;
     }
 
