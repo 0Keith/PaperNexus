@@ -35,7 +35,7 @@ public interface IScheduleScopedJob
     Task ExecuteAsync();
 }
 
-public abstract class ScheduledJobService : IHostedService
+public abstract class ScheduledJobService : IHostedService, IDisposable
 {
     protected ILogger Logger { get; }
     public string JobName { get; set; }
@@ -71,6 +71,10 @@ public abstract class ScheduledJobService : IHostedService
         _cts.Cancel();
         return Task.WhenAny(_scheduleTask ?? Task.CompletedTask, Task.Delay(5000, cancellationToken));
     }
+
+    // Releases the CancellationTokenSource WaitHandle. StopAsync should be called first
+    // to cancel the scheduler loop; Dispose only releases the unmanaged handle.
+    public void Dispose() => _cts.Dispose();
 
     // Main scheduler loop for the legacy ScheduledJobService base class.
     // Polls GetNextExecutionAsync each iteration so schedule changes in settings take effect
@@ -176,7 +180,7 @@ public abstract class ScheduledJobService : IHostedService
 
 // Generic IHostedService wrapper for IScheduleScopedJob implementations.
 // A fresh DI scope is created for each execution so jobs receive fresh service instances.
-public sealed class ScheduledJobHostedService<TJob> : IHostedService where TJob : IScheduleScopedJob
+public sealed class ScheduledJobHostedService<TJob> : IHostedService, IDisposable where TJob : IScheduleScopedJob
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger _logger;
@@ -206,6 +210,10 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService where TJob 
         _cts.Cancel();
         return Task.WhenAny(_scheduleTask ?? Task.CompletedTask, Task.Delay(5000, cancellationToken));
     }
+
+    // Releases the CancellationTokenSource WaitHandle. StopAsync should be called first
+    // to cancel the scheduler loop; Dispose only releases the unmanaged handle.
+    public void Dispose() => _cts.Dispose();
 
     // Scheduler loop for IScheduleScopedJob: re-reads the job config each iteration so
     // runtime changes to the cron schedule or enabled flag are honoured without restart.

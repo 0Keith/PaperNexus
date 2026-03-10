@@ -14,12 +14,14 @@ internal static class NativeMethods
     // Tells Windows to apply the image at wallpaperPath as the desktop wallpaper.
     // SPIF_UPDATEINIFILE persists the change to the user profile;
     // SPIF_SENDCHANGE broadcasts WM_SETTINGCHANGE so the shell picks it up immediately.
-    internal static void SetDesktopWallpaper(string wallpaperPath)
+    // Returns true if the API call succeeded (non-zero return), false otherwise.
+    internal static bool SetDesktopWallpaper(string wallpaperPath)
     {
-        SystemParametersInfo(
+        var result = SystemParametersInfo(
             SPI_SETDESKWALLPAPER,
             0,
             wallpaperPath,
             SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
+        return result != 0;
     }
 }

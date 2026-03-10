@@ -252,7 +252,10 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
 
         if (OperatingSystem.IsWindows())
             ApplyFillStyle(settings.Slideshow.FillStyle);
-        NativeMethods.SetDesktopWallpaper(currentPath);
+        // Log a warning if the Win32 API call reports failure so silent wallpaper-not-set bugs surface in logs
+        var wallpaperSet = NativeMethods.SetDesktopWallpaper(currentPath);
+        if (!wallpaperSet)
+            _logger.LogWarning("SystemParametersInfo(SPI_SETDESKWALLPAPER) returned 0 for path: {Path}", currentPath);
         _logger.LogInformation("Switching wallpaper to: {Path}", next);
 
         // Persist the original source path (not the processed current.* path) so ordering is stable across restarts
