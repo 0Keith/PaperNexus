@@ -103,7 +103,7 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 
 **Body blocks over expression bodies for multi-step logic:** Use `{ }` body blocks with local variables when a method or property involves more than one step. Reserve expression-bodied (`=>`) syntax for genuinely trivial single-expression members. Prefer readability over terseness.
 
-**Suppressed diagnostics:** CS8601-CS8604, CS8618-CS8619, CA1806, CA1835, CA1848 (all `none`). `<Nullable>enable</Nullable>` is set but warnings silenced. Don't add `#nullable` annotations unless asked.
+**Suppressed diagnostics:** CS8600-CS8604, CS8618-CS8619, CA1806, CA1835, CA1848 (all `none`). `<Nullable>enable</Nullable>` is set but warnings silenced. Don't add `#nullable` annotations unless asked.
 
 ## Build & CI/CD
 

@@ -16,7 +16,7 @@ internal class HttpWallpaperSourceService
     // extracted via the source's configured JPath expressions.
     public async Task<List<WallpaperImage>> GetImages(WallpaperSource source)
     {
-        _logger.LogInformation($"Getting images from source '{source.Name}': {source.Url}");
+        _logger.LogInformation("Getting images from source '{Name}': {Url}", source.Name, source.Url);
         var watch = Stopwatch.StartNew();
         using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         using var getResponse = await client.GetAsync(source.Url);
@@ -28,7 +28,7 @@ internal class HttpWallpaperSourceService
 
         var json = await getResponse.Content.ReadAsStringAsync();
         var images = ParseImages(source, json);
-        _logger.LogInformation("Complete: " + new { watch.Elapsed });
+        _logger.LogInformation("Got {Count} image(s) from '{Name}' in {Elapsed}", images.Count, source.Name, watch.Elapsed);
         return images;
     }
 

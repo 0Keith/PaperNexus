@@ -91,6 +91,7 @@ dotnet_naming_symbols.methods.applicable_accessibilities = *
 dotnet_naming_style.pascal_case_style.capitalization = pascal_case
 
 # Suppressed diagnostics — nullable reference type warnings
+dotnet_diagnostic.CS8600.severity = none
 dotnet_diagnostic.CS8601.severity = none
 dotnet_diagnostic.CS8602.severity = none
 dotnet_diagnostic.CS8603.severity = none
