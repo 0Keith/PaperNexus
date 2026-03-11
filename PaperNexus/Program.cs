@@ -15,6 +15,12 @@ internal sealed class Program
 
     internal static EventWaitHandle? ShowUIEvent { get; private set; }
     internal static bool IsDebugMode { get; private set; }
+    internal static bool IsInstallMode { get; private set; }
+
+    // Install path data exposed for InstallScreen to use when performing the actual install.
+    internal static string CurrentExePath { get; private set; } = string.Empty;
+    internal static string InstallDir { get; private set; } = string.Empty;
+    internal static string InstallExePath { get; private set; } = string.Empty;
 
     [STAThread]
     public static void Main(string[] args)
@@ -26,11 +32,16 @@ internal sealed class Program
         var (installDir, installPath) = GetInstallPaths();
         var currentPath = GetCurrentProcessPath();
 
+        // Cache paths so InstallScreen can reference them without recomputing.
+        InstallDir = installDir;
+        InstallExePath = installPath;
+        CurrentExePath = currentPath;
+
         // If running from a location other than the install directory, perform
         // first-run installation and then hand off to the installed copy.
         if (!IsRunningFromInstallLocation(currentPath, installPath))
         {
-            HandleNotInstalledLaunch(currentPath, installDir, installPath);
+            HandleNotInstalledLaunch(args);
             return;
         }
 
@@ -66,22 +77,21 @@ internal sealed class Program
     }
 
     // Handles startup when the exe is not yet at the install location.
-    // Signals any already-running instance first; if none is running, installs and relaunches.
-    private static void HandleNotInstalledLaunch(string currentPath, string installDir, string installPath)
+    // Signals any already-running instance first; if none is running, shows the install screen.
+    private static void HandleNotInstalledLaunch(string[] args)
     {
         // If a running instance exists, signal it to show its UI and exit without installing.
         if (TrySignalExistingInstance())
             return;
 
-        if (!TryInstall(currentPath, installDir, installPath))
-            return;
-
-        Process.Start(new ProcessStartInfo(installPath) { UseShellExecute = true });
+        // Show the install screen — it performs the actual copy and relaunch when confirmed.
+        IsInstallMode = true;
+        RunApp(args);
     }
 
     // Copies the exe to the install directory and migrates any adjacent data files.
     // Returns true if install succeeded or the installed copy already exists (race with another instance).
-    private static bool TryInstall(string currentPath, string installDir, string installPath)
+    internal static bool TryInstall(string currentPath, string installDir, string installPath)
     {
         try
         {
