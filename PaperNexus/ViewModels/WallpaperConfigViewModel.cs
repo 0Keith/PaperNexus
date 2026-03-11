@@ -1193,6 +1193,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
             {
                 CurrentWallpaperPath = string.Empty;
                 CurrentWallpaperName = "(none)";
+                // The deleted file can no longer be a favorite — clear the heart indicator so
+                // the UI does not show an empty-path wallpaper as favorited.
+                IsCurrentWallpaperFavorited = false;
             }
 
             item.DisposeThumbnail();

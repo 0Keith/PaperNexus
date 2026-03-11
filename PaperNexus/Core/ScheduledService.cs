@@ -218,6 +218,11 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService, IDisposabl
     // Scheduler loop for IScheduleScopedJob: re-reads the job config each iteration so
     // runtime changes to the cron schedule or enabled flag are honoured without restart.
     // A null CronExpression in JobConfig means the job is disabled; delay becomes MaxValue.
+    //
+    // The scope used to read the config is disposed before any Task.Delay so that DI resources
+    // (resolved services, file handles, etc.) are not held alive across the sleep period. A
+    // separate scope is opened for the actual execution so the job receives a fresh set of
+    // service instances at run time, as originally intended.
     private async Task ScheduleExecutions(CancellationToken cancellationToken)
     {
         var attempts = 0;
@@ -231,11 +236,16 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService, IDisposabl
                 return;
             try
             {
-                // Create a fresh scope for each loop iteration so the job can safely resolve
-                // scoped services (e.g. settings re-reads) without holding stale state.
-                using var scope = _scopeFactory.CreateScope();
-                var job = ActivatorUtilities.CreateInstance<TJob>(scope.ServiceProvider);
-                var config = await job.GetJobConfigAsync();
+                // Open a short-lived scope purely to read the job config and determine the next
+                // execution time. The scope is disposed before any sleep so no DI-managed
+                // resources are held open during the idle period between poll ticks.
+                JobConfig config;
+                using (var configScope = _scopeFactory.CreateScope())
+                {
+                    var configJob = ActivatorUtilities.CreateInstance<TJob>(configScope.ServiceProvider);
+                    config = await configJob.GetJobConfigAsync();
+                }
+
                 var lastExecution = await LoadContext();
                 // If no CronExpression is set the job is disabled; schedule to far future
                 var nextExecution = config.CronExpression?.GetNextOccurrence(DateTimeOffset.UtcNow, TimeZoneInfo.Local)
@@ -282,7 +292,15 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService, IDisposabl
                     watch.Restart();
                     startedAt = DateTimeOffset.Now;
                     nextExecutionLogged = false;
-                    await job.ExecuteAsync();
+
+                    // Open a fresh scope for execution so the job gets up-to-date service
+                    // instances, independent of the short-lived config-read scope above.
+                    using (var execScope = _scopeFactory.CreateScope())
+                    {
+                        var execJob = ActivatorUtilities.CreateInstance<TJob>(execScope.ServiceProvider);
+                        await execJob.ExecuteAsync();
+                    }
+
                     await SaveContext(new()
                     {
                         StartedAt = startedAt,
