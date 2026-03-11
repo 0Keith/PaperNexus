@@ -80,6 +80,45 @@ public class DownloadWallpapersTests : IDisposable
         Assert.Equal(4, bytes.Length);
     }
 
+    // Regression guard: query strings and URL fragments must be stripped before the
+    // filename is derived, so "image.jpg?sig=abc" produces "image.jpg" not "image.jpg?sig=abc".
+    // Without the fix, Path.GetExtension("image.jpg?sig=abc") returns ".jpg?sig=abc",
+    // making the extension contain the query string and producing an invalid filename.
+    [Theory]
+    [InlineData("https://example.com/photo.jpg?sig=abc123&se=2025",           "photo",  ".jpg")]
+    [InlineData("https://example.com/photo.png?X-Goog-Signature=xyz",         "photo",  ".png")]
+    [InlineData("https://example.com/photo.jpg#anchor",                        "photo",  ".jpg")]
+    [InlineData("https://example.com/photo.jpg?token=x&ver=2#section",        "photo",  ".jpg")]
+    [InlineData("https://example.com/api/image?format=jpg&w=3840",            "image",  ".png")] // no clean ext → .png fallback
+    public async Task Download_UrlWithQueryString_ProducesCleanFilename(
+        string imageUrl, string expectedStem, string expectedExt)
+    {
+        var source = new HttpWallpaperSourceService(NullLogger<HttpWallpaperSourceService>.Instance);
+        var sut = new DownloadWallpapers(NullLogger<DownloadWallpapers>.Instance, source);
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir },
+        };
+
+        var wallpaperTitle = "My Wallpaper";
+        // Pre-create the file with the expected clean name so the skip-if-exists path is taken.
+        // If the filename is built correctly (no query/fragment), the pre-created file is found
+        // and the method returns without making an HTTP call (no network needed in tests).
+        var cleanPath = Path.Combine(_downloadDir, $"{wallpaperTitle} - {expectedStem}{expectedExt}");
+        await File.WriteAllBytesAsync(cleanPath, [0x89, 0x50, 0x4E, 0x47]);
+
+        var image = new WallpaperImage { Title = wallpaperTitle, ImageUrl = imageUrl };
+
+        // Act: Download should recognise the pre-created clean file and skip the HTTP call.
+        // If the query string is not stripped the computed path won't match the pre-created file,
+        // causing an HTTP request that fails with a network error.
+        await sut.Download(image, settings);
+
+        // Assert: pre-created file intact (was recognised and skipped, not re-downloaded)
+        var fileBytes = await File.ReadAllBytesAsync(cleanPath);
+        Assert.Equal(4, fileBytes.Length);
+    }
+
     [Fact]
     public async Task Download_OneImageFails_DoesNotPreventSubsequentImages()
     {

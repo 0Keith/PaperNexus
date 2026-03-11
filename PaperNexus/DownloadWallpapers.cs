@@ -161,7 +161,18 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
             .Where(c => !InvalidFileNameChars.Contains(c))
             .Take(200)
             .ToArray());
-        var urlFile = data.ImageUrl.Split('/').Last();
+        // Strip query string and fragment before parsing so URLs like
+        // "image.jpg?sig=xyz" or "image.jpg#anchor" produce a clean filename.
+        // Path.GetExtension does not know about URL structure and would otherwise
+        // include the query params in the extension (e.g. ".jpg?sig=xyz").
+        var cleanUrl = data.ImageUrl;
+        var hashIdx = cleanUrl.IndexOf('#');
+        if (hashIdx >= 0)
+            cleanUrl = cleanUrl[..hashIdx];
+        var queryIdx = cleanUrl.IndexOf('?');
+        if (queryIdx >= 0)
+            cleanUrl = cleanUrl[..queryIdx];
+        var urlFile = cleanUrl.Split('/').Last();
         var ext = Path.GetExtension(urlFile);
         if (string.IsNullOrEmpty(ext))
             ext = ".png";
