@@ -43,8 +43,16 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Keep running when the settings window is closed
+            // Keep running when any window is closed
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+            // In install mode, show only the install screen — skip all service/tray setup.
+            if (Program.IsInstallMode)
+            {
+                new Views.InstallScreen().Show();
+                base.OnFrameworkInitializationCompleted();
+                return;
+            }
 
             // Start background wallpaper services (download + switch)
             _backgroundHost = Host.CreateDefaultBuilder()
