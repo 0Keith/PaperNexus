@@ -332,4 +332,67 @@ public class DownloadWallpapersTests : IDisposable
 
         Assert.True(DownloadWallpapers.IsOverdue(source));
     }
+
+    // --- LastDownloadUtc persistence tests ---
+
+    [Fact]
+    public async Task LastDownloadUtc_SurvivesSaveLoadRoundTrip()
+    {
+        // LastDownloadUtc is the only field that is written by the background downloader
+        // and not by the ViewModel. This test verifies that the value survives a save/load
+        // cycle, which is the foundational contract that the timestamp-preservation merge
+        // in SaveSettingsAsync depends on.
+        var expectedTime = new DateTimeOffset(2025, 6, 15, 12, 0, 0, TimeSpan.Zero);
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir },
+            Sources =
+            [
+                new WallpaperSource { Name = "Test Source", LastDownloadUtc = expectedTime },
+            ],
+            RunOnStartup = false,
+            AutoUpdatesEnabled = false,
+        };
+        await settings.SaveAsync();
+
+        var loaded = await WallpaperNexusSettings.LoadAsync();
+
+        var loadedSource = loaded.Sources.FirstOrDefault(s => s.Name == "Test Source");
+        Assert.NotNull(loadedSource);
+        Assert.Equal(expectedTime, loadedSource.LastDownloadUtc);
+    }
+
+    [Fact]
+    public async Task LastDownloadUtc_NotNullSource_PreventsRedundantRedownload()
+    {
+        // Regression guard: if a source has a recent LastDownloadUtc (downloaded 1 minute ago),
+        // IsOverdue must return false so the scheduler does not re-download immediately
+        // after a settings save that preserved the timestamp.
+        var expectedTime = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir },
+            Sources =
+            [
+                new WallpaperSource
+                {
+                    Name = "Recent Source",
+                    CronExpression = "0 */8 * * *",
+                    LastDownloadUtc = expectedTime,
+                },
+            ],
+            RunOnStartup = false,
+            AutoUpdatesEnabled = false,
+        };
+        await settings.SaveAsync();
+
+        var loaded = await WallpaperNexusSettings.LoadAsync();
+        var src = loaded.Sources.First(s => s.Name == "Recent Source");
+
+        // The timestamp must have been preserved — if it were null, IsOverdue would
+        // return true and the next scheduled execution would trigger a redundant download.
+        Assert.NotNull(src.LastDownloadUtc);
+        Assert.False(DownloadWallpapers.IsOverdue(src),
+            "A source downloaded 1 minute ago should not be overdue on an 8-hour cron.");
+    }
 }

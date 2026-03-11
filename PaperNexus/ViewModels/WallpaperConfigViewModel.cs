@@ -952,7 +952,24 @@ public partial class WallpaperConfigViewModel : ObservableObject
             settings.MinimizeToTray = MinimizeToTray;
             settings.Slideshow.FavoritePriorityEnabled = FavoritePriorityEnabled;
             settings.Slideshow.FavoritePriorityWeight = FavoritePriorityWeight;
-            settings.Sources = Sources.ToList();
+            // Preserve LastDownloadUtc from the freshly-loaded settings for each source so that
+            // background download timestamps (written by DownloadWallpapers while the settings
+            // window is open) are not silently overwritten with the ViewModel's stale copies.
+            // Always keep the later of the two timestamps: the persisted value wins if a download
+            // completed after LoadAsync ran; the ViewModel value wins if it is somehow newer.
+            // Match on source name; unmatched sources (new/renamed) keep no timestamp.
+            var persistedTimestamps = settings.Sources
+                .Where(s => s.LastDownloadUtc.HasValue)
+                .ToDictionary(s => s.Name, s => s.LastDownloadUtc!.Value, StringComparer.OrdinalIgnoreCase);
+            var vmSources = Sources.ToList();
+            foreach (var src in vmSources)
+            {
+                if (persistedTimestamps.TryGetValue(src.Name, out var persistedTs))
+                    src.LastDownloadUtc = src.LastDownloadUtc.HasValue
+                        ? (DateTimeOffset?)src.LastDownloadUtc.Value.Max(persistedTs)
+                        : persistedTs;
+            }
+            settings.Sources = vmSources;
             await settings.SaveAsync();
             await ShowTransientStatusAsync("✓ Settings saved.");
         }
