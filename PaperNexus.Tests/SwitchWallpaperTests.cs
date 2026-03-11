@@ -131,4 +131,339 @@ public class SwitchWallpaperTests : IAsyncLifetime, IDisposable
         // Assert: banned file excluded → candidate pool is empty → null
         Assert.Null(result);
     }
+
+    // --- Sequential ordering tests ---
+
+    [Fact]
+    public async Task SwitchToNext_Alphabetical_AdvancesToNextFile()
+    {
+        // Arrange: three wallpapers named so they sort a < b < c.
+        // Current is 'b'; next alphabetically is 'c'.
+        var pathA = Path.Combine(_wallpaperDir, "a_wall.png");
+        var pathB = Path.Combine(_wallpaperDir, "b_wall.png");
+        var pathC = Path.Combine(_wallpaperDir, "c_wall.png");
+        TestHelpers.CreateSmallPng(pathA, r: 100);
+        TestHelpers.CreateSmallPng(pathB, r: 120);
+        TestHelpers.CreateSmallPng(pathC, r: 140);
+        TestHelpers.Cleanup();
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _wallpaperDir },
+            Slideshow = new SlideshowSettings { Order = SlideshowOrder.Alphabetical, Enabled = false },
+            CurrentWallpaperPath = pathB,
+            Sources = [],
+            AnnotateWallpaper = false,
+        };
+        await settings.SaveAsync();
+
+        var switcher = new SwitchWallpaper(NullLogger<SwitchWallpaper>.Instance);
+
+        // Act
+        var result = await switcher.SwitchToNextAsync();
+
+        // Assert: 'b' → 'c' in alphabetical order
+        Assert.NotNull(result);
+        Assert.Equal(pathC, result, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SwitchToNext_Alphabetical_WrapsAroundToFirstFile()
+    {
+        // Arrange: three wallpapers. Current is the last one alphabetically ('c').
+        // Wrap-around should advance to 'a'.
+        var pathA = Path.Combine(_wallpaperDir, "a_wall.png");
+        var pathB = Path.Combine(_wallpaperDir, "b_wall.png");
+        var pathC = Path.Combine(_wallpaperDir, "c_wall.png");
+        TestHelpers.CreateSmallPng(pathA, r: 100);
+        TestHelpers.CreateSmallPng(pathB, r: 120);
+        TestHelpers.CreateSmallPng(pathC, r: 140);
+        TestHelpers.Cleanup();
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _wallpaperDir },
+            Slideshow = new SlideshowSettings { Order = SlideshowOrder.Alphabetical, Enabled = false },
+            CurrentWallpaperPath = pathC,
+            Sources = [],
+            AnnotateWallpaper = false,
+        };
+        await settings.SaveAsync();
+
+        var switcher = new SwitchWallpaper(NullLogger<SwitchWallpaper>.Instance);
+
+        // Act
+        var result = await switcher.SwitchToNextAsync();
+
+        // Assert: last file wraps around to the first
+        Assert.NotNull(result);
+        Assert.Equal(pathA, result, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SwitchToNext_Alphabetical_MissingCurrentPath_StartsFromFirst()
+    {
+        // Arrange: three wallpapers. Current points to a file that no longer exists.
+        // Expected: index == -1 → (−1 + 1) % 3 == 0 → first file alphabetically.
+        var pathA = Path.Combine(_wallpaperDir, "a_wall.png");
+        var pathB = Path.Combine(_wallpaperDir, "b_wall.png");
+        var pathC = Path.Combine(_wallpaperDir, "c_wall.png");
+        TestHelpers.CreateSmallPng(pathA, r: 100);
+        TestHelpers.CreateSmallPng(pathB, r: 120);
+        TestHelpers.CreateSmallPng(pathC, r: 140);
+        TestHelpers.Cleanup();
+
+        var missingPath = Path.Combine(_wallpaperDir, "deleted.png");
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _wallpaperDir },
+            Slideshow = new SlideshowSettings { Order = SlideshowOrder.Alphabetical, Enabled = false },
+            CurrentWallpaperPath = missingPath, // not in the folder
+            Sources = [],
+            AnnotateWallpaper = false,
+        };
+        await settings.SaveAsync();
+
+        var switcher = new SwitchWallpaper(NullLogger<SwitchWallpaper>.Instance);
+
+        // Act
+        var result = await switcher.SwitchToNextAsync();
+
+        // Assert: missing current → index −1 → starts from index 0 (alphabetically first)
+        Assert.NotNull(result);
+        Assert.Equal(pathA, result, StringComparer.OrdinalIgnoreCase);
+    }
+
+    // --- SwitchToRandomAsync tests ---
+
+    [Fact]
+    public async Task SwitchToRandom_FolderDoesNotExist_ReturnsNull()
+    {
+        var missingFolder = Path.Combine(Path.GetTempPath(), $"PaperNexus_Missing_{Guid.NewGuid():N}");
+        await TestHelpers.WriteSettingsAsync(missingFolder);
+
+        var switcher = new SwitchWallpaper(NullLogger<SwitchWallpaper>.Instance);
+
+        var result = await switcher.SwitchToRandomAsync();
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task SwitchToRandom_AllWallpapersBanned_ReturnsNull()
+    {
+        var wallpaperPath = Path.Combine(_wallpaperDir, "banned.png");
+        TestHelpers.CreateSmallPng(wallpaperPath);
+        TestHelpers.Cleanup();
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _wallpaperDir },
+            BannedWallpapers = [wallpaperPath],
+            Sources = [],
+        };
+        await settings.SaveAsync();
+
+        var switcher = new SwitchWallpaper(NullLogger<SwitchWallpaper>.Instance);
+
+        var result = await switcher.SwitchToRandomAsync();
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task SwitchToRandom_MultipleWallpapers_NeverReturnsCurrentWallpaper()
+    {
+        // Arrange: two wallpapers. Current is one of them.
+        // With exactly two candidates, the non-current one is the only valid choice.
+        var pathA = Path.Combine(_wallpaperDir, "wall_a.png");
+        var pathB = Path.Combine(_wallpaperDir, "wall_b.png");
+        TestHelpers.CreateSmallPng(pathA, r: 100);
+        TestHelpers.CreateSmallPng(pathB, r: 200);
+        TestHelpers.Cleanup();
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _wallpaperDir },
+            Slideshow = new SlideshowSettings { Enabled = false },
+            CurrentWallpaperPath = pathA,
+            Sources = [],
+            AnnotateWallpaper = false,
+        };
+        await settings.SaveAsync();
+
+        var switcher = new SwitchWallpaper(NullLogger<SwitchWallpaper>.Instance);
+
+        // Act: run many times to ensure randomness never returns the current wallpaper
+        for (var i = 0; i < 10; i++)
+        {
+            TestHelpers.Cleanup();
+            // Re-write settings to keep CurrentWallpaperPath pointing at pathA across iterations
+            await settings.SaveAsync();
+            var result = await switcher.SwitchToRandomAsync();
+
+            Assert.NotNull(result);
+            // With two files and current == pathA, random must always pick pathB
+            Assert.Equal(pathB, result, StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public async Task SwitchToRandom_SingleWallpaper_ReturnsThatWallpaper()
+    {
+        // Arrange: only one wallpaper. With one candidate the "exclude current" guard
+        // falls back to the full list, so the single file must still be returned.
+        var pathA = Path.Combine(_wallpaperDir, "sole.png");
+        TestHelpers.CreateSmallPng(pathA);
+        TestHelpers.Cleanup();
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _wallpaperDir },
+            Slideshow = new SlideshowSettings { Enabled = false },
+            CurrentWallpaperPath = pathA,
+            Sources = [],
+            AnnotateWallpaper = false,
+        };
+        await settings.SaveAsync();
+
+        var switcher = new SwitchWallpaper(NullLogger<SwitchWallpaper>.Instance);
+
+        var result = await switcher.SwitchToRandomAsync();
+
+        Assert.NotNull(result);
+        Assert.Equal(pathA, result, StringComparer.OrdinalIgnoreCase);
+    }
+
+    // --- SwitchToSpecificAsync tests ---
+
+    [Fact]
+    public async Task SwitchToSpecific_ExistingFile_ReturnsPath()
+    {
+        var wallpaperPath = Path.Combine(_wallpaperDir, "specific.png");
+        TestHelpers.CreateSmallPng(wallpaperPath);
+        TestHelpers.Cleanup();
+        await TestHelpers.WriteSettingsAsync(_wallpaperDir);
+
+        var switcher = new SwitchWallpaper(NullLogger<SwitchWallpaper>.Instance);
+
+        var result = await switcher.SwitchToSpecificAsync(wallpaperPath);
+
+        Assert.NotNull(result);
+        Assert.Equal(wallpaperPath, result, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SwitchToSpecific_MissingFile_ReturnsNull()
+    {
+        // Arrange: path that does not exist on disk
+        var missingPath = Path.Combine(_wallpaperDir, "nonexistent.png");
+        TestHelpers.Cleanup();
+        await TestHelpers.WriteSettingsAsync(_wallpaperDir);
+
+        var switcher = new SwitchWallpaper(NullLogger<SwitchWallpaper>.Instance);
+
+        var result = await switcher.SwitchToSpecificAsync(missingPath);
+
+        Assert.Null(result);
+    }
+
+    // --- ApplyFavoritePriority / favorite weighting tests ---
+
+    [Fact]
+    public async Task SwitchToRandom_WithFavoritePriority_FavoritedFileSelectedMoreOften()
+    {
+        // Arrange: two wallpapers, one favorited with weight 10 (very high boost).
+        // Over many iterations the favorite should win the overwhelming majority of picks.
+        var pathFav  = Path.Combine(_wallpaperDir, "favorite.png");
+        var pathNorm = Path.Combine(_wallpaperDir, "normal.png");
+        TestHelpers.CreateSmallPng(pathFav,  r: 100);
+        TestHelpers.CreateSmallPng(pathNorm, r: 200);
+        TestHelpers.Cleanup();
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _wallpaperDir },
+            Slideshow = new SlideshowSettings
+            {
+                Enabled = false,
+                FavoritePriorityEnabled = true,
+                FavoritePriorityWeight = 10,
+            },
+            // Set current to normal so both are eligible candidates
+            CurrentWallpaperPath = string.Empty,
+            FavoriteWallpapers = [pathFav],
+            Sources = [],
+            AnnotateWallpaper = false,
+        };
+
+        var switcher = new SwitchWallpaper(NullLogger<SwitchWallpaper>.Instance);
+        var favoritePicks = 0;
+        const int iterations = 50;
+
+        for (var i = 0; i < iterations; i++)
+        {
+            TestHelpers.Cleanup();
+            await settings.SaveAsync();
+            var result = await switcher.SwitchToRandomAsync();
+            Assert.NotNull(result);
+            if (result.Equals(pathFav, StringComparison.OrdinalIgnoreCase))
+                favoritePicks++;
+            // Keep CurrentWallpaperPath empty so neither file is excluded each iteration
+            settings.CurrentWallpaperPath = string.Empty;
+        }
+
+        // With weight 10 the favorite occupies 10/11 (~91%) of the pool.
+        // Require at least 70% to avoid rare-but-possible test flakiness.
+        Assert.True(favoritePicks >= (int)(iterations * 0.70),
+            $"Favorite should be picked far more often with weight 10, but was only picked {favoritePicks}/{iterations} times.");
+    }
+
+    [Fact]
+    public async Task SwitchToRandom_FavoritePriorityDisabled_DoesNotBiasSelection()
+    {
+        // Arrange: two wallpapers, one favorited but priority is disabled.
+        // Both files should appear as equals in the pool — the test verifies the
+        // non-favorite also gets picked at least once over many iterations.
+        var pathFav  = Path.Combine(_wallpaperDir, "favorite.png");
+        var pathNorm = Path.Combine(_wallpaperDir, "normal.png");
+        TestHelpers.CreateSmallPng(pathFav,  r: 100);
+        TestHelpers.CreateSmallPng(pathNorm, r: 200);
+        TestHelpers.Cleanup();
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _wallpaperDir },
+            Slideshow = new SlideshowSettings
+            {
+                Enabled = false,
+                FavoritePriorityEnabled = false, // priority disabled
+                FavoritePriorityWeight = 10,     // weight should be ignored
+            },
+            CurrentWallpaperPath = string.Empty,
+            FavoriteWallpapers = [pathFav],
+            Sources = [],
+            AnnotateWallpaper = false,
+        };
+
+        var switcher = new SwitchWallpaper(NullLogger<SwitchWallpaper>.Instance);
+        var normalPicks = 0;
+        const int iterations = 40;
+
+        for (var i = 0; i < iterations; i++)
+        {
+            TestHelpers.Cleanup();
+            await settings.SaveAsync();
+            var result = await switcher.SwitchToRandomAsync();
+            Assert.NotNull(result);
+            if (result.Equals(pathNorm, StringComparison.OrdinalIgnoreCase))
+                normalPicks++;
+            settings.CurrentWallpaperPath = string.Empty;
+        }
+
+        // Without priority weighting both candidates are equally likely (50/50).
+        // Require at least 5 picks of the normal file to prove it is not excluded.
+        Assert.True(normalPicks >= 5,
+            $"Normal wallpaper should be selected sometimes when priority is disabled, but was only picked {normalPicks}/{iterations} times.");
+    }
 }
