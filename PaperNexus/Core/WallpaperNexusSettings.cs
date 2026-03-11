@@ -208,6 +208,16 @@ public class WallpaperNexusSettings
         // Initialise reference-type properties that may be null after JSON deserialisation
         settings.CurrentWallpaperPath ??= string.Empty;
         settings.Annotation ??= new AnnotationSettings();
+        // Guard annotation sub-fields that the rendering pipeline uses directly: a null or empty
+        // FontFamily causes SixLabors to throw inside TryGet before the caller can catch it; a
+        // FontSize of 0 creates a degenerate font; a null Color silently breaks ParseHex.
+        var defaultAnnotation = new AnnotationSettings();
+        if (string.IsNullOrWhiteSpace(settings.Annotation.FontFamily))
+            settings.Annotation.FontFamily = defaultAnnotation.FontFamily;
+        if (settings.Annotation.FontSize <= 0)
+            settings.Annotation.FontSize = defaultAnnotation.FontSize;
+        if (string.IsNullOrWhiteSpace(settings.Annotation.Color))
+            settings.Annotation.Color = defaultAnnotation.Color;
         settings.FavoriteWallpapers ??= [];
         settings.BannedWallpapers ??= [];
         // A weight of 0 or less would make favorite priority a no-op

@@ -499,4 +499,75 @@ public class DownloadWallpapersTests : IDisposable
         Assert.False(DownloadWallpapers.IsOverdue(src),
             "A source downloaded 1 minute ago should not be overdue on an 8-hour cron.");
     }
+
+    // --- ApplyDefaults annotation-field guards ---
+
+    // Regression guard: if the settings file contains an empty FontFamily (e.g. from manual
+    // editing or an older schema version), LoadAsync must restore the default font so that
+    // SixLabors.Fonts.TryGet never receives an empty string and throws inside the renderer.
+    [Fact]
+    public async Task LoadAsync_EmptyAnnotationFontFamily_RestoresDefault()
+    {
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir },
+            Annotation = new AnnotationSettings { FontFamily = "" },
+            Sources = [],
+            RunOnStartup = false,
+            AutoUpdatesEnabled = false,
+        };
+        await settings.SaveAsync();
+
+        var loaded = await WallpaperNexusSettings.LoadAsync();
+
+        Assert.False(string.IsNullOrWhiteSpace(loaded.Annotation.FontFamily),
+            "FontFamily must never be empty after load; renderer passes it directly to SixLabors.");
+        Assert.Equal(BundledFonts.DefaultFontFamily, loaded.Annotation.FontFamily);
+    }
+
+    // Regression guard: a FontSize of 0 creates a degenerate SixLabors Font object that throws
+    // during text measurement. ApplyDefaults must replace it with the default (18).
+    [Fact]
+    public async Task LoadAsync_ZeroAnnotationFontSize_RestoresDefault()
+    {
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir },
+            Annotation = new AnnotationSettings { FontSize = 0 },
+            Sources = [],
+            RunOnStartup = false,
+            AutoUpdatesEnabled = false,
+        };
+        await settings.SaveAsync();
+
+        var loaded = await WallpaperNexusSettings.LoadAsync();
+
+        Assert.True(loaded.Annotation.FontSize > 0,
+            "FontSize must be positive after load; a zero size produces a degenerate font.");
+        Assert.Equal(new AnnotationSettings().FontSize, loaded.Annotation.FontSize);
+    }
+
+    // Regression guard: a null or empty Color string causes Color.ParseHex to throw.
+    // That particular throw is caught and logged, but the guard here ensures the value
+    // is filled in before it reaches the renderer so callers see a valid default instead of
+    // a warning in every log file.
+    [Fact]
+    public async Task LoadAsync_EmptyAnnotationColor_RestoresDefault()
+    {
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir },
+            Annotation = new AnnotationSettings { Color = "" },
+            Sources = [],
+            RunOnStartup = false,
+            AutoUpdatesEnabled = false,
+        };
+        await settings.SaveAsync();
+
+        var loaded = await WallpaperNexusSettings.LoadAsync();
+
+        Assert.False(string.IsNullOrWhiteSpace(loaded.Annotation.Color),
+            "Color must never be empty after load; renderer passes it directly to Color.ParseHex.");
+        Assert.Equal(new AnnotationSettings().Color, loaded.Annotation.Color);
+    }
 }
