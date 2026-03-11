@@ -20,6 +20,12 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
 
     private readonly HttpWallpaperSourceService _sourceService;
 
+    // Shared, long-lived HttpClient for all image downloads. HttpClient is thread-safe for
+    // concurrent requests; creating a new one per source/image call drains the ephemeral port
+    // pool because disposed clients leave sockets in TIME_WAIT for several minutes.
+    // The service is a singleton, so this client lives for the process lifetime.
+    private readonly HttpClient _imageClient = new() { Timeout = TimeSpan.FromSeconds(30) };
+
     public DownloadWallpapers(ILogger<DownloadWallpapers> logger, HttpWallpaperSourceService sourceService) : base(logger)
     {
         _sourceService = sourceService.ThrowIfNull();
@@ -101,18 +107,16 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         }
     }
 
-    // Downloads all images for a single source using a shared HttpClient for the batch,
-    // so N images from the same host reuse one socket pool rather than creating N pools.
+    // Downloads all images for a single source, reusing the process-wide _imageClient so
+    // all images — across all sources — share one socket pool rather than creating one per call.
     private async Task DownloadSource(WallpaperSource source, WallpaperNexusSettings settings)
     {
         var images = await _sourceService.GetImagesAsync(source);
-        // A single client is shared across all images in this source batch for socket efficiency.
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         foreach (var image in images)
         {
             try
             {
-                await Download(image, settings, client);
+                await Download(image, settings, _imageClient);
             }
             catch (Exception ex)
             {
@@ -148,8 +152,8 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
     // Downloads a single wallpaper image to the configured folder.
     // The filename is derived from the sanitised title plus the URL's filename component
     // so that the original source identifier is preserved for deduplication.
-    // An optional HttpClient may be supplied by the caller to share a socket pool across
-    // multiple images; if omitted a short-lived client is created for this call only.
+    // An optional HttpClient may be supplied by the caller; if omitted, the instance-level
+    // _imageClient is used. The caller must never dispose a client it did not create.
     public async Task Download(WallpaperImage data, WallpaperNexusSettings settings, HttpClient? client = null)
     {
         // Strip characters that are invalid in file names, and cap length to avoid MAX_PATH issues
@@ -179,34 +183,25 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
 
         Logger.LogInformation($"Downloading Image: {data.Title}");
         var watch = Stopwatch.StartNew();
-        // Use the caller-supplied client when available; otherwise create a short-lived one
-        // (the caller is responsible for disposing a shared client).
-        var ownClient = client is null;
-        var httpClient = client ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        try
-        {
-            // Use ResponseHeadersRead to start timing from the first byte, not after full download
-            using var response = await httpClient.GetAsync(data.ImageUrl, HttpCompletionOption.ResponseHeadersRead);
-            if (!response.IsSuccessStatusCode)
-            {
-                var message = await response.Content.ReadAsStringAsync();
-                throw new HttpRequestException($"HTTP {(int)response.StatusCode} {response.StatusCode} downloading '{data.ImageUrl}': {message}");
-            }
+        // Prefer the caller-supplied client; fall back to the shared instance client.
+        // Neither is disposed here — both are long-lived and owned by their respective creators.
+        var httpClient = client ?? _imageClient;
 
-            // Stream directly to disk so large images (4K+) don't require a full in-memory buffer
-            using var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
-            await response.Content.CopyToAsync(fileStream);
-            Logger.LogInformation($"Download Complete: {watch.Elapsed}");
-            // Re-encode to the user's configured resolution cap after the download completes,
-            // so a partial resize failure cannot corrupt the downloaded file.
-            await ApplyResolutionCapAsync(path, settings);
-        }
-        finally
+        // Use ResponseHeadersRead to start timing from the first byte, not after full download
+        using var response = await httpClient.GetAsync(data.ImageUrl, HttpCompletionOption.ResponseHeadersRead);
+        if (!response.IsSuccessStatusCode)
         {
-            // Only dispose the client if we created it; callers own shared clients
-            if (ownClient)
-                httpClient.Dispose();
+            var message = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"HTTP {(int)response.StatusCode} {response.StatusCode} downloading '{data.ImageUrl}': {message}");
         }
+
+        // Stream directly to disk so large images (4K+) don't require a full in-memory buffer
+        using var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+        await response.Content.CopyToAsync(fileStream);
+        Logger.LogInformation($"Download Complete: {watch.Elapsed}");
+        // Re-encode to the user's configured resolution cap after the download completes,
+        // so a partial resize failure cannot corrupt the downloaded file.
+        await ApplyResolutionCapAsync(path, settings);
     }
 
     // Resizes the image at filePath to fit within the user-configured resolution cap,
