@@ -13,7 +13,9 @@ public class FileLoggerProvider : ILoggerProvider, IAsyncDisposable
     private readonly ConcurrentQueue<string> _messages = new();
     private readonly SemaphoreSlim _messageCount = new(0);
     private readonly Task _writeTask;
-    private bool _running = true;
+    // volatile ensures the writer thread always reads the latest value without the JIT caching
+    // it in a register across loop iterations that do not cross a full memory-barrier boundary.
+    private volatile bool _running = true;
 
     // Still running if _running is true, or if there are queued messages that have not yet been flushed.
     private bool Running => _running || _messages.Count > 0 || _messageCount.CurrentCount > 0;
@@ -24,10 +26,15 @@ public class FileLoggerProvider : ILoggerProvider, IAsyncDisposable
     }
 
     public void Dispose() => DisposeAsync().AsTask().Wait();
+
     // Signal the writer loop to stop, then wait up to 5 seconds for it to flush remaining messages.
+    // Release the semaphore once after clearing _running so the writer wakes immediately from its
+    // WaitAsync call instead of blocking for up to 5 s before noticing the shutdown signal.
     public async ValueTask DisposeAsync()
     {
         _running = false;
+        // Wake the writer loop so it sees _running == false without waiting for the next 5 s timeout
+        _messageCount.Release();
         await Task.WhenAny(_writeTask, Task.Delay(5000));
     }
 
