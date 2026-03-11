@@ -1177,7 +1177,8 @@ public partial class WallpaperConfigViewModel : ObservableObject
     }
 
     // Deletes a wallpaper from disk, removes it from the favorites/ban lists and the
-    // gallery collection, and clears the current-wallpaper display if it was the active image.
+    // gallery collection. If the deleted file was the active wallpaper, advances to the
+    // next available image so the desktop is never left showing a file that no longer exists.
     private async Task GalleryDelete(GalleryItem item)
     {
         try
@@ -1193,13 +1194,36 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
             var favToRemove = FavoriteWallpapers.FirstOrDefault(f => f.Equals(item.FilePath, StringComparison.OrdinalIgnoreCase));
             if (favToRemove is not null) FavoriteWallpapers.Remove(favToRemove);
-            if (CurrentWallpaperPath.Equals(item.FilePath, StringComparison.OrdinalIgnoreCase))
+
+            var wasActive = CurrentWallpaperPath.Equals(item.FilePath, StringComparison.OrdinalIgnoreCase);
+            if (wasActive)
             {
-                CurrentWallpaperPath = string.Empty;
-                CurrentWallpaperName = "(none)";
                 // The deleted file can no longer be a favorite — clear the heart indicator so
                 // the UI does not show an empty-path wallpaper as favorited.
                 IsCurrentWallpaperFavorited = false;
+
+                // Advance to the next wallpaper so the desktop does not remain on a deleted file.
+                // Mirror the same advance-or-clear logic used by DeleteCurrentWallpaper.
+                if (_switchWallpaper is not null)
+                {
+                    var next = await Task.Run(_switchWallpaper.SwitchToNextAsync);
+                    if (next is not null)
+                    {
+                        CurrentWallpaperPath = next;
+                        CurrentWallpaperName = GetDisplayName(next);
+                        RefreshPreviewImage();
+                        RefreshFavoriteState();
+                        item.DisposeThumbnail();
+                        GalleryItems.Remove(item);
+                        await ShowTransientStatusAsync($"✓ Deleted and switched to: {CurrentWallpaperName}");
+                        return;
+                    }
+                }
+
+                // No switcher available or no remaining wallpapers — clear the display
+                CurrentWallpaperPath = string.Empty;
+                CurrentWallpaperName = "(none)";
+                RefreshPreviewImage();
             }
 
             item.DisposeThumbnail();
