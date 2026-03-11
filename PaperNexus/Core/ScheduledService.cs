@@ -124,7 +124,7 @@ public abstract class ScheduledJobService : IHostedService, IDisposable
                     // Log the upcoming execution time once, then sleep in 1-minute chunks
                     if (!nextExecutionLogged)
                     {
-                        Logger.LogInformation($"{JobName}: Next execution at {nextExecution:O}");
+                        Logger.LogInformation("{JobName}: Next execution at {NextExecution:O}", JobName, nextExecution);
                         nextExecutionLogged = true;
                     }
                     await Task.Delay(maxDelay, cancellationToken);
@@ -150,12 +150,12 @@ public abstract class ScheduledJobService : IHostedService, IDisposable
             }
             catch (TaskCanceledException)
             {
-                Logger.LogInformation($"Canceled Job: {JobName}");
+                Logger.LogInformation("Canceled job: {JobName}", JobName);
                 return;
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, $"Unhandled Exception in Job: {JobName}");
+                Logger.LogError(ex, "Unhandled exception in job: {JobName}", JobName);
                 try
                 {
                     await SaveContext(new()
@@ -278,7 +278,7 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService, IDisposabl
                     // Long delay: log once and sleep in 1-minute chunks to remain responsive to stop signals
                     if (!nextExecutionLogged)
                     {
-                        _logger.LogInformation($"{_jobName}: Next execution at {nextExecution:O}");
+                        _logger.LogInformation("{JobName}: Next execution at {NextExecution:O}", _jobName, nextExecution);
                         nextExecutionLogged = true;
                     }
                     await Task.Delay(maxDelay, cancellationToken);
@@ -312,12 +312,12 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService, IDisposabl
             }
             catch (TaskCanceledException)
             {
-                _logger.LogInformation($"Canceled Job: {_jobName}");
+                _logger.LogInformation("Canceled job: {JobName}", _jobName);
                 return;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Unhandled Exception in Job: {_jobName}");
+                _logger.LogError(ex, "Unhandled exception in job: {JobName}", _jobName);
                 try
                 {
                     await SaveContext(new()

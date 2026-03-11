@@ -65,7 +65,7 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
     {
         if (!IsOverdue(source))
         {
-            Logger.LogInformation($"Source '{source.Name}' is up to date — skipping.");
+            Logger.LogInformation("Source '{Source}' is up to date — skipping.", source.Name);
             return false;
         }
         return true;
@@ -181,7 +181,7 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         if (!Debugger.IsAttached && File.Exists(path))
             return;
 
-        Logger.LogInformation($"Downloading Image: {data.Title}");
+        Logger.LogInformation("Downloading image: {Title}", data.Title);
         var watch = Stopwatch.StartNew();
         // Prefer the caller-supplied client; fall back to the shared instance client.
         // Neither is disposed here — both are long-lived and owned by their respective creators.
@@ -198,7 +198,7 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         // Stream directly to disk so large images (4K+) don't require a full in-memory buffer
         using var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
         await response.Content.CopyToAsync(fileStream);
-        Logger.LogInformation($"Download Complete: {watch.Elapsed}");
+        Logger.LogInformation("Download complete: {Elapsed}", watch.Elapsed);
         // Re-encode to the user's configured resolution cap after the download completes,
         // so a partial resize failure cannot corrupt the downloaded file.
         await ApplyResolutionCapAsync(path, settings);
