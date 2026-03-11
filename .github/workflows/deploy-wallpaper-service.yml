@@ -105,14 +105,49 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
+        install_section=$(cat <<'INSTALL'
+## Installation
+Download **PaperNexus.exe** below and run it — the app installs itself to `%LocalAppData%\PaperNexus\` on first launch and adds a tray icon.
+INSTALL
+)
+
         if [[ "${{ github.ref }}" =~ ^refs/tags/ ]]; then
-          gh release create "${{ github.ref_name }}" \
-            --title "Paper Nexus ${{ github.ref_name }}" \
-            --generate-notes \
-            ./publish/PaperNexus/PaperNexus.exe
+          newTag="${{ github.ref_name }}"
+
+          # Fetch GitHub's auto-generated PR/commit notes for this tag, then prepend the install section.
+          generated=$(gh api repos/${{ github.repository }}/releases/generate-notes \
+            -f tag_name="$newTag" \
+            -f target_commitish="${{ github.sha }}" \
+            --jq '.body' 2>/dev/null || echo "")
+
+          notes=$(printf '%s\n\n%s' "$install_section" "$generated")
         else
-          gh release create "v${{ github.run_number }}" \
-            --title "Paper Nexus v${{ github.run_number }}" \
-            --notes "Automated build from main." \
-            ./publish/PaperNexus/PaperNexus.exe
+          newTag="v${{ github.run_number }}"
+
+          # For main branch builds, list commits since the last tag as the changelog.
+          lastTag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [[ -n "$lastTag" ]]; then
+            commitList=$(git log "$lastTag"..HEAD --oneline --no-decorate | sed 's/^/- /')
+            changeSection=$(printf '## Changes since %s\n%s' "$lastTag" "$commitList")
+          else
+            commitList=$(git log --oneline --no-decorate --max-count=20 | sed 's/^/- /')
+            changeSection=$(printf '## Recent changes\n%s' "$commitList")
+          fi
+
+          notes=$(printf '> ⚠️ Development build — may be unstable.\n\n%s\n\n%s' \
+            "$install_section" "$changeSection")
         fi
+
+        gh release create "$newTag" \
+          --title "Paper Nexus $newTag" \
+          --notes "$notes" \
+          ./publish/PaperNexus/PaperNexus.exe
+        echo "NEW_TAG=$newTag" >> "$GITHUB_ENV"
+
+    - name: Delete previous releases
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release list --limit 200 --json tagName --jq '.[].tagName' \
+          | grep -v "^${NEW_TAG}$" \
+          | xargs -r -I{} gh release delete {} --yes --cleanup-tag 2>/dev/null || true
