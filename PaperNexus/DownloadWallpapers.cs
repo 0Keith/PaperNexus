@@ -127,7 +127,7 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
     // Returns true if the source has never been downloaded, or if the next cron occurrence
     // after the last download has already passed. An invalid cron expression is treated
     // as always-overdue so a misconfigured source never silently stalls.
-    private static bool IsOverdue(WallpaperSource source)
+    internal static bool IsOverdue(WallpaperSource source)
     {
         if (source.LastDownloadUtc is null)
             return true;
@@ -260,10 +260,12 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         var favorites = new HashSet<string>(
             settings.FavoriteWallpapers ?? [],
             StringComparer.OrdinalIgnoreCase);
-        var files = new DirectoryInfo(settings.Download.Folder).EnumerateFiles();
+        // Materialise the directory listing once so we can reuse it for the stale-path
+        // check below without a second filesystem round-trip or a TOCTOU window.
+        var allFiles = new DirectoryInfo(settings.Download.Folder).EnumerateFiles().ToList();
         var cutoff = DateTime.UtcNow.AddDays(-settings.Download.RetentionDays);
         var deleted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in files)
+        foreach (var file in allFiles)
         {
             if (cutoff > file.LastWriteTimeUtc && !favorites.Contains(file.FullName))
             {
@@ -272,10 +274,11 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
             }
         }
 
-        // Collect paths that are referenced in the special lists but no longer on disk.
-        // This handles both files just deleted above and files removed outside the app.
+        // Build the surviving-files set from the already-enumerated list minus what was
+        // just deleted. This covers files removed outside the app and the ones we deleted
+        // above, without re-reading the directory.
         var existingFiles = new HashSet<string>(
-            new DirectoryInfo(settings.Download.Folder).EnumerateFiles().Select(f => f.FullName),
+            allFiles.Select(f => f.FullName).Where(p => !deleted.Contains(p)),
             StringComparer.OrdinalIgnoreCase);
 
         var staleCount = 0;

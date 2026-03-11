@@ -274,4 +274,62 @@ public class DownloadWallpapersTests : IDisposable
         Assert.Equal(200, img.Width);
         Assert.Equal(150, img.Height);
     }
+
+    // --- IsOverdue tests ---
+
+    [Fact]
+    public void IsOverdue_NullLastDownload_ReturnsTrue()
+    {
+        // A source that has never been downloaded is always overdue.
+        var source = new WallpaperSource
+        {
+            CronExpression = "0 */8 * * *",
+            LastDownloadUtc = null,
+        };
+
+        Assert.True(DownloadWallpapers.IsOverdue(source));
+    }
+
+    [Fact]
+    public void IsOverdue_NextOccurrenceInFuture_ReturnsFalse()
+    {
+        // Downloaded very recently: the next cron slot is still in the future, so not overdue.
+        // Cron "0 */8 * * *" fires every 8 hours. If last download was 1 minute ago,
+        // the next occurrence is ~8 hours away.
+        var source = new WallpaperSource
+        {
+            CronExpression = "0 */8 * * *",
+            LastDownloadUtc = DateTimeOffset.UtcNow.AddMinutes(-1),
+        };
+
+        Assert.False(DownloadWallpapers.IsOverdue(source));
+    }
+
+    [Fact]
+    public void IsOverdue_NextOccurrenceInPast_ReturnsTrue()
+    {
+        // Downloaded 9 hours ago with an every-8-hours cron: the next slot (8 h after last
+        // download) has already passed, so the source is overdue.
+        var source = new WallpaperSource
+        {
+            CronExpression = "0 */8 * * *",
+            LastDownloadUtc = DateTimeOffset.UtcNow.AddHours(-9),
+        };
+
+        Assert.True(DownloadWallpapers.IsOverdue(source));
+    }
+
+    [Fact]
+    public void IsOverdue_InvalidCronExpression_ReturnsTrue()
+    {
+        // An invalid cron expression is treated as always-overdue so a misconfigured
+        // source does not silently stall rather than retrying.
+        var source = new WallpaperSource
+        {
+            CronExpression = "not-a-valid-cron",
+            LastDownloadUtc = DateTimeOffset.UtcNow.AddMinutes(-1),
+        };
+
+        Assert.True(DownloadWallpapers.IsOverdue(source));
+    }
 }
