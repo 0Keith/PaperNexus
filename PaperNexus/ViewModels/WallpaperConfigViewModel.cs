@@ -996,6 +996,10 @@ public partial class WallpaperConfigViewModel : ObservableObject
         // Cancel any pending status-clear or gallery-load operations
         _statusCts.Cancel();
         _statusCts.Dispose();
+        // Replace with a fresh CTS so that the in-flight SaveSettingsAsync call below can
+        // call ShowTransientStatusAsync without hitting an ObjectDisposedException on the
+        // already-disposed token. The window is closing so the toast won't be visible anyway.
+        _statusCts = new CancellationTokenSource();
 
         // If a debounced save is pending, flush it immediately before cancelling so that
         // changes made just before the window closes are not silently discarded.
