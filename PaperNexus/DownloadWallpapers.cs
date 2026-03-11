@@ -252,6 +252,16 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
     // for saving settings after this method returns.
     internal async Task CleanupOldImages(WallpaperNexusSettings settings)
     {
+        // Guard against the folder being deleted between the Directory.CreateDirectory
+        // call in DownloadFromSourcesAsync and this cleanup step. If the folder is gone,
+        // skip the age-based pass but still prune any stale list entries.
+        if (!Directory.Exists(settings.Download.Folder))
+        {
+            settings.FavoriteWallpapers?.RemoveAll(p => !File.Exists(p));
+            settings.BannedWallpapers?.RemoveAll(p => !File.Exists(p));
+            return;
+        }
+
         var favorites = new HashSet<string>(
             settings.FavoriteWallpapers ?? [],
             StringComparer.OrdinalIgnoreCase);

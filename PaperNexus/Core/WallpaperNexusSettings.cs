@@ -214,9 +214,12 @@ public class WallpaperNexusSettings
         if (settings.Slideshow.FavoritePriorityWeight <= 0)
             settings.Slideshow.FavoritePriorityWeight = 3;
 
-        // If sources list was cleared or never saved, restore the built-in defaults
-        if (settings.Sources is null || settings.Sources.Count == 0)
-            settings.Sources = DefaultSources;
+        // Ensure the sources list is never null after deserialisation.
+        // An empty list is valid — it means the user intentionally removed all sources —
+        // so we do NOT restore the built-in defaults here. A brand-new WallpaperNexusSettings
+        // instance (created when no file exists or the file is corrupt) already carries
+        // DefaultSources via the property initialiser, so first-run defaults still apply.
+        settings.Sources ??= DefaultSources;
     }
 
     // Writes to a temporary file then renames it over the real settings path.

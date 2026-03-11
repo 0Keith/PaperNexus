@@ -335,6 +335,71 @@ public class DownloadWallpapersTests : IDisposable
 
     // --- LastDownloadUtc persistence tests ---
 
+    // --- Settings load/defaults tests ---
+
+    // Regression guard: if the user intentionally removes all wallpaper sources and saves,
+    // the next LoadAsync must return an empty sources list — not silently restore the
+    // built-in Bing/Spotlight defaults as it did before the fix.
+    [Fact]
+    public async Task LoadAsync_EmptySourcesSavedByUser_DoesNotRestoreDefaults()
+    {
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir },
+            Sources = [],  // user explicitly cleared all sources
+            RunOnStartup = false,
+            AutoUpdatesEnabled = false,
+        };
+        await settings.SaveAsync();
+
+        var loaded = await WallpaperNexusSettings.LoadAsync();
+
+        Assert.Empty(loaded.Sources);
+    }
+
+    // A brand-new settings file that has never been saved must produce the built-in
+    // defaults (Bing + Spotlight), because WallpaperNexusSettings.Sources has a
+    // property-initialiser default and no file override.
+    [Fact]
+    public async Task LoadAsync_NoFileExists_ReturnsDefaultSources()
+    {
+        // Ensure no settings file exists for this test
+        TestHelpers.Cleanup();
+
+        var loaded = await WallpaperNexusSettings.LoadAsync();
+
+        Assert.Equal(WallpaperNexusSettings.DefaultSources.Count, loaded.Sources.Count);
+    }
+
+    // Regression guard: CleanupOldImages must not throw when the wallpaper folder
+    // has been deleted between DownloadFromSourcesAsync creating it and the cleanup step.
+    // It should silently prune stale list entries and return without crashing.
+    [Fact]
+    public async Task CleanupOldImages_FolderDeleted_DoesNotThrow()
+    {
+        var source = new HttpWallpaperSourceService(NullLogger<HttpWallpaperSourceService>.Instance);
+        var sut = new DownloadWallpapers(NullLogger<DownloadWallpapers>.Instance, source);
+
+        // Use a path that does not exist
+        var missingDir = Path.Combine(Path.GetTempPath(), $"PaperNexus_Gone_{Guid.NewGuid():N}");
+        var stalePath = Path.Combine(missingDir, "ghost.png");
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = missingDir },
+            FavoriteWallpapers = [stalePath],
+            BannedWallpapers = [stalePath],
+        };
+
+        // Act: should not throw DirectoryNotFoundException
+        var ex = await Record.ExceptionAsync(() => sut.CleanupOldImages(settings));
+
+        Assert.Null(ex);
+        // Stale paths pointing to non-existent files must be pruned from both lists
+        Assert.Empty(settings.FavoriteWallpapers);
+        Assert.Empty(settings.BannedWallpapers);
+    }
+
     [Fact]
     public async Task LastDownloadUtc_SurvivesSaveLoadRoundTrip()
     {
