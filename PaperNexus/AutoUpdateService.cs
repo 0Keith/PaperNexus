@@ -18,16 +18,22 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
 
     private readonly ILogger<AutoUpdateService> _logger;
 
-    // Shared, long-lived HttpClient for all GitHub API and download requests. HttpClient is
-    // thread-safe for concurrent requests; creating a new one per call drains the ephemeral
-    // port pool because disposed clients leave sockets in TIME_WAIT for several minutes.
-    // The service is a singleton, so this client lives for the process lifetime.
-    private readonly HttpClient _client = new() { Timeout = TimeSpan.FromSeconds(30) };
+    // Two separate HttpClient instances, both long-lived singletons on this service:
+    //   _apiClient  — short 30-second timeout for small GitHub API JSON responses.
+    //   _downloadClient — 10-minute timeout for streaming the full exe binary (50+ MB).
+    // Using a single 30-second client caused reliable timeouts on slow connections during
+    // the body-streaming phase even though headers arrived quickly, because HttpClient's
+    // Timeout counts from the moment the request is initiated, not just the header wait.
+    // HttpClient is thread-safe for concurrent use; creating one per call drains ephemeral
+    // ports because disposed clients leave sockets in TIME_WAIT for several minutes.
+    private readonly HttpClient _apiClient = new() { Timeout = TimeSpan.FromSeconds(30) };
+    private readonly HttpClient _downloadClient = new() { Timeout = TimeSpan.FromMinutes(10) };
 
     public AutoUpdateService(ILogger<AutoUpdateService> logger)
     {
         _logger = logger.ThrowIfNull();
-        _client.DefaultRequestHeaders.UserAgent.ParseAdd("PaperNexus-AutoUpdater");
+        _apiClient.DefaultRequestHeaders.UserAgent.ParseAdd("PaperNexus-AutoUpdater");
+        _downloadClient.DefaultRequestHeaders.UserAgent.ParseAdd("PaperNexus-AutoUpdater");
     }
 
     // Checks GitHub Releases for a newer build and, if found (or if forceUpdate is set),
@@ -51,7 +57,7 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         string json;
         try
         {
-            json = await _client.GetStringAsync(
+            json = await _apiClient.GetStringAsync(
                 $"https://api.github.com/repos/{GitHubRepo}/releases/latest");
         }
         catch (Exception ex)
@@ -132,8 +138,10 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
 
         try
         {
-            // Stream directly to disk rather than buffering the full exe in memory (50+ MB)
-            using var response = await _client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
+            // Stream directly to disk rather than buffering the full exe in memory (50+ MB).
+            // _downloadClient has a 10-minute timeout; the 30-second API timeout would expire
+            // before the body finishes streaming on any connection slower than ~13 Mbps.
+            using var response = await _downloadClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
             response.EnsureSuccessStatusCode();
             using var fileStream = new FileStream(newExePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
             await response.Content.CopyToAsync(fileStream);
@@ -141,6 +149,10 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         catch (Exception ex)
         {
             _logger.LogWarning("Download failed: {Message}", ex.Message);
+            // Remove any partially-written staging file so it does not linger on disk.
+            // FileMode.Create would overwrite it on retry, but a stale partial binary
+            // could confuse manual inspection or a future update path check.
+            try { File.Delete(newExePath); } catch { }
             throw;
         }
 
@@ -171,33 +183,45 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         //  4. Launches the updated app
         //  5. Waits 8 s and checks the process is running; if not, rolls back from backup
         //  6. Deletes the backup and self-deletes
-        await File.WriteAllTextAsync(batchPath,
-            $"""
-            @echo off
-            timeout /t 2 /nobreak > nul
-            copy /y "{exePath}" "{backupPath}" > nul
-            if errorlevel 1 exit /b 1
-            move /y "{newExePath}" "{exePath}"
-            if errorlevel 1 (
-                del "{backupPath}" 2>nul
-                exit /b 1
-            )
-            start "" "{exePath}" --updated
-            timeout /t 8 /nobreak > nul
-            tasklist /fi "imagename eq {AssetName}" /fo csv 2>nul | findstr /i "{Path.GetFileNameWithoutExtension(AssetName)}" > nul
-            if errorlevel 1 (
-                copy /y "{backupPath}" "{exePath}" > nul
-                start "" "{exePath}"
-            )
-            del "{backupPath}" 2>nul
-            del "%~f0"
-            """);
-
-        Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{batchPath}\"")
+        try
         {
-            CreateNoWindow = true,
-            UseShellExecute = false,
-        });
+            await File.WriteAllTextAsync(batchPath,
+                $"""
+                @echo off
+                timeout /t 2 /nobreak > nul
+                copy /y "{exePath}" "{backupPath}" > nul
+                if errorlevel 1 exit /b 1
+                move /y "{newExePath}" "{exePath}"
+                if errorlevel 1 (
+                    del "{backupPath}" 2>nul
+                    exit /b 1
+                )
+                start "" "{exePath}" --updated
+                timeout /t 8 /nobreak > nul
+                tasklist /fi "imagename eq {AssetName}" /fo csv 2>nul | findstr /i "{Path.GetFileNameWithoutExtension(AssetName)}" > nul
+                if errorlevel 1 (
+                    copy /y "{backupPath}" "{exePath}" > nul
+                    start "" "{exePath}"
+                )
+                del "{backupPath}" 2>nul
+                del "%~f0"
+                """);
+
+            Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{batchPath}\"")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+            });
+        }
+        catch (Exception ex)
+        {
+            // Clean up the staged binary and batch script so the install directory is not
+            // left with orphaned files. The update will be retried at the next scheduled check.
+            _logger.LogWarning("Failed to launch updater script: {Message}", ex.Message);
+            try { File.Delete(newExePath); } catch { }
+            try { File.Delete(batchPath); } catch { }
+            throw;
+        }
 
         _logger.LogInformation("Update downloaded. Restarting to apply v{Latest}...", latestBuild);
         progress?.Report("Restarting...");
