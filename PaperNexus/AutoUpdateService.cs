@@ -18,9 +18,16 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
 
     private readonly ILogger<AutoUpdateService> _logger;
 
+    // Shared, long-lived HttpClient for all GitHub API and download requests. HttpClient is
+    // thread-safe for concurrent requests; creating a new one per call drains the ephemeral
+    // port pool because disposed clients leave sockets in TIME_WAIT for several minutes.
+    // The service is a singleton, so this client lives for the process lifetime.
+    private readonly HttpClient _client = new() { Timeout = TimeSpan.FromSeconds(30) };
+
     public AutoUpdateService(ILogger<AutoUpdateService> logger)
     {
         _logger = logger.ThrowIfNull();
+        _client.DefaultRequestHeaders.UserAgent.ParseAdd("PaperNexus-AutoUpdater");
     }
 
     // Checks GitHub Releases for a newer build and, if found (or if forceUpdate is set),
@@ -41,13 +48,10 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         _logger.LogInformation("Checking for updates. Current build: v{Build}", currentBuild);
         progress?.Report($"Checking for updates (v{currentBuild})...");
 
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("PaperNexus-AutoUpdater");
-
         string json;
         try
         {
-            json = await client.GetStringAsync(
+            json = await _client.GetStringAsync(
                 $"https://api.github.com/repos/{GitHubRepo}/releases/latest");
         }
         catch (Exception ex)
@@ -129,7 +133,7 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         try
         {
             // Stream directly to disk rather than buffering the full exe in memory (50+ MB)
-            using var response = await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
+            using var response = await _client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
             response.EnsureSuccessStatusCode();
             using var fileStream = new FileStream(newExePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
             await response.Content.CopyToAsync(fileStream);
