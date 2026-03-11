@@ -54,7 +54,10 @@ public abstract class ScheduledJobService : IHostedService, IDisposable
     }
 
     private Task _scheduleTask;
-    private bool _stopped;
+    // volatile ensures the scheduler loop on its background thread always reads the latest
+    // value set by StopAsync on the host thread, without the JIT caching it in a register
+    // across loop iterations that do not cross a full memory-barrier boundary.
+    private volatile bool _stopped;
     private readonly CancellationTokenSource _cts = new();
 
     // IHostedService implementation: fires off the scheduler loop without blocking startup.
@@ -168,8 +171,19 @@ public abstract class ScheduledJobService : IHostedService, IDisposable
                     });
                 }
                 catch (Exception saveEx) { Logger.LogWarning(saveEx, "Failed to persist job context for {JobName} after error.", JobName); }
-                // Back off for 1 minute before retrying after an unhandled exception
-                await Task.Delay(maxDelay, cancellationToken);
+                // Back off for 1 minute before retrying after an unhandled exception.
+                // Treat cancellation as a clean shutdown signal: if StopAsync fires during
+                // this backoff the OperationCanceledException would otherwise escape the
+                // catch block and fault the _scheduleTask instead of completing it cleanly.
+                try
+                {
+                    await Task.Delay(maxDelay, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    Logger.LogInformation("Canceled job (during backoff): {JobName}", JobName);
+                    return;
+                }
             }
         }
     }
@@ -186,7 +200,10 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService, IDisposabl
     private readonly ILogger _logger;
     private readonly string _jobName;
     private Task _scheduleTask;
-    private bool _stopped;
+    // volatile ensures the scheduler loop on its background thread always reads the latest
+    // value set by StopAsync on the host thread, without the JIT caching it in a register
+    // across loop iterations that do not cross a full memory-barrier boundary.
+    private volatile bool _stopped;
     private readonly CancellationTokenSource _cts = new();
 
     public ScheduledJobHostedService(IServiceScopeFactory scopeFactory, ILogger<ScheduledJobHostedService<TJob>> logger)
@@ -330,8 +347,19 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService, IDisposabl
                     });
                 }
                 catch (Exception saveEx) { _logger.LogWarning(saveEx, "Failed to persist job context for {JobName} after error.", _jobName); }
-                // Back off 1 minute before retrying after an unhandled exception
-                await Task.Delay(maxDelay, cancellationToken);
+                // Back off 1 minute before retrying after an unhandled exception.
+                // Treat cancellation as a clean shutdown signal: if StopAsync fires during
+                // this backoff the OperationCanceledException would otherwise escape the
+                // catch block and fault the _scheduleTask instead of completing it cleanly.
+                try
+                {
+                    await Task.Delay(maxDelay, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogInformation("Canceled job (during backoff): {JobName}", _jobName);
+                    return;
+                }
             }
         }
     }
