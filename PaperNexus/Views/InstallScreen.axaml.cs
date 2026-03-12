@@ -76,16 +76,19 @@ public partial class InstallScreen : Window
                 await settings.SaveAsync();
             }
 
-            // Write the Windows startup registry key pointing to the installed exe, not the current process.
-            // (App.UpdateStartupRegistration uses Environment.ProcessPath which is the un-installed copy.)
-            if (RunOnStartupCheckBox.IsChecked == true)
-            {
+            // Always touch the registry during install so a stale entry from a previous
+            // install at a different path doesn't survive and launch the wrong (possibly
+            // missing) exe on Windows startup.
+            // (App.UpdateStartupRegistration uses Environment.ProcessPath which is the
+            // un-installed copy, so we must write the registry entry here ourselves.)
 #pragma warning disable CA1416
-                using var key = Registry.CurrentUser.OpenSubKey(
-                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", writable: true);
+            using var key = Registry.CurrentUser.OpenSubKey(
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", writable: true);
+            if (RunOnStartupCheckBox.IsChecked == true)
                 key?.SetValue("PaperNexus", $"\"{installExePath}\" --startup");
+            else
+                key?.DeleteValue("PaperNexus", throwOnMissingValue: false);
 #pragma warning restore CA1416
-            }
 
             // Launch the newly-installed copy and exit the installer process.
             Process.Start(new ProcessStartInfo(installExePath) { UseShellExecute = true });
