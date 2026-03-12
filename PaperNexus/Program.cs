@@ -73,13 +73,13 @@ internal sealed class Program
     {
         // Check for a sentinel file written alongside the exe during install.
         // This handles custom install paths that differ from the default AppData location.
-        var exeDir = Path.GetDirectoryName(Path.GetFullPath(currentPath));
+        var current = Path.GetFullPath(currentPath);
+        var exeDir = Path.GetDirectoryName(current);
         if (exeDir is not null && File.Exists(Path.Combine(exeDir, ".installed")))
             return true;
 
         // Fall back to the default AppData path comparison for existing installations
         // that predate the sentinel file (i.e. installed before this fix was added).
-        var current = Path.GetFullPath(currentPath);
         var install = Path.GetFullPath(installPath);
         return string.Equals(current, install, StringComparison.OrdinalIgnoreCase);
     }
