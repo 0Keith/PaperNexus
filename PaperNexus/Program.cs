@@ -71,7 +71,15 @@ internal sealed class Program
 
     private static bool IsRunningFromInstallLocation(string currentPath, string installPath)
     {
+        // Check for a sentinel file written alongside the exe during install.
+        // This handles custom install paths that differ from the default AppData location.
         var current = Path.GetFullPath(currentPath);
+        var exeDir = Path.GetDirectoryName(current);
+        if (exeDir is not null && File.Exists(Path.Combine(exeDir, ".installed")))
+            return true;
+
+        // Fall back to the default AppData path comparison for existing installations
+        // that predate the sentinel file (i.e. installed before this fix was added).
         var install = Path.GetFullPath(installPath);
         return string.Equals(current, install, StringComparison.OrdinalIgnoreCase);
     }
@@ -97,6 +105,9 @@ internal sealed class Program
         {
             Directory.CreateDirectory(installDir);
             File.Copy(currentPath, installPath, overwrite: true);
+            // Mark this directory as an install location so startup recognises it
+            // regardless of whether it matches the default AppData path.
+            File.WriteAllText(Path.Combine(installDir, ".installed"), string.Empty);
             // Carry over persisted data from beside the downloaded exe, if present.
             MigrateFileIfNeeded("settings.json", currentPath, installDir);
             MigrateFileIfNeeded("timers.json", currentPath, installDir);
