@@ -7,6 +7,12 @@ internal class HttpWallpaperSourceService
 {
     private readonly ILogger<HttpWallpaperSourceService> _logger;
 
+    // A single long-lived HttpClient shared across all calls to avoid socket exhaustion.
+    // HttpClient is thread-safe for concurrent requests; creating one per call drains the
+    // ephemeral port pool because disposed clients leave sockets in TIME_WAIT for ~4 min.
+    // The service is registered as a singleton, so this instance lives for the process lifetime.
+    private readonly HttpClient _client = new() { Timeout = TimeSpan.FromSeconds(30) };
+
     public HttpWallpaperSourceService(ILogger<HttpWallpaperSourceService> logger)
     {
         _logger = logger.ThrowIfNull();
@@ -20,8 +26,7 @@ internal class HttpWallpaperSourceService
     {
         _logger.LogInformation("Getting images from source '{Name}': {Url}", source.Name, source.Url);
         var watch = Stopwatch.StartNew();
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        using var getResponse = await client.GetAsync(source.Url, cancellationToken);
+        using var getResponse = await _client.GetAsync(source.Url, cancellationToken);
         if (!getResponse.IsSuccessStatusCode)
         {
             var msg = await getResponse.Content.ReadAsStringAsync(cancellationToken);

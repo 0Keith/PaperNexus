@@ -1,5 +1,7 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Microsoft.Extensions.DependencyInjection;
 using PaperNexus.Core;
 
 namespace PaperNexus.Views;
@@ -11,6 +13,16 @@ public partial class WallpaperSourceDialog : Window
     // Tracks any in-flight Test request so it can be cancelled if the user clicks
     // Test again or closes the dialog before the previous request completes.
     private CancellationTokenSource? _testCts;
+
+    // Reuse the singleton HttpWallpaperSourceService from the App DI container so the
+    // Test button shares the same long-lived HttpClient instead of creating a new one per
+    // click and leaving sockets in TIME_WAIT. Falls back to a lazily-created shared static
+    // instance when DI is not available (e.g. in unit tests).
+    private static HttpWallpaperSourceService? _sharedFallbackService;
+    private static HttpWallpaperSourceService GetHttpService() =>
+        (Application.Current as App)?.Services?.GetService<HttpWallpaperSourceService>()
+        ?? (_sharedFallbackService ??= new HttpWallpaperSourceService(
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<HttpWallpaperSourceService>.Instance));
 
     public WallpaperSourceDialog()
     {
@@ -66,7 +78,7 @@ public partial class WallpaperSourceDialog : Window
         TestButtonText.Text = "Testing…";
         try
         {
-            var service = new HttpWallpaperSourceService(Microsoft.Extensions.Logging.Abstractions.NullLogger<HttpWallpaperSourceService>.Instance);
+            var service = GetHttpService();
             var source = new WallpaperSource
             {
                 Name = NameBox.Text?.Trim() ?? string.Empty,

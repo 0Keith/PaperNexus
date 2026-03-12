@@ -208,15 +208,28 @@ public class WallpaperNexusSettings
         // Initialise reference-type properties that may be null after JSON deserialisation
         settings.CurrentWallpaperPath ??= string.Empty;
         settings.Annotation ??= new AnnotationSettings();
+        // Guard annotation sub-fields that the rendering pipeline uses directly: a null or empty
+        // FontFamily causes SixLabors to throw inside TryGet before the caller can catch it; a
+        // FontSize of 0 creates a degenerate font; a null Color silently breaks ParseHex.
+        var defaultAnnotation = new AnnotationSettings();
+        if (string.IsNullOrWhiteSpace(settings.Annotation.FontFamily))
+            settings.Annotation.FontFamily = defaultAnnotation.FontFamily;
+        if (settings.Annotation.FontSize <= 0)
+            settings.Annotation.FontSize = defaultAnnotation.FontSize;
+        if (string.IsNullOrWhiteSpace(settings.Annotation.Color))
+            settings.Annotation.Color = defaultAnnotation.Color;
         settings.FavoriteWallpapers ??= [];
         settings.BannedWallpapers ??= [];
         // A weight of 0 or less would make favorite priority a no-op
         if (settings.Slideshow.FavoritePriorityWeight <= 0)
             settings.Slideshow.FavoritePriorityWeight = 3;
 
-        // If sources list was cleared or never saved, restore the built-in defaults
-        if (settings.Sources is null || settings.Sources.Count == 0)
-            settings.Sources = DefaultSources;
+        // Ensure the sources list is never null after deserialisation.
+        // An empty list is valid — it means the user intentionally removed all sources —
+        // so we do NOT restore the built-in defaults here. A brand-new WallpaperNexusSettings
+        // instance (created when no file exists or the file is corrupt) already carries
+        // DefaultSources via the property initialiser, so first-run defaults still apply.
+        settings.Sources ??= DefaultSources;
     }
 
     // Writes to a temporary file then renames it over the real settings path.

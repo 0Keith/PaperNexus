@@ -952,7 +952,24 @@ public partial class WallpaperConfigViewModel : ObservableObject
             settings.MinimizeToTray = MinimizeToTray;
             settings.Slideshow.FavoritePriorityEnabled = FavoritePriorityEnabled;
             settings.Slideshow.FavoritePriorityWeight = FavoritePriorityWeight;
-            settings.Sources = Sources.ToList();
+            // Preserve LastDownloadUtc from the freshly-loaded settings for each source so that
+            // background download timestamps (written by DownloadWallpapers while the settings
+            // window is open) are not silently overwritten with the ViewModel's stale copies.
+            // Always keep the later of the two timestamps: the persisted value wins if a download
+            // completed after LoadAsync ran; the ViewModel value wins if it is somehow newer.
+            // Match on source name; unmatched sources (new/renamed) keep no timestamp.
+            var persistedTimestamps = settings.Sources
+                .Where(s => s.LastDownloadUtc.HasValue)
+                .ToDictionary(s => s.Name, s => s.LastDownloadUtc!.Value, StringComparer.OrdinalIgnoreCase);
+            var vmSources = Sources.ToList();
+            foreach (var src in vmSources)
+            {
+                if (persistedTimestamps.TryGetValue(src.Name, out var persistedTs))
+                    src.LastDownloadUtc = src.LastDownloadUtc.HasValue
+                        ? (DateTimeOffset?)src.LastDownloadUtc.Value.Max(persistedTs)
+                        : persistedTs;
+            }
+            settings.Sources = vmSources;
             await settings.SaveAsync();
             await ShowTransientStatusAsync("✓ Settings saved.");
         }
@@ -979,6 +996,10 @@ public partial class WallpaperConfigViewModel : ObservableObject
         // Cancel any pending status-clear or gallery-load operations
         _statusCts.Cancel();
         _statusCts.Dispose();
+        // Replace with a fresh CTS so that the in-flight SaveSettingsAsync call below can
+        // call ShowTransientStatusAsync without hitting an ObjectDisposedException on the
+        // already-disposed token. The window is closing so the toast won't be visible anyway.
+        _statusCts = new CancellationTokenSource();
 
         // If a debounced save is pending, flush it immediately before cancelling so that
         // changes made just before the window closes are not silently discarded.
@@ -1156,7 +1177,8 @@ public partial class WallpaperConfigViewModel : ObservableObject
     }
 
     // Deletes a wallpaper from disk, removes it from the favorites/ban lists and the
-    // gallery collection, and clears the current-wallpaper display if it was the active image.
+    // gallery collection. If the deleted file was the active wallpaper, advances to the
+    // next available image so the desktop is never left showing a file that no longer exists.
     private async Task GalleryDelete(GalleryItem item)
     {
         try
@@ -1172,10 +1194,36 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
             var favToRemove = FavoriteWallpapers.FirstOrDefault(f => f.Equals(item.FilePath, StringComparison.OrdinalIgnoreCase));
             if (favToRemove is not null) FavoriteWallpapers.Remove(favToRemove);
-            if (CurrentWallpaperPath.Equals(item.FilePath, StringComparison.OrdinalIgnoreCase))
+
+            var wasActive = CurrentWallpaperPath.Equals(item.FilePath, StringComparison.OrdinalIgnoreCase);
+            if (wasActive)
             {
+                // The deleted file can no longer be a favorite — clear the heart indicator so
+                // the UI does not show an empty-path wallpaper as favorited.
+                IsCurrentWallpaperFavorited = false;
+
+                // Advance to the next wallpaper so the desktop does not remain on a deleted file.
+                // Mirror the same advance-or-clear logic used by DeleteCurrentWallpaper.
+                if (_switchWallpaper is not null)
+                {
+                    var next = await Task.Run(_switchWallpaper.SwitchToNextAsync);
+                    if (next is not null)
+                    {
+                        CurrentWallpaperPath = next;
+                        CurrentWallpaperName = GetDisplayName(next);
+                        RefreshPreviewImage();
+                        RefreshFavoriteState();
+                        item.DisposeThumbnail();
+                        GalleryItems.Remove(item);
+                        await ShowTransientStatusAsync($"✓ Deleted and switched to: {CurrentWallpaperName}");
+                        return;
+                    }
+                }
+
+                // No switcher available or no remaining wallpapers — clear the display
                 CurrentWallpaperPath = string.Empty;
                 CurrentWallpaperName = "(none)";
+                RefreshPreviewImage();
             }
 
             item.DisposeThumbnail();

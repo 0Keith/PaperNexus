@@ -171,10 +171,16 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
         if (separatorIndex >= 0)
             title = title[..separatorIndex];
         using var img = await Image.LoadAsync(next).ConfigureAwait(false);
-        using var annotated = img.Clone(o =>
+
+        // Only clone the image when annotation is needed — cloning a 4K image allocates
+        // 50–100 MB of pixel data unnecessarily when annotation is off.
+        // When annotating, clone so the original pixels are never modified.
+        // annotatedOwned tracks whether we own the clone (and must dispose it) or are
+        // borrowing img directly (img's using block handles disposal).
+        Image annotated;
+        var annotatedOwned = false;
+        if (settings.AnnotateWallpaper)
         {
-            if (!settings.AnnotateWallpaper)
-                return;
             var annotation = settings.Annotation;
             // Prefer a bundled font; fall back to the default bundled family if the name is not recognised
             var fontFamily = BundledFonts.TryGet(annotation.FontFamily, out var family)
@@ -192,77 +198,98 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
                 : null;
             var brush = new SolidBrush(color);
             // Offset from corner edges by a fixed margin; right-side positions use a symmetric offset from the right
-            var position = annotation.Position switch
+            var annotPos = annotation.Position;
+            var position = annotPos switch
             {
                 AnnotationPosition.TopRight => new PointF(img.Width - 125, 5),
                 AnnotationPosition.BottomLeft => new PointF(125, img.Height - fontSize - 10),
                 AnnotationPosition.BottomRight => new PointF(img.Width - 125, img.Height - fontSize - 10),
                 _ => new PointF(125, 5),
             };
-            var options = new RichTextOptions(font) { Origin = position };
-            if (annotation.Position is AnnotationPosition.TopRight or AnnotationPosition.BottomRight)
-                options.HorizontalAlignment = HorizontalAlignment.Right;
-            o.DrawText(options, title, brush, outlinePen);
-
-            // In debug mode, add a smaller timestamp label immediately below/above the title
-            if (settings.DebugMode)
+            annotated = img.Clone(o =>
             {
-                var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                var tsFont = new Font(fontFamily, fontSize * 0.75f);
-                var tsY = annotation.Position is AnnotationPosition.TopLeft or AnnotationPosition.TopRight
-                    ? position.Y + fontSize + 4
-                    : position.Y - fontSize;
-                var tsOptions = new RichTextOptions(tsFont) { Origin = new PointF(position.X, tsY) };
-                if (annotation.Position is AnnotationPosition.TopRight or AnnotationPosition.BottomRight)
-                    tsOptions.HorizontalAlignment = HorizontalAlignment.Right;
-                o.DrawText(tsOptions, timestamp, brush, outlinePen);
-            }
-        });
-        using var ms = new MemoryStream();
-        // First attempt: lossless PNG with 8-bit RGB (drops alpha, which is never needed for wallpapers)
-        await annotated.SaveAsPngAsync(ms, new PngEncoder { ColorType = PngColorType.Rgb, BitDepth = PngBitDepth.Bit8 }).ConfigureAwait(false);
-        string currentPath;
-        if (ms.Length <= SizeCeiling)
-        {
-            currentPath = Path.Combine(AppContext.BaseDirectory, "current.png");
-            // Seek to the start and copy the stream directly — avoids allocating a second byte[] copy of the encoded image
-            ms.Position = 0;
-            using var pngFile = new FileStream(currentPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
-            await ms.CopyToAsync(pngFile).ConfigureAwait(false);
-            // Remove the alternate format file so Windows doesn't pick up a stale version
-            File.Delete(Path.Combine(AppContext.BaseDirectory, "current.jpg"));
+                var options = new RichTextOptions(font) { Origin = position };
+                if (annotPos is AnnotationPosition.TopRight or AnnotationPosition.BottomRight)
+                    options.HorizontalAlignment = HorizontalAlignment.Right;
+                o.DrawText(options, title, brush, outlinePen);
+
+                // In debug mode, add a smaller timestamp label immediately below/above the title
+                if (settings.DebugMode)
+                {
+                    var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                    var tsFont = new Font(fontFamily, fontSize * 0.75f);
+                    var tsY = annotPos is AnnotationPosition.TopLeft or AnnotationPosition.TopRight
+                        ? position.Y + fontSize + 4
+                        : position.Y - fontSize;
+                    var tsOptions = new RichTextOptions(tsFont) { Origin = new PointF(position.X, tsY) };
+                    if (annotPos is AnnotationPosition.TopRight or AnnotationPosition.BottomRight)
+                        tsOptions.HorizontalAlignment = HorizontalAlignment.Right;
+                    o.DrawText(tsOptions, timestamp, brush, outlinePen);
+                }
+            });
+            annotatedOwned = true;
         }
         else
         {
-            // PNG is too large (high-res 4K+); re-encode as JPEG, reducing quality until it fits under 16 MB
-            currentPath = Path.Combine(AppContext.BaseDirectory, "current.jpg");
-            for (var quality = 97; quality >= 1; quality -= 3)
-            {
-                ms.SetLength(0);
-                await annotated.SaveAsJpegAsync(ms, new JpegEncoder { Quality = quality }).ConfigureAwait(false);
-                if (ms.Length <= SizeCeiling)
-                    break;
-            }
-            // Seek to the start and copy the stream directly — avoids allocating a second byte[] copy of the encoded image
-            ms.Position = 0;
-            using var jpgFile = new FileStream(currentPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
-            await ms.CopyToAsync(jpgFile).ConfigureAwait(false);
-            File.Delete(Path.Combine(AppContext.BaseDirectory, "current.png"));
+            // Annotation off: encode directly from the loaded image, no copy needed
+            annotated = img;
         }
 
-        if (OperatingSystem.IsWindows())
-            ApplyFillStyle(settings.Slideshow.FillStyle);
-        // Log a warning if the Win32 API call reports failure so silent wallpaper-not-set bugs surface in logs
-        var wallpaperSet = NativeMethods.SetDesktopWallpaper(currentPath);
-        if (!wallpaperSet)
-            _logger.LogWarning("SystemParametersInfo(SPI_SETDESKWALLPAPER) returned 0 for path: {Path}", currentPath);
-        _logger.LogInformation("Switching wallpaper to: {Path}", next);
+        try
+        {
+            using var ms = new MemoryStream();
+            // First attempt: lossless PNG with 8-bit RGB (drops alpha, which is never needed for wallpapers)
+            await annotated.SaveAsPngAsync(ms, new PngEncoder { ColorType = PngColorType.Rgb, BitDepth = PngBitDepth.Bit8 }).ConfigureAwait(false);
+            string currentPath;
+            if (ms.Length <= SizeCeiling)
+            {
+                currentPath = Path.Combine(AppContext.BaseDirectory, "current.png");
+                // Seek to the start and copy the stream directly — avoids allocating a second byte[] copy of the encoded image
+                ms.Position = 0;
+                using var pngFile = new FileStream(currentPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+                await ms.CopyToAsync(pngFile).ConfigureAwait(false);
+                // Remove the alternate format file so Windows doesn't pick up a stale version
+                File.Delete(Path.Combine(AppContext.BaseDirectory, "current.jpg"));
+            }
+            else
+            {
+                // PNG is too large (high-res 4K+); re-encode as JPEG, reducing quality until it fits under 16 MB
+                currentPath = Path.Combine(AppContext.BaseDirectory, "current.jpg");
+                for (var quality = 97; quality >= 1; quality -= 3)
+                {
+                    ms.SetLength(0);
+                    await annotated.SaveAsJpegAsync(ms, new JpegEncoder { Quality = quality }).ConfigureAwait(false);
+                    if (ms.Length <= SizeCeiling)
+                        break;
+                }
+                // Seek to the start and copy the stream directly — avoids allocating a second byte[] copy of the encoded image
+                ms.Position = 0;
+                using var jpgFile = new FileStream(currentPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+                await ms.CopyToAsync(jpgFile).ConfigureAwait(false);
+                File.Delete(Path.Combine(AppContext.BaseDirectory, "current.png"));
+            }
 
-        // Persist the original source path (not the processed current.* path) so ordering is stable across restarts
-        settings.CurrentWallpaperPath = next;
-        await settings.SaveAsync().ConfigureAwait(false);
-        WallpaperChanged?.Invoke(next);
-        return next;
+            if (OperatingSystem.IsWindows())
+                ApplyFillStyle(settings.Slideshow.FillStyle);
+            // Log a warning if the Win32 API call reports failure so silent wallpaper-not-set bugs surface in logs
+            var wallpaperSet = NativeMethods.SetDesktopWallpaper(currentPath);
+            if (!wallpaperSet)
+                _logger.LogWarning("SystemParametersInfo(SPI_SETDESKWALLPAPER) returned 0 for path: {Path}", currentPath);
+            _logger.LogInformation("Switching wallpaper to: {Path}", next);
+
+            // Persist the original source path (not the processed current.* path) so ordering is stable across restarts
+            settings.CurrentWallpaperPath = next;
+            await settings.SaveAsync().ConfigureAwait(false);
+            WallpaperChanged?.Invoke(next);
+            return next;
+        }
+        finally
+        {
+            // Dispose the clone only when we own it; when annotation is off, annotated == img
+            // and img is disposed by its own using block above.
+            if (annotatedOwned)
+                annotated.Dispose();
+        }
     }
 
     private const long SizeCeiling = 1 << 24; // 16 MB

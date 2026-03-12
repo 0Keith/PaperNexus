@@ -20,6 +20,12 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
 
     private readonly HttpWallpaperSourceService _sourceService;
 
+    // Shared, long-lived HttpClient for all image downloads. HttpClient is thread-safe for
+    // concurrent requests; creating a new one per source/image call drains the ephemeral port
+    // pool because disposed clients leave sockets in TIME_WAIT for several minutes.
+    // The service is a singleton, so this client lives for the process lifetime.
+    private readonly HttpClient _imageClient = new() { Timeout = TimeSpan.FromSeconds(30) };
+
     public DownloadWallpapers(ILogger<DownloadWallpapers> logger, HttpWallpaperSourceService sourceService) : base(logger)
     {
         _sourceService = sourceService.ThrowIfNull();
@@ -59,7 +65,7 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
     {
         if (!IsOverdue(source))
         {
-            Logger.LogInformation($"Source '{source.Name}' is up to date — skipping.");
+            Logger.LogInformation("Source '{Source}' is up to date — skipping.", source.Name);
             return false;
         }
         return true;
@@ -101,18 +107,16 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         }
     }
 
-    // Downloads all images for a single source using a shared HttpClient for the batch,
-    // so N images from the same host reuse one socket pool rather than creating N pools.
+    // Downloads all images for a single source, reusing the process-wide _imageClient so
+    // all images — across all sources — share one socket pool rather than creating one per call.
     private async Task DownloadSource(WallpaperSource source, WallpaperNexusSettings settings)
     {
         var images = await _sourceService.GetImagesAsync(source);
-        // A single client is shared across all images in this source batch for socket efficiency.
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         foreach (var image in images)
         {
             try
             {
-                await Download(image, settings, client);
+                await Download(image, settings, _imageClient);
             }
             catch (Exception ex)
             {
@@ -127,7 +131,7 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
     // Returns true if the source has never been downloaded, or if the next cron occurrence
     // after the last download has already passed. An invalid cron expression is treated
     // as always-overdue so a misconfigured source never silently stalls.
-    private static bool IsOverdue(WallpaperSource source)
+    internal static bool IsOverdue(WallpaperSource source)
     {
         if (source.LastDownloadUtc is null)
             return true;
@@ -148,8 +152,8 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
     // Downloads a single wallpaper image to the configured folder.
     // The filename is derived from the sanitised title plus the URL's filename component
     // so that the original source identifier is preserved for deduplication.
-    // An optional HttpClient may be supplied by the caller to share a socket pool across
-    // multiple images; if omitted a short-lived client is created for this call only.
+    // An optional HttpClient may be supplied by the caller; if omitted, the instance-level
+    // _imageClient is used. The caller must never dispose a client it did not create.
     public async Task Download(WallpaperImage data, WallpaperNexusSettings settings, HttpClient? client = null)
     {
         // Strip characters that are invalid in file names, and cap length to avoid MAX_PATH issues
@@ -157,7 +161,18 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
             .Where(c => !InvalidFileNameChars.Contains(c))
             .Take(200)
             .ToArray());
-        var urlFile = data.ImageUrl.Split('/').Last();
+        // Strip query string and fragment before parsing so URLs like
+        // "image.jpg?sig=xyz" or "image.jpg#anchor" produce a clean filename.
+        // Path.GetExtension does not know about URL structure and would otherwise
+        // include the query params in the extension (e.g. ".jpg?sig=xyz").
+        var cleanUrl = data.ImageUrl;
+        var hashIdx = cleanUrl.IndexOf('#');
+        if (hashIdx >= 0)
+            cleanUrl = cleanUrl[..hashIdx];
+        var queryIdx = cleanUrl.IndexOf('?');
+        if (queryIdx >= 0)
+            cleanUrl = cleanUrl[..queryIdx];
+        var urlFile = cleanUrl.Split('/').Last();
         var ext = Path.GetExtension(urlFile);
         if (string.IsNullOrEmpty(ext))
             ext = ".png";
@@ -177,36 +192,27 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         if (!Debugger.IsAttached && File.Exists(path))
             return;
 
-        Logger.LogInformation($"Downloading Image: {data.Title}");
+        Logger.LogInformation("Downloading image: {Title}", data.Title);
         var watch = Stopwatch.StartNew();
-        // Use the caller-supplied client when available; otherwise create a short-lived one
-        // (the caller is responsible for disposing a shared client).
-        var ownClient = client is null;
-        var httpClient = client ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        try
-        {
-            // Use ResponseHeadersRead to start timing from the first byte, not after full download
-            using var response = await httpClient.GetAsync(data.ImageUrl, HttpCompletionOption.ResponseHeadersRead);
-            if (!response.IsSuccessStatusCode)
-            {
-                var message = await response.Content.ReadAsStringAsync();
-                throw new HttpRequestException($"HTTP {(int)response.StatusCode} {response.StatusCode} downloading '{data.ImageUrl}': {message}");
-            }
+        // Prefer the caller-supplied client; fall back to the shared instance client.
+        // Neither is disposed here — both are long-lived and owned by their respective creators.
+        var httpClient = client ?? _imageClient;
 
-            // Stream directly to disk so large images (4K+) don't require a full in-memory buffer
-            using var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
-            await response.Content.CopyToAsync(fileStream);
-            Logger.LogInformation($"Download Complete: {watch.Elapsed}");
-            // Re-encode to the user's configured resolution cap after the download completes,
-            // so a partial resize failure cannot corrupt the downloaded file.
-            await ApplyResolutionCapAsync(path, settings);
-        }
-        finally
+        // Use ResponseHeadersRead to start timing from the first byte, not after full download
+        using var response = await httpClient.GetAsync(data.ImageUrl, HttpCompletionOption.ResponseHeadersRead);
+        if (!response.IsSuccessStatusCode)
         {
-            // Only dispose the client if we created it; callers own shared clients
-            if (ownClient)
-                httpClient.Dispose();
+            var message = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"HTTP {(int)response.StatusCode} {response.StatusCode} downloading '{data.ImageUrl}': {message}");
         }
+
+        // Stream directly to disk so large images (4K+) don't require a full in-memory buffer
+        using var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+        await response.Content.CopyToAsync(fileStream);
+        Logger.LogInformation("Download complete: {Elapsed}", watch.Elapsed);
+        // Re-encode to the user's configured resolution cap after the download completes,
+        // so a partial resize failure cannot corrupt the downloaded file.
+        await ApplyResolutionCapAsync(path, settings);
     }
 
     // Resizes the image at filePath to fit within the user-configured resolution cap,
@@ -257,13 +263,25 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
     // for saving settings after this method returns.
     internal async Task CleanupOldImages(WallpaperNexusSettings settings)
     {
+        // Guard against the folder being deleted between the Directory.CreateDirectory
+        // call in DownloadFromSourcesAsync and this cleanup step. If the folder is gone,
+        // skip the age-based pass but still prune any stale list entries.
+        if (!Directory.Exists(settings.Download.Folder))
+        {
+            settings.FavoriteWallpapers?.RemoveAll(p => !File.Exists(p));
+            settings.BannedWallpapers?.RemoveAll(p => !File.Exists(p));
+            return;
+        }
+
         var favorites = new HashSet<string>(
             settings.FavoriteWallpapers ?? [],
             StringComparer.OrdinalIgnoreCase);
-        var files = new DirectoryInfo(settings.Download.Folder).EnumerateFiles();
+        // Materialise the directory listing once so we can reuse it for the stale-path
+        // check below without a second filesystem round-trip or a TOCTOU window.
+        var allFiles = new DirectoryInfo(settings.Download.Folder).EnumerateFiles().ToList();
         var cutoff = DateTime.UtcNow.AddDays(-settings.Download.RetentionDays);
         var deleted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in files)
+        foreach (var file in allFiles)
         {
             if (cutoff > file.LastWriteTimeUtc && !favorites.Contains(file.FullName))
             {
@@ -272,10 +290,11 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
             }
         }
 
-        // Collect paths that are referenced in the special lists but no longer on disk.
-        // This handles both files just deleted above and files removed outside the app.
+        // Build the surviving-files set from the already-enumerated list minus what was
+        // just deleted. This covers files removed outside the app and the ones we deleted
+        // above, without re-reading the directory.
         var existingFiles = new HashSet<string>(
-            new DirectoryInfo(settings.Download.Folder).EnumerateFiles().Select(f => f.FullName),
+            allFiles.Select(f => f.FullName).Where(p => !deleted.Contains(p)),
             StringComparer.OrdinalIgnoreCase);
 
         var staleCount = 0;

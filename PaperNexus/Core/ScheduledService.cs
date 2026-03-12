@@ -54,7 +54,10 @@ public abstract class ScheduledJobService : IHostedService, IDisposable
     }
 
     private Task _scheduleTask;
-    private bool _stopped;
+    // volatile ensures the scheduler loop on its background thread always reads the latest
+    // value set by StopAsync on the host thread, without the JIT caching it in a register
+    // across loop iterations that do not cross a full memory-barrier boundary.
+    private volatile bool _stopped;
     private readonly CancellationTokenSource _cts = new();
 
     // IHostedService implementation: fires off the scheduler loop without blocking startup.
@@ -124,7 +127,7 @@ public abstract class ScheduledJobService : IHostedService, IDisposable
                     // Log the upcoming execution time once, then sleep in 1-minute chunks
                     if (!nextExecutionLogged)
                     {
-                        Logger.LogInformation($"{JobName}: Next execution at {nextExecution:O}");
+                        Logger.LogInformation("{JobName}: Next execution at {NextExecution:O}", JobName, nextExecution);
                         nextExecutionLogged = true;
                     }
                     await Task.Delay(maxDelay, cancellationToken);
@@ -150,12 +153,12 @@ public abstract class ScheduledJobService : IHostedService, IDisposable
             }
             catch (TaskCanceledException)
             {
-                Logger.LogInformation($"Canceled Job: {JobName}");
+                Logger.LogInformation("Canceled job: {JobName}", JobName);
                 return;
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, $"Unhandled Exception in Job: {JobName}");
+                Logger.LogError(ex, "Unhandled exception in job: {JobName}", JobName);
                 try
                 {
                     await SaveContext(new()
@@ -168,8 +171,19 @@ public abstract class ScheduledJobService : IHostedService, IDisposable
                     });
                 }
                 catch (Exception saveEx) { Logger.LogWarning(saveEx, "Failed to persist job context for {JobName} after error.", JobName); }
-                // Back off for 1 minute before retrying after an unhandled exception
-                await Task.Delay(maxDelay, cancellationToken);
+                // Back off for 1 minute before retrying after an unhandled exception.
+                // Treat cancellation as a clean shutdown signal: if StopAsync fires during
+                // this backoff the OperationCanceledException would otherwise escape the
+                // catch block and fault the _scheduleTask instead of completing it cleanly.
+                try
+                {
+                    await Task.Delay(maxDelay, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    Logger.LogInformation("Canceled job (during backoff): {JobName}", JobName);
+                    return;
+                }
             }
         }
     }
@@ -186,7 +200,10 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService, IDisposabl
     private readonly ILogger _logger;
     private readonly string _jobName;
     private Task _scheduleTask;
-    private bool _stopped;
+    // volatile ensures the scheduler loop on its background thread always reads the latest
+    // value set by StopAsync on the host thread, without the JIT caching it in a register
+    // across loop iterations that do not cross a full memory-barrier boundary.
+    private volatile bool _stopped;
     private readonly CancellationTokenSource _cts = new();
 
     public ScheduledJobHostedService(IServiceScopeFactory scopeFactory, ILogger<ScheduledJobHostedService<TJob>> logger)
@@ -218,6 +235,11 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService, IDisposabl
     // Scheduler loop for IScheduleScopedJob: re-reads the job config each iteration so
     // runtime changes to the cron schedule or enabled flag are honoured without restart.
     // A null CronExpression in JobConfig means the job is disabled; delay becomes MaxValue.
+    //
+    // The scope used to read the config is disposed before any Task.Delay so that DI resources
+    // (resolved services, file handles, etc.) are not held alive across the sleep period. A
+    // separate scope is opened for the actual execution so the job receives a fresh set of
+    // service instances at run time, as originally intended.
     private async Task ScheduleExecutions(CancellationToken cancellationToken)
     {
         var attempts = 0;
@@ -231,11 +253,16 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService, IDisposabl
                 return;
             try
             {
-                // Create a fresh scope for each loop iteration so the job can safely resolve
-                // scoped services (e.g. settings re-reads) without holding stale state.
-                using var scope = _scopeFactory.CreateScope();
-                var job = ActivatorUtilities.CreateInstance<TJob>(scope.ServiceProvider);
-                var config = await job.GetJobConfigAsync();
+                // Open a short-lived scope purely to read the job config and determine the next
+                // execution time. The scope is disposed before any sleep so no DI-managed
+                // resources are held open during the idle period between poll ticks.
+                JobConfig config;
+                using (var configScope = _scopeFactory.CreateScope())
+                {
+                    var configJob = ActivatorUtilities.CreateInstance<TJob>(configScope.ServiceProvider);
+                    config = await configJob.GetJobConfigAsync();
+                }
+
                 var lastExecution = await LoadContext();
                 // If no CronExpression is set the job is disabled; schedule to far future
                 var nextExecution = config.CronExpression?.GetNextOccurrence(DateTimeOffset.UtcNow, TimeZoneInfo.Local)
@@ -268,7 +295,7 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService, IDisposabl
                     // Long delay: log once and sleep in 1-minute chunks to remain responsive to stop signals
                     if (!nextExecutionLogged)
                     {
-                        _logger.LogInformation($"{_jobName}: Next execution at {nextExecution:O}");
+                        _logger.LogInformation("{JobName}: Next execution at {NextExecution:O}", _jobName, nextExecution);
                         nextExecutionLogged = true;
                     }
                     await Task.Delay(maxDelay, cancellationToken);
@@ -282,7 +309,15 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService, IDisposabl
                     watch.Restart();
                     startedAt = DateTimeOffset.Now;
                     nextExecutionLogged = false;
-                    await job.ExecuteAsync();
+
+                    // Open a fresh scope for execution so the job gets up-to-date service
+                    // instances, independent of the short-lived config-read scope above.
+                    using (var execScope = _scopeFactory.CreateScope())
+                    {
+                        var execJob = ActivatorUtilities.CreateInstance<TJob>(execScope.ServiceProvider);
+                        await execJob.ExecuteAsync();
+                    }
+
                     await SaveContext(new()
                     {
                         StartedAt = startedAt,
@@ -294,12 +329,12 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService, IDisposabl
             }
             catch (TaskCanceledException)
             {
-                _logger.LogInformation($"Canceled Job: {_jobName}");
+                _logger.LogInformation("Canceled job: {JobName}", _jobName);
                 return;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Unhandled Exception in Job: {_jobName}");
+                _logger.LogError(ex, "Unhandled exception in job: {JobName}", _jobName);
                 try
                 {
                     await SaveContext(new()
@@ -312,8 +347,19 @@ public sealed class ScheduledJobHostedService<TJob> : IHostedService, IDisposabl
                     });
                 }
                 catch (Exception saveEx) { _logger.LogWarning(saveEx, "Failed to persist job context for {JobName} after error.", _jobName); }
-                // Back off 1 minute before retrying after an unhandled exception
-                await Task.Delay(maxDelay, cancellationToken);
+                // Back off 1 minute before retrying after an unhandled exception.
+                // Treat cancellation as a clean shutdown signal: if StopAsync fires during
+                // this backoff the OperationCanceledException would otherwise escape the
+                // catch block and fault the _scheduleTask instead of completing it cleanly.
+                try
+                {
+                    await Task.Delay(maxDelay, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogInformation("Canceled job (during backoff): {JobName}", _jobName);
+                    return;
+                }
             }
         }
     }

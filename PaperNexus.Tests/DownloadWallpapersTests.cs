@@ -80,6 +80,45 @@ public class DownloadWallpapersTests : IDisposable
         Assert.Equal(4, bytes.Length);
     }
 
+    // Regression guard: query strings and URL fragments must be stripped before the
+    // filename is derived, so "image.jpg?sig=abc" produces "image.jpg" not "image.jpg?sig=abc".
+    // Without the fix, Path.GetExtension("image.jpg?sig=abc") returns ".jpg?sig=abc",
+    // making the extension contain the query string and producing an invalid filename.
+    [Theory]
+    [InlineData("https://example.com/photo.jpg?sig=abc123&se=2025",           "photo",  ".jpg")]
+    [InlineData("https://example.com/photo.png?X-Goog-Signature=xyz",         "photo",  ".png")]
+    [InlineData("https://example.com/photo.jpg#anchor",                        "photo",  ".jpg")]
+    [InlineData("https://example.com/photo.jpg?token=x&ver=2#section",        "photo",  ".jpg")]
+    [InlineData("https://example.com/api/image?format=jpg&w=3840",            "image",  ".png")] // no clean ext → .png fallback
+    public async Task Download_UrlWithQueryString_ProducesCleanFilename(
+        string imageUrl, string expectedStem, string expectedExt)
+    {
+        var source = new HttpWallpaperSourceService(NullLogger<HttpWallpaperSourceService>.Instance);
+        var sut = new DownloadWallpapers(NullLogger<DownloadWallpapers>.Instance, source);
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir },
+        };
+
+        var wallpaperTitle = "My Wallpaper";
+        // Pre-create the file with the expected clean name so the skip-if-exists path is taken.
+        // If the filename is built correctly (no query/fragment), the pre-created file is found
+        // and the method returns without making an HTTP call (no network needed in tests).
+        var cleanPath = Path.Combine(_downloadDir, $"{wallpaperTitle} - {expectedStem}{expectedExt}");
+        await File.WriteAllBytesAsync(cleanPath, [0x89, 0x50, 0x4E, 0x47]);
+
+        var image = new WallpaperImage { Title = wallpaperTitle, ImageUrl = imageUrl };
+
+        // Act: Download should recognise the pre-created clean file and skip the HTTP call.
+        // If the query string is not stripped the computed path won't match the pre-created file,
+        // causing an HTTP request that fails with a network error.
+        await sut.Download(image, settings);
+
+        // Assert: pre-created file intact (was recognised and skipped, not re-downloaded)
+        var fileBytes = await File.ReadAllBytesAsync(cleanPath);
+        Assert.Equal(4, fileBytes.Length);
+    }
+
     [Fact]
     public async Task Download_OneImageFails_DoesNotPreventSubsequentImages()
     {
@@ -273,5 +312,262 @@ public class DownloadWallpapersTests : IDisposable
         // Exact expected size: 200×150 (width-constrained; aspect ratio 4:3 preserved)
         Assert.Equal(200, img.Width);
         Assert.Equal(150, img.Height);
+    }
+
+    // --- IsOverdue tests ---
+
+    [Fact]
+    public void IsOverdue_NullLastDownload_ReturnsTrue()
+    {
+        // A source that has never been downloaded is always overdue.
+        var source = new WallpaperSource
+        {
+            CronExpression = "0 */8 * * *",
+            LastDownloadUtc = null,
+        };
+
+        Assert.True(DownloadWallpapers.IsOverdue(source));
+    }
+
+    [Fact]
+    public void IsOverdue_NextOccurrenceInFuture_ReturnsFalse()
+    {
+        // Downloaded very recently: the next cron slot is still in the future, so not overdue.
+        // Cron "0 */8 * * *" fires every 8 hours. If last download was 1 minute ago,
+        // the next occurrence is ~8 hours away.
+        var source = new WallpaperSource
+        {
+            CronExpression = "0 */8 * * *",
+            LastDownloadUtc = DateTimeOffset.UtcNow.AddMinutes(-1),
+        };
+
+        Assert.False(DownloadWallpapers.IsOverdue(source));
+    }
+
+    [Fact]
+    public void IsOverdue_NextOccurrenceInPast_ReturnsTrue()
+    {
+        // Downloaded 9 hours ago with an every-8-hours cron: the next slot (8 h after last
+        // download) has already passed, so the source is overdue.
+        var source = new WallpaperSource
+        {
+            CronExpression = "0 */8 * * *",
+            LastDownloadUtc = DateTimeOffset.UtcNow.AddHours(-9),
+        };
+
+        Assert.True(DownloadWallpapers.IsOverdue(source));
+    }
+
+    [Fact]
+    public void IsOverdue_InvalidCronExpression_ReturnsTrue()
+    {
+        // An invalid cron expression is treated as always-overdue so a misconfigured
+        // source does not silently stall rather than retrying.
+        var source = new WallpaperSource
+        {
+            CronExpression = "not-a-valid-cron",
+            LastDownloadUtc = DateTimeOffset.UtcNow.AddMinutes(-1),
+        };
+
+        Assert.True(DownloadWallpapers.IsOverdue(source));
+    }
+
+    // --- LastDownloadUtc persistence tests ---
+
+    // --- Settings load/defaults tests ---
+
+    // Regression guard: if the user intentionally removes all wallpaper sources and saves,
+    // the next LoadAsync must return an empty sources list — not silently restore the
+    // built-in Bing/Spotlight defaults as it did before the fix.
+    [Fact]
+    public async Task LoadAsync_EmptySourcesSavedByUser_DoesNotRestoreDefaults()
+    {
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir },
+            Sources = [],  // user explicitly cleared all sources
+            RunOnStartup = false,
+            AutoUpdatesEnabled = false,
+        };
+        await settings.SaveAsync();
+
+        var loaded = await WallpaperNexusSettings.LoadAsync();
+
+        Assert.Empty(loaded.Sources);
+    }
+
+    // A brand-new settings file that has never been saved must produce the built-in
+    // defaults (Bing + Spotlight), because WallpaperNexusSettings.Sources has a
+    // property-initialiser default and no file override.
+    [Fact]
+    public async Task LoadAsync_NoFileExists_ReturnsDefaultSources()
+    {
+        // Ensure no settings file exists for this test
+        TestHelpers.Cleanup();
+
+        var loaded = await WallpaperNexusSettings.LoadAsync();
+
+        Assert.Equal(WallpaperNexusSettings.DefaultSources.Count, loaded.Sources.Count);
+    }
+
+    // Regression guard: CleanupOldImages must not throw when the wallpaper folder
+    // has been deleted between DownloadFromSourcesAsync creating it and the cleanup step.
+    // It should silently prune stale list entries and return without crashing.
+    [Fact]
+    public async Task CleanupOldImages_FolderDeleted_DoesNotThrow()
+    {
+        var source = new HttpWallpaperSourceService(NullLogger<HttpWallpaperSourceService>.Instance);
+        var sut = new DownloadWallpapers(NullLogger<DownloadWallpapers>.Instance, source);
+
+        // Use a path that does not exist
+        var missingDir = Path.Combine(Path.GetTempPath(), $"PaperNexus_Gone_{Guid.NewGuid():N}");
+        var stalePath = Path.Combine(missingDir, "ghost.png");
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = missingDir },
+            FavoriteWallpapers = [stalePath],
+            BannedWallpapers = [stalePath],
+        };
+
+        // Act: should not throw DirectoryNotFoundException
+        var ex = await Record.ExceptionAsync(() => sut.CleanupOldImages(settings));
+
+        Assert.Null(ex);
+        // Stale paths pointing to non-existent files must be pruned from both lists
+        Assert.Empty(settings.FavoriteWallpapers);
+        Assert.Empty(settings.BannedWallpapers);
+    }
+
+    [Fact]
+    public async Task LastDownloadUtc_SurvivesSaveLoadRoundTrip()
+    {
+        // LastDownloadUtc is the only field that is written by the background downloader
+        // and not by the ViewModel. This test verifies that the value survives a save/load
+        // cycle, which is the foundational contract that the timestamp-preservation merge
+        // in SaveSettingsAsync depends on.
+        var expectedTime = new DateTimeOffset(2025, 6, 15, 12, 0, 0, TimeSpan.Zero);
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir },
+            Sources =
+            [
+                new WallpaperSource { Name = "Test Source", LastDownloadUtc = expectedTime },
+            ],
+            RunOnStartup = false,
+            AutoUpdatesEnabled = false,
+        };
+        await settings.SaveAsync();
+
+        var loaded = await WallpaperNexusSettings.LoadAsync();
+
+        var loadedSource = loaded.Sources.FirstOrDefault(s => s.Name == "Test Source");
+        Assert.NotNull(loadedSource);
+        Assert.Equal(expectedTime, loadedSource.LastDownloadUtc);
+    }
+
+    [Fact]
+    public async Task LastDownloadUtc_NotNullSource_PreventsRedundantRedownload()
+    {
+        // Regression guard: if a source has a recent LastDownloadUtc (downloaded 1 minute ago),
+        // IsOverdue must return false so the scheduler does not re-download immediately
+        // after a settings save that preserved the timestamp.
+        var expectedTime = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir },
+            Sources =
+            [
+                new WallpaperSource
+                {
+                    Name = "Recent Source",
+                    CronExpression = "0 */8 * * *",
+                    LastDownloadUtc = expectedTime,
+                },
+            ],
+            RunOnStartup = false,
+            AutoUpdatesEnabled = false,
+        };
+        await settings.SaveAsync();
+
+        var loaded = await WallpaperNexusSettings.LoadAsync();
+        var src = loaded.Sources.First(s => s.Name == "Recent Source");
+
+        // The timestamp must have been preserved — if it were null, IsOverdue would
+        // return true and the next scheduled execution would trigger a redundant download.
+        Assert.NotNull(src.LastDownloadUtc);
+        Assert.False(DownloadWallpapers.IsOverdue(src),
+            "A source downloaded 1 minute ago should not be overdue on an 8-hour cron.");
+    }
+
+    // --- ApplyDefaults annotation-field guards ---
+
+    // Regression guard: if the settings file contains an empty FontFamily (e.g. from manual
+    // editing or an older schema version), LoadAsync must restore the default font so that
+    // SixLabors.Fonts.TryGet never receives an empty string and throws inside the renderer.
+    [Fact]
+    public async Task LoadAsync_EmptyAnnotationFontFamily_RestoresDefault()
+    {
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir },
+            Annotation = new AnnotationSettings { FontFamily = "" },
+            Sources = [],
+            RunOnStartup = false,
+            AutoUpdatesEnabled = false,
+        };
+        await settings.SaveAsync();
+
+        var loaded = await WallpaperNexusSettings.LoadAsync();
+
+        Assert.False(string.IsNullOrWhiteSpace(loaded.Annotation.FontFamily),
+            "FontFamily must never be empty after load; renderer passes it directly to SixLabors.");
+        Assert.Equal(BundledFonts.DefaultFontFamily, loaded.Annotation.FontFamily);
+    }
+
+    // Regression guard: a FontSize of 0 creates a degenerate SixLabors Font object that throws
+    // during text measurement. ApplyDefaults must replace it with the default (18).
+    [Fact]
+    public async Task LoadAsync_ZeroAnnotationFontSize_RestoresDefault()
+    {
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir },
+            Annotation = new AnnotationSettings { FontSize = 0 },
+            Sources = [],
+            RunOnStartup = false,
+            AutoUpdatesEnabled = false,
+        };
+        await settings.SaveAsync();
+
+        var loaded = await WallpaperNexusSettings.LoadAsync();
+
+        Assert.True(loaded.Annotation.FontSize > 0,
+            "FontSize must be positive after load; a zero size produces a degenerate font.");
+        Assert.Equal(new AnnotationSettings().FontSize, loaded.Annotation.FontSize);
+    }
+
+    // Regression guard: a null or empty Color string causes Color.ParseHex to throw.
+    // That particular throw is caught and logged, but the guard here ensures the value
+    // is filled in before it reaches the renderer so callers see a valid default instead of
+    // a warning in every log file.
+    [Fact]
+    public async Task LoadAsync_EmptyAnnotationColor_RestoresDefault()
+    {
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir },
+            Annotation = new AnnotationSettings { Color = "" },
+            Sources = [],
+            RunOnStartup = false,
+            AutoUpdatesEnabled = false,
+        };
+        await settings.SaveAsync();
+
+        var loaded = await WallpaperNexusSettings.LoadAsync();
+
+        Assert.False(string.IsNullOrWhiteSpace(loaded.Annotation.Color),
+            "Color must never be empty after load; renderer passes it directly to Color.ParseHex.");
+        Assert.Equal(new AnnotationSettings().Color, loaded.Annotation.Color);
     }
 }
