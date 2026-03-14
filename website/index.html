@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaperNexus — Automated Wallpaper Rotation for Windows</title>
+    <meta name="description" content="PaperNexus is a free, open-source wallpaper rotation app for Windows. Fetches stunning wallpapers from Bing, Spotlight, and custom sources, then cycles them on your schedule.">
+    <meta name="theme-color" content="#4c9a6e">
+    <link rel="icon" type="image/png" href="logo.png">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="PaperNexus — Automated Wallpaper Rotation for Windows">
+    <meta property="og:description" content="Free, open-source wallpaper rotation app. Fetches stunning wallpapers and cycles them on your schedule.">
+    <meta property="og:image" content="logo.png">
+    <meta property="og:type" content="website">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --green: #4c9a6e;
+            --green-dark: #3a7d57;
+            --green-light: #e8f5ee;
+            --bg: #fafbfc;
+            --bg-alt: #f0f2f5;
+            --text: #1a1a2e;
+            --text-muted: #5a5a7a;
+            --card-bg: #ffffff;
+            --card-border: #e2e8f0;
+            --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+            --card-shadow-hover: 0 10px 30px rgba(0, 0, 0, 0.08);
+            --radius: 12px;
+            --radius-lg: 20px;
+            --max-width: 1100px;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Nav */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(250, 251, 252, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .nav-brand img {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 28px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--green);
+        }
+
+        .nav-links .btn-sm {
+            background: var(--green);
+            color: #fff;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .nav-links .btn-sm:hover {
+            background: var(--green-dark);
+            color: #fff;
+        }
+
+        /* Hero */
+        .hero {
+            padding: 140px 24px 80px;
+            text-align: center;
+        }
+
+        .hero-inner {
+            max-width: 720px;
+            margin: 0 auto;
+        }
+
+        .hero-logo {
+            width: 120px;
+            height: 120px;
+            border-radius: 28px;
+            box-shadow: 0 8px 30px rgba(76, 154, 110, 0.2);
+            margin-bottom: 32px;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+            margin-bottom: 16px;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--green), #2d8a5e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            max-width: 540px;
+            margin: 0 auto 40px;
+            line-height: 1.7;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--green);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(76, 154, 110, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: var(--green-dark);
+            box-shadow: 0 6px 20px rgba(76, 154, 110, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--card-bg);
+            color: var(--text);
+            border: 1px solid var(--card-border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--green);
+            color: var(--green);
+            transform: translateY(-1px);
+        }
+
+        .btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .hero-note {
+            margin-top: 24px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            opacity: 0.7;
+        }
+
+        /* Sections */
+        section {
+            padding: 80px 24px;
+        }
+
+        .section-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 56px;
+        }
+
+        .section-header h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            margin-bottom: 12px;
+        }
+
+        .section-header p {
+            font-size: 1.05rem;
+            color: var(--text-muted);
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
+        /* Features */
+        .features {
+            background: var(--bg-alt);
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius);
+            padding: 32px 28px;
+            box-shadow: var(--card-shadow);
+            transition: box-shadow 0.3s, transform 0.3s;
+        }
+
+        .feature-card:hover {
+            box-shadow: var(--card-shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--green-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .feature-card p {
+            font-size: 0.92rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        /* How It Works */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px;
+            counter-reset: step;
+        }
+
+        .step {
+            text-align: center;
+        }
+
+        .step-number {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--green);
+            color: #fff;
+            font-size: 1.3rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+        }
+
+        .step h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .step p {
+            font-size: 0.92rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        /* Tray Section */
+        .tray-section {
+            background: var(--bg-alt);
+        }
+
+        .tray-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        .tray-content h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .tray-content p {
+            color: var(--text-muted);
+            margin-bottom: 24px;
+            line-height: 1.7;
+        }
+
+        .tray-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .tray-action {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 18px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            font-size: 0.95rem;
+        }
+
+        .tray-action-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: var(--green-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 1.1rem;
+        }
+
+        .tray-action strong {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .tray-action span {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .tray-visual {
+            background: #1e1e1e;
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            color: #e0e0e0;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        }
+
+        .tray-visual .comment {
+            color: #6a9955;
+        }
+
+        .tray-visual .highlight {
+            color: #4ec9b0;
+        }
+
+        .tray-visual .string {
+            color: #ce9178;
+        }
+
+        .tray-visual .keyword {
+            color: #569cd6;
+        }
+
+        /* FAQ */
+        .faq-list {
+            max-width: 700px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .faq-item {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .faq-question {
+            width: 100%;
+            background: none;
+            border: none;
+            padding: 20px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text);
+            font-family: inherit;
+        }
+
+        .faq-question:hover {
+            color: var(--green);
+        }
+
+        .faq-chevron {
+            transition: transform 0.3s;
+            flex-shrink: 0;
+            margin-left: 16px;
+        }
+
+        .faq-item.open .faq-chevron {
+            transform: rotate(180deg);
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .faq-answer-inner {
+            padding: 0 24px 20px;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            line-height: 1.7;
+        }
+
+        /* Tech Stack */
+        .tech-section {
+            background: var(--bg-alt);
+        }
+
+        .tech-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            justify-content: center;
+        }
+
+        .tech-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 100px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .tech-badge-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+        }
+
+        /* CTA */
+        .cta {
+            text-align: center;
+            padding: 100px 24px;
+        }
+
+        .cta h2 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .cta p {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            margin-bottom: 32px;
+            max-width: 460px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--card-border);
+            padding: 32px 24px;
+            text-align: center;
+        }
+
+        .footer-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .footer-brand img {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            list-style: none;
+        }
+
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: var(--green);
+        }
+
+        .footer-copy {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            opacity: 0.7;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .hero p {
+                font-size: 1.05rem;
+            }
+
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .steps {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .tray-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tray-visual {
+                order: -1;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .footer-inner {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero {
+                padding: 120px 16px 60px;
+            }
+
+            section {
+                padding: 60px 16px;
+            }
+
+            .hero h1 {
+                font-size: 1.7rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-inner">
+            <a href="#" class="nav-brand">
+                <img src="logo.png" alt="PaperNexus">
+                PaperNexus
+            </a>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#how-it-works">How It Works</a></li>
+                <li><a href="#faq">FAQ</a></li>
+                <li><a href="https://github.com/0Keith/PaperNexus" target="_blank" rel="noopener">GitHub</a></li>
+                <li><a href="https://github.com/0Keith/PaperNexus/releases/latest" class="btn-sm">Download</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-inner">
+            <img src="logo.png" alt="PaperNexus Logo" class="hero-logo">
+            <h1>Your desktop deserves <span>better wallpapers</span></h1>
+            <p>PaperNexus is a free, open-source app that automatically fetches stunning wallpapers and rotates them on your schedule. Set it and forget it.</p>
+            <div class="hero-buttons">
+                <a href="https://github.com/0Keith/PaperNexus/releases/latest" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download for Windows
+                </a>
+                <a href="https://github.com/0Keith/PaperNexus" target="_blank" rel="noopener" class="btn btn-secondary">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    View on GitHub
+                </a>
+            </div>
+            <p class="hero-note">Windows 10/11 &middot; Free &middot; Open Source</p>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="features" id="features">
+        <div class="section-inner">
+            <div class="section-header">
+                <h2>Everything you need, nothing you don't</h2>
+                <p>PaperNexus works quietly in your system tray, keeping your desktop fresh without getting in the way.</p>
+            </div>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">&#127760;</div>
+                    <h3>Multiple Wallpaper Sources</h3>
+                    <p>Ships with Bing Daily and Spotlight 4K feeds. Add any custom HTTP JSON source with configurable JPath expressions.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#9200;</div>
+                    <h3>Flexible Scheduling</h3>
+                    <p>Simple intervals from seconds to years, or full cron expressions for fine-grained control. Each source gets its own schedule.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128444;</div>
+                    <h3>Gallery View</h3>
+                    <p>Browse your wallpaper collection visually. Set any wallpaper as current, mark favorites, or ban the ones you don't like.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#10084;</div>
+                    <h3>Favorites &amp; Bans</h3>
+                    <p>Heart wallpapers to boost their priority in rotation. Ban wallpapers to permanently exclude them. You're in control.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#127912;</div>
+                    <h3>Title Annotations</h3>
+                    <p>Optional text overlay showing the wallpaper title with auto-contrasting outline. Customizable font, size, position, and color.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128260;</div>
+                    <h3>Silent Auto-Updates</h3>
+                    <p>Checks GitHub Releases in the background and updates itself seamlessly. Includes automatic rollback if anything goes wrong.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="how-it-works">
+        <div class="section-inner">
+            <div class="section-header">
+                <h2>Up and running in seconds</h2>
+                <p>No installers, no configuration wizards, no nonsense.</p>
+            </div>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Download</h3>
+                    <p>Grab the latest <code>PaperNexus.exe</code> from GitHub Releases. It's a single file &mdash; no installation needed.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Run it</h3>
+                    <p>Double-click the exe. PaperNexus sets itself up, parks in your system tray, and starts fetching wallpapers immediately.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Enjoy</h3>
+                    <p>That's it. Your desktop now rotates through stunning wallpapers on autopilot. Go get a coffee.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- System Tray -->
+    <section class="tray-section">
+        <div class="section-inner">
+            <div class="tray-grid">
+                <div class="tray-content">
+                    <h2>Lives in your system tray</h2>
+                    <p>PaperNexus stays out of your way, running silently in the background. Right-click the tray icon whenever you want to take control.</p>
+                    <div class="tray-actions">
+                        <div class="tray-action">
+                            <div class="tray-action-icon">&#9881;</div>
+                            <div>
+                                <strong>Open Settings</strong>
+                                <span>Configure sources, schedules, and display options</span>
+                            </div>
+                        </div>
+                        <div class="tray-action">
+                            <div class="tray-action-icon">&#9193;</div>
+                            <div>
+                                <strong>Next Wallpaper</strong>
+                                <span>Can't wait? Skip ahead immediately</span>
+                            </div>
+                        </div>
+                        <div class="tray-action">
+                            <div class="tray-action-icon">&#127922;</div>
+                            <div>
+                                <strong>Random Wallpaper</strong>
+                                <span>Feeling spontaneous? Pick one at random</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tray-visual">
+                    <div><span class="comment">// PaperNexus is running...</span></div>
+                    <br>
+                    <div><span class="keyword">source</span>: <span class="string">"Bing Daily 4K"</span></div>
+                    <div><span class="keyword">schedule</span>: <span class="string">"every 30 minutes"</span></div>
+                    <div><span class="keyword">wallpapers</span>: <span class="highlight">247 downloaded</span></div>
+                    <div><span class="keyword">favorites</span>: <span class="highlight">12 saved</span></div>
+                    <br>
+                    <div><span class="comment">// Next wallpaper in 14m 22s</span></div>
+                    <div><span class="comment">// Current: "Aurora Borealis, Norway"</span></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq">
+        <div class="section-inner">
+            <div class="section-header">
+                <h2>Frequently asked questions</h2>
+            </div>
+            <div class="faq-list">
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        Does it work on Mac or Linux?
+                        <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">The UI framework (Avalonia) is cross-platform, but wallpaper-setting uses Windows APIs. So for now, Windows only. PRs welcome though!</div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        Will it eat my bandwidth?
+                        <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">Nah. It downloads wallpapers on a schedule (default: once daily from Bing) and caches them locally. Sipping, not chugging.</div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        SmartScreen is warning me. Is it safe?
+                        <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">The app is signed with a self-signed certificate. SmartScreen calms down after a few people download the same release. Click "More info" then "Run anyway" &mdash; the entire source code is right here on GitHub.</div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        Can I add my own wallpaper sources?
+                        <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">Yes! Open Settings, add any HTTP JSON feed URL, and configure the JPath expressions to point at the image URL and title fields. There's a live Test button to verify your setup.</div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        It updated itself. Should I be concerned?
+                        <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">Only if you're concerned about getting bug fixes and features automatically. Updates come straight from this GitHub repo's Releases page, and include automatic rollback if anything goes wrong.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech -->
+    <section class="tech-section">
+        <div class="section-inner">
+            <div class="section-header">
+                <h2>Built with solid foundations</h2>
+            </div>
+            <div class="tech-grid">
+                <div class="tech-badge"><span class="tech-badge-dot"></span> .NET 10.0</div>
+                <div class="tech-badge"><span class="tech-badge-dot"></span> Avalonia UI</div>
+                <div class="tech-badge"><span class="tech-badge-dot"></span> MVVM Architecture</div>
+                <div class="tech-badge"><span class="tech-badge-dot"></span> SixLabors ImageSharp</div>
+                <div class="tech-badge"><span class="tech-badge-dot"></span> Cronos Scheduling</div>
+                <div class="tech-badge"><span class="tech-badge-dot"></span> Self-contained EXE</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta">
+        <div class="section-inner">
+            <h2>Ready for a better desktop?</h2>
+            <p>Download PaperNexus and never worry about your wallpaper again. It's free, open source, and takes 10 seconds to set up.</p>
+            <div class="hero-buttons">
+                <a href="https://github.com/0Keith/PaperNexus/releases/latest" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download for Windows
+                </a>
+                <a href="https://github.com/0Keith/PaperNexus" target="_blank" rel="noopener" class="btn btn-secondary">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    Star on GitHub
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-inner">
+            <div class="footer-brand">
+                <img src="logo.png" alt="PaperNexus">
+                PaperNexus
+            </div>
+            <ul class="footer-links">
+                <li><a href="https://github.com/0Keith/PaperNexus" target="_blank" rel="noopener">GitHub</a></li>
+                <li><a href="https://github.com/0Keith/PaperNexus/releases/latest" target="_blank" rel="noopener">Releases</a></li>
+                <li><a href="https://github.com/0Keith/PaperNexus/issues" target="_blank" rel="noopener">Report a Bug</a></li>
+                <li><a href="https://github.com/0Keith/PaperNexus/blob/main/LICENSE" target="_blank" rel="noopener">License</a></li>
+            </ul>
+            <div class="footer-copy">Made for people who believe their desktop deserves better.</div>
+        </div>
+    </footer>
+
+    <script>
+        function toggleFaq(button) {
+            var item = button.parentElement;
+            var answer = item.querySelector('.faq-answer');
+            var isOpen = item.classList.contains('open');
+
+            // Close all other items
+            document.querySelectorAll('.faq-item.open').forEach(function(openItem) {
+                openItem.classList.remove('open');
+                openItem.querySelector('.faq-answer').style.maxHeight = null;
+            });
+
+            if (!isOpen) {
+                item.classList.add('open');
+                answer.style.maxHeight = answer.scrollHeight + 'px';
+            }
+        }
+    </script>
+
+</body>
+</html>
