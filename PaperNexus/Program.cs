@@ -131,7 +131,7 @@ internal sealed class Program
             if (!File.Exists(installPath))
                 return false;
             try { File.WriteAllText(Path.Combine(installDir, ".installed"), string.Empty); }
-            catch { /* best effort — if this also fails, the install can't complete */ }
+            catch (IOException) { /* best effort — if this also fails, the install can't complete */ }
             return true;
         }
     }
