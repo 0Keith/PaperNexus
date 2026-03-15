@@ -1,0 +1,25 @@
+* text=auto
+
+# Force LF for scripts and config
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Binary — images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.webp binary
+
+# Binary — fonts
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+
+# Binary — build output
+*.exe binary
+*.dll binary
