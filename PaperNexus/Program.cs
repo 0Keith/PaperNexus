@@ -104,7 +104,17 @@ internal sealed class Program
         try
         {
             Directory.CreateDirectory(installDir);
-            File.Copy(currentPath, installPath, overwrite: true);
+
+            // Skip the copy when the source and destination resolve to the same file.
+            // This happens when re-installing from an existing install location (e.g.,
+            // the user's exe is already on the Desktop and they pick Desktop as the
+            // install folder). File.Copy throws IOException for same-path copies and
+            // for locked files (the running exe can't overwrite itself).
+            var source = Path.GetFullPath(currentPath);
+            var dest = Path.GetFullPath(installPath);
+            if (!string.Equals(source, dest, StringComparison.OrdinalIgnoreCase))
+                File.Copy(currentPath, installPath, overwrite: true);
+
             // Mark this directory as an install location so startup recognises it
             // regardless of whether it matches the default AppData path.
             File.WriteAllText(Path.Combine(installDir, ".installed"), string.Empty);
@@ -116,8 +126,13 @@ internal sealed class Program
         catch (IOException)
         {
             // File may be locked by a running instance we could not detect.
-            // Launch the existing copy if it's already there.
-            return File.Exists(installPath);
+            // The exe might already exist at the install path from a previous install —
+            // ensure the sentinel is written so the app won't loop back to the install screen.
+            if (!File.Exists(installPath))
+                return false;
+            try { File.WriteAllText(Path.Combine(installDir, ".installed"), string.Empty); }
+            catch (IOException) { /* best effort — if this also fails, the install can't complete */ }
+            return true;
         }
     }
 
