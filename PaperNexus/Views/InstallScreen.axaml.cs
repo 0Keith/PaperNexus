@@ -27,8 +27,16 @@ public partial class InstallScreen : Window
             if (results is [var folder])
             {
                 var selected = folder.Path.LocalPath;
-                // Always install into a "PaperNexus" subfolder of whatever the user picks.
-                InstallPathText.Text = Path.Combine(selected, "PaperNexus");
+
+                // If the exe is already in the selected folder, install in-place
+                // rather than nesting into a redundant "PaperNexus" subfolder that
+                // leaves the original exe behind and causes an install loop.
+                var currentDir = Path.GetDirectoryName(Path.GetFullPath(Program.CurrentExePath));
+                var selectedFull = Path.GetFullPath(selected);
+                if (currentDir is not null && string.Equals(selectedFull, currentDir, StringComparison.OrdinalIgnoreCase))
+                    InstallPathText.Text = selected;
+                else
+                    InstallPathText.Text = Path.Combine(selected, "PaperNexus");
             }
         }
         catch { /* picker cancelled or unavailable — leave path unchanged */ }

@@ -92,9 +92,46 @@ internal sealed class Program
         if (TrySignalExistingInstance())
             return;
 
+        // A previous install may have copied the exe elsewhere and left a redirect marker.
+        // Launch the installed copy instead of showing the install screen again — this
+        // prevents an "install loop" when the user re-runs the original downloaded exe.
+        if (TryRedirectToInstalledCopy())
+            return;
+
         // Show the install screen — it performs the actual copy and relaunch when confirmed.
         IsInstallMode = true;
         RunApp(args);
+    }
+
+    // Checks for a ".installed-at" redirect marker next to the current exe.
+    // If the marker points to an installed copy that still exists, launches it and returns true.
+    private static bool TryRedirectToInstalledCopy()
+    {
+        var exeDir = Path.GetDirectoryName(Path.GetFullPath(CurrentExePath));
+        if (exeDir is null)
+            return false;
+
+        var redirectFile = Path.Combine(exeDir, ".installed-at");
+        if (!File.Exists(redirectFile))
+            return false;
+
+        try
+        {
+            var installedExe = File.ReadAllText(redirectFile).Trim();
+            if (!File.Exists(installedExe))
+            {
+                // Installed copy was removed — clean up the stale redirect.
+                File.Delete(redirectFile);
+                return false;
+            }
+
+            Process.Start(new ProcessStartInfo(installedExe) { UseShellExecute = true });
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     // Copies the exe to the install directory and migrates any adjacent data files.
@@ -112,12 +149,25 @@ internal sealed class Program
             // for locked files (the running exe can't overwrite itself).
             var source = Path.GetFullPath(currentPath);
             var dest = Path.GetFullPath(installPath);
-            if (!string.Equals(source, dest, StringComparison.OrdinalIgnoreCase))
+            var isSamePath = string.Equals(source, dest, StringComparison.OrdinalIgnoreCase);
+            if (!isSamePath)
                 File.Copy(currentPath, installPath, overwrite: true);
 
             // Mark this directory as an install location so startup recognises it
             // regardless of whether it matches the default AppData path.
             File.WriteAllText(Path.Combine(installDir, ".installed"), string.Empty);
+
+            // Leave a redirect marker next to the source exe so that launching it
+            // again opens the installed copy instead of showing the install screen.
+            if (!isSamePath)
+            {
+                var sourceDir = Path.GetDirectoryName(source);
+                if (sourceDir is not null)
+                {
+                    try { File.WriteAllText(Path.Combine(sourceDir, ".installed-at"), dest); }
+                    catch { /* best-effort — failing just means no redirect */ }
+                }
+            }
             // Carry over persisted data from beside the downloaded exe, if present.
             MigrateFileIfNeeded("settings.json", currentPath, installDir);
             MigrateFileIfNeeded("timers.json", currentPath, installDir);
@@ -132,6 +182,20 @@ internal sealed class Program
                 return false;
             try { File.WriteAllText(Path.Combine(installDir, ".installed"), string.Empty); }
             catch (IOException) { /* best effort — if this also fails, the install can't complete */ }
+
+            // Also write the redirect for the source exe.
+            var source = Path.GetFullPath(currentPath);
+            var dest = Path.GetFullPath(installPath);
+            if (!string.Equals(source, dest, StringComparison.OrdinalIgnoreCase))
+            {
+                var sourceDir = Path.GetDirectoryName(source);
+                if (sourceDir is not null)
+                {
+                    try { File.WriteAllText(Path.Combine(sourceDir, ".installed-at"), dest); }
+                    catch { /* best-effort */ }
+                }
+            }
+
             return true;
         }
     }
