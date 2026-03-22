@@ -25,3 +25,4 @@ Desktop.ini
 # Install sentinel and redirect marker
 .installed
 .installed-at
+.claude/scheduled_tasks.lock

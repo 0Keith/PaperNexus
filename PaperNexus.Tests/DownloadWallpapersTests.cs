@@ -495,6 +495,34 @@ public class DownloadWallpapersTests : IDisposable
         Assert.Empty(settings.BannedWallpapers);
     }
 
+    // Regression guard: CleanupOldImages must not throw when FavoriteWallpapers or
+    // BannedWallpapers are null. The null-conditional on RemoveAll must handle this
+    // gracefully instead of throwing a NullReferenceException.
+    [Fact]
+    public async Task CleanupOldImages_NullLists_DoesNotThrow()
+    {
+        var source = new HttpWallpaperSourceService(NullLogger<HttpWallpaperSourceService>.Instance);
+        var sut = new DownloadWallpapers(NullLogger<DownloadWallpapers>.Instance, source);
+
+        var expiredPath = Path.Combine(_downloadDir, "expired.png");
+        TestHelpers.CreateSmallPng(expiredPath);
+        File.SetLastWriteTimeUtc(expiredPath, DateTime.UtcNow.AddDays(-400));
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir, RetentionDays = 365 },
+            FavoriteWallpapers = null,
+            BannedWallpapers = null,
+        };
+
+        // Act: should not throw NullReferenceException
+        var ex = await Record.ExceptionAsync(() => sut.CleanupOldImages(settings));
+
+        // Assert: cleanup completed and the expired file was deleted
+        Assert.Null(ex);
+        Assert.False(File.Exists(expiredPath), "Expired file should be deleted even when lists are null");
+    }
+
     // Regression guard: CleanupOldImages must not throw when CurrentWallpaperPath contains
     // characters that cause Path.GetFullPath to throw (ArgumentException, NotSupportedException,
     // or PathTooLongException). The try-catch must gracefully fall back so expired files are

@@ -318,8 +318,8 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
             StringComparer.OrdinalIgnoreCase);
 
         var staleCount = 0;
-        staleCount += settings.FavoriteWallpapers.RemoveAll(p => !existingFiles.Contains(p));
-        staleCount += settings.BannedWallpapers.RemoveAll(p => !existingFiles.Contains(p));
+        staleCount += settings.FavoriteWallpapers?.RemoveAll(p => !existingFiles.Contains(p)) ?? 0;
+        staleCount += settings.BannedWallpapers?.RemoveAll(p => !existingFiles.Contains(p)) ?? 0;
 
         if (deleted.Count > 0 || staleCount > 0)
             Logger.LogInformation(
