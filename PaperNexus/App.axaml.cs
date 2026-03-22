@@ -155,9 +155,11 @@ public partial class App : Application
                     if (downloader is not null)
                     {
                         await Task.Run(downloader.DownloadAllAsync);
-                        await Task.Run(switcher.SwitchToNextAsync);
+                        next = await Task.Run(switcher.SwitchToNextAsync);
                     }
                 }
+                if (next is null)
+                    Logger?.LogWarning("Tray 'Next Wallpaper' failed: no wallpapers available after download retry.");
             }
             catch (Exception ex)
             {
@@ -187,9 +189,11 @@ public partial class App : Application
                     if (downloader is not null)
                     {
                         await Task.Run(downloader.DownloadAllAsync);
-                        await Task.Run(switcher.SwitchToRandomAsync);
+                        next = await Task.Run(switcher.SwitchToRandomAsync);
                     }
                 }
+                if (next is null)
+                    Logger?.LogWarning("Tray 'Random Wallpaper' failed: no wallpapers available after download retry.");
             }
             catch (Exception ex)
             {
