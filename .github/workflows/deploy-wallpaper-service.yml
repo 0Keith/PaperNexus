@@ -105,11 +105,8 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        install_section=$(cat <<'INSTALL'
-## Installation
-Download **PaperNexus.exe** below and run it — the app installs itself to `%LocalAppData%\PaperNexus\` on first launch and adds a tray icon.
-INSTALL
-)
+        install_section='## Installation
+        Download **PaperNexus.exe** below and run it — the app installs itself to `%LocalAppData%\PaperNexus\` on first launch and adds a tray icon.'
 
         if [[ "${{ github.ref }}" =~ ^refs/tags/ ]]; then
           newTag="${{ github.ref_name }}"
