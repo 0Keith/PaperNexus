@@ -228,6 +228,12 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
                 }
             });
             annotatedOwned = true;
+
+            // Defensively dispose drawing resources (no-op today; activates if SixLabors adds IDisposable).
+            // Cast through object to bypass sealed-class compile-time check (CS0039).
+            (font as object as IDisposable)?.Dispose();
+            (brush as object as IDisposable)?.Dispose();
+            (outlinePen as object as IDisposable)?.Dispose();
         }
         else
         {

@@ -368,6 +368,43 @@ public class SwitchWallpaperTests : IAsyncLifetime, IDisposable
         Assert.Null(result);
     }
 
+    // --- Annotation rendering tests ---
+
+    [Fact]
+    public async Task SwitchToNext_AnnotationEnabled_ReturnsNonNull()
+    {
+        // Arrange: one wallpaper with annotation enabled and valid settings.
+        // Exercises the brush/pen creation and img.Clone annotation code path.
+        var wallpaperPath = Path.Combine(_wallpaperDir, "annotated - test.png");
+        TestHelpers.CreateSmallPng(wallpaperPath);
+        TestHelpers.Cleanup();
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _wallpaperDir },
+            Slideshow = new SlideshowSettings { Order = SlideshowOrder.Alphabetical, Enabled = false },
+            CurrentWallpaperPath = string.Empty,
+            Sources = [],
+            AnnotateWallpaper = true,
+            Annotation = new AnnotationSettings
+            {
+                FontSize = 18,
+                Color = "#F5F5F5",
+                Position = AnnotationPosition.TopLeft,
+                OutlineEnabled = true,
+            },
+        };
+        await settings.SaveAsync();
+
+        var switcher = new SwitchWallpaper(NullLogger<SwitchWallpaper>.Instance);
+
+        // Act
+        var result = await switcher.SwitchToNextAsync();
+
+        // Assert: annotation path should complete without error and return a valid wallpaper path
+        Assert.NotNull(result);
+    }
+
     // --- ApplyFavoritePriority / favorite weighting tests ---
 
     [Fact]
