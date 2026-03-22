@@ -126,3 +126,4 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 - **Branch protection on `main`:** PRs required, `build` status check required, `enforce_admins: true` (owner cannot bypass)
 - **Always start work on a feature branch** — never commit directly to `main`; create a descriptive branch (e.g., `feature/wallpaper-preview`, `fix/auto-update`) before making any changes
 - **Comment addition tasks:** Add comments in small, focused batches (1–3 files at a time) rather than delegating all files to a single agent. Large batches risk code corruption.
+- **No system-level calls in unit tests:** Tests must never invoke real OS APIs (e.g., `NativeMethods`, registry writes, `SetDesktopWallpaper`). Use injectable interfaces with no-op test doubles (e.g., `NoOpWallpaperApplier`) to isolate from the system.
