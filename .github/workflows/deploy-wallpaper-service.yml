@@ -84,7 +84,7 @@ jobs:
 
           if [[ -n "$GH_TOKEN" ]]; then
             base64 -w0 "$pfxPath" | gh secret set SIGNING_CERTIFICATE --repo '${{ github.repository }}'
-            gh secret set SIGNING_CERTIFICATE_PASSWORD --body "$certPassword" --repo '${{ github.repository }}'
+            echo "$certPassword" | gh secret set SIGNING_CERTIFICATE_PASSWORD --repo '${{ github.repository }}'
             echo "Signing certificate generated and stored as repository secrets."
           else
             echo "WARNING: GH_PAT not set — cert is ephemeral for this run. Add a GH_PAT secret (secrets:write) to persist it."
