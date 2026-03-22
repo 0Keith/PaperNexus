@@ -13,6 +13,7 @@ public class FileLoggerProvider : ILoggerProvider, IAsyncDisposable
     private readonly ConcurrentQueue<string> _messages = new();
     private readonly SemaphoreSlim _messageCount = new(0);
     private readonly Task _writeTask;
+    private readonly LogLevel _minLevel;
     // volatile ensures the writer thread always reads the latest value without the JIT caching
     // it in a register across loop iterations that do not cross a full memory-barrier boundary.
     private volatile bool _running = true;
@@ -20,8 +21,11 @@ public class FileLoggerProvider : ILoggerProvider, IAsyncDisposable
     // Still running if _running is true, or if there are queued messages that have not yet been flushed.
     private bool Running => _running || _messages.Count > 0 || _messageCount.CurrentCount > 0;
 
-    public FileLoggerProvider()
+    public FileLoggerProvider() : this(LogLevel.Information) { }
+
+    public FileLoggerProvider(LogLevel minLevel)
     {
+        _minLevel = minLevel;
         _writeTask = StartWriter();
     }
 
@@ -91,7 +95,7 @@ public class FileLoggerProvider : ILoggerProvider, IAsyncDisposable
         catch { }
     }
 
-    public ILogger CreateLogger(string categoryName) => new FileLogger(categoryName, this);
+    public ILogger CreateLogger(string categoryName) => new FileLogger(categoryName, this, _minLevel);
 
     private void Log(string message)
     {
@@ -103,11 +107,13 @@ public class FileLoggerProvider : ILoggerProvider, IAsyncDisposable
     {
         private readonly string _categoryName;
         private readonly FileLoggerProvider _fileLoggerProvider;
+        private readonly LogLevel _minLevel;
 
-        public FileLogger(string categoryName, FileLoggerProvider fileLoggerProvider)
+        public FileLogger(string categoryName, FileLoggerProvider fileLoggerProvider, LogLevel minLevel)
         {
             _categoryName = categoryName;
             _fileLoggerProvider = fileLoggerProvider;
+            _minLevel = minLevel;
         }
 
         public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
@@ -119,12 +125,15 @@ public class FileLoggerProvider : ILoggerProvider, IAsyncDisposable
             public void Dispose() { }
         }
 
-        public bool IsEnabled(LogLevel logLevel) => true;
+        public bool IsEnabled(LogLevel logLevel) => logLevel >= _minLevel && logLevel != LogLevel.None;
 
         // Formats the log entry as "timestamp | level | category | message" and appends
         // the full exception (including stack trace) on subsequent lines when present.
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
         {
+            if (!IsEnabled(logLevel))
+                return;
+
             var message = formatter?.Invoke(state, exception);
             message = string.Join(" | ", DateTimeOffset.Now.ToString("O"), logLevel, _categoryName, message);
             if (exception is not null)

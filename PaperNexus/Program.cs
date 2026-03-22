@@ -248,7 +248,8 @@ internal sealed class Program
     // log messages are flushed before the process exits.
     private static void RunApp(string[] args)
     {
-        using var loggerProvider = new FileLoggerProvider();
+        var minLogLevel = Program.IsDebugMode ? LogLevel.Debug : LogLevel.Information;
+        using var loggerProvider = new FileLoggerProvider(minLogLevel);
         var logger = loggerProvider.CreateLogger(nameof(Program));
 
         // Catch exceptions that escape all managed thread roots (non-UI threads, finalizers, etc.)

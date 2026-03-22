@@ -58,7 +58,8 @@ public partial class App : Application
             _backgroundHost = Host.CreateDefaultBuilder()
                 .ConfigureServices(services =>
                 {
-                    services.AddLogging(b => b.AddProvider(new FileLoggerProvider()));
+                    var minLogLevel = Program.IsDebugMode ? LogLevel.Debug : LogLevel.Information;
+                    services.AddLogging(b => b.AddProvider(new FileLoggerProvider(minLogLevel)));
                     services.AddSingleton<HttpWallpaperSourceService>();
                     // Auto-discover and register all IAddSingleton / IAddHostedSingleton / IScheduleScopedJob implementations
                     services.AddServicesFrom(typeof(App).Assembly);
