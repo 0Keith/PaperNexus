@@ -13,6 +13,7 @@ Desktop.ini
 
 # Claude
 .claude/settings.local.json
+.claude/global/
 
 # Logs
 *.log
@@ -21,5 +22,6 @@ Desktop.ini
 */bin/
 */obj/
 
-# Install sentinel
+# Install sentinel and redirect marker
 .installed
+.installed-at
