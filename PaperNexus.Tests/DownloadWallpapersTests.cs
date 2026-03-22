@@ -85,11 +85,11 @@ public class DownloadWallpapersTests : IDisposable
     // Without the fix, Path.GetExtension("image.jpg?sig=abc") returns ".jpg?sig=abc",
     // making the extension contain the query string and producing an invalid filename.
     [Theory]
-    [InlineData("https://example.com/photo.jpg?sig=abc123&se=2025",           "photo",  ".jpg")]
-    [InlineData("https://example.com/photo.png?X-Goog-Signature=xyz",         "photo",  ".png")]
-    [InlineData("https://example.com/photo.jpg#anchor",                        "photo",  ".jpg")]
-    [InlineData("https://example.com/photo.jpg?token=x&ver=2#section",        "photo",  ".jpg")]
-    [InlineData("https://example.com/api/image?format=jpg&w=3840",            "image",  ".png")] // no clean ext → .png fallback
+    [InlineData("https://example.com/photo.jpg?sig=abc123&se=2025", "photo", ".jpg")]
+    [InlineData("https://example.com/photo.png?X-Goog-Signature=xyz", "photo", ".png")]
+    [InlineData("https://example.com/photo.jpg#anchor", "photo", ".jpg")]
+    [InlineData("https://example.com/photo.jpg?token=x&ver=2#section", "photo", ".jpg")]
+    [InlineData("https://example.com/api/image?format=jpg&w=3840", "image", ".png")] // no clean ext → .png fallback
     public async Task Download_UrlWithQueryString_ProducesCleanFilename(
         string imageUrl, string expectedStem, string expectedExt)
     {
@@ -410,6 +410,62 @@ public class DownloadWallpapersTests : IDisposable
         Assert.Equal(WallpaperNexusSettings.DefaultSources.Count, loaded.Sources.Count);
     }
 
+    [Fact]
+    public async Task CleanupOldImages_CurrentWallpaper_IsNotDeleted()
+    {
+        // Arrange: an expired file that is set as the current wallpaper but is NOT
+        // a favorite. Retention cleanup must skip it because deleting the active
+        // wallpaper would leave the desktop in an undefined state.
+        var source = new HttpWallpaperSourceService(NullLogger<HttpWallpaperSourceService>.Instance);
+        var sut = new DownloadWallpapers(NullLogger<DownloadWallpapers>.Instance, source);
+
+        var currentPath = Path.Combine(_downloadDir, "current.png");
+        TestHelpers.CreateSmallPng(currentPath);
+        File.SetLastWriteTimeUtc(currentPath, DateTime.UtcNow.AddDays(-400));
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir, RetentionDays = 365 },
+            CurrentWallpaperPath = currentPath,
+        };
+
+        // Act
+        await sut.CleanupOldImages(settings);
+
+        // Assert: current wallpaper is preserved despite being past the retention cutoff
+        Assert.True(File.Exists(currentPath), "Current wallpaper should not be deleted by retention cleanup");
+    }
+
+    [Fact]
+    public async Task CleanupOldImages_ExpiredNonCurrentNonFavorite_IsStillDeleted()
+    {
+        // Arrange: two expired files — one is the current wallpaper, the other is not
+        // current and not favorited. Only the non-current file should be deleted.
+        var source = new HttpWallpaperSourceService(NullLogger<HttpWallpaperSourceService>.Instance);
+        var sut = new DownloadWallpapers(NullLogger<DownloadWallpapers>.Instance, source);
+
+        var currentPath = Path.Combine(_downloadDir, "current.png");
+        TestHelpers.CreateSmallPng(currentPath);
+        File.SetLastWriteTimeUtc(currentPath, DateTime.UtcNow.AddDays(-400));
+
+        var expiredPath = Path.Combine(_downloadDir, "expired.png");
+        TestHelpers.CreateSmallPng(expiredPath);
+        File.SetLastWriteTimeUtc(expiredPath, DateTime.UtcNow.AddDays(-400));
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir, RetentionDays = 365 },
+            CurrentWallpaperPath = currentPath,
+        };
+
+        // Act
+        await sut.CleanupOldImages(settings);
+
+        // Assert: current wallpaper survives, non-current expired file is deleted
+        Assert.True(File.Exists(currentPath), "Current wallpaper should be preserved");
+        Assert.False(File.Exists(expiredPath), "Expired non-current file should be deleted");
+    }
+
     // Regression guard: CleanupOldImages must not throw when the wallpaper folder
     // has been deleted between DownloadFromSourcesAsync creating it and the cleanup step.
     // It should silently prune stale list entries and return without crashing.
@@ -437,6 +493,35 @@ public class DownloadWallpapersTests : IDisposable
         // Stale paths pointing to non-existent files must be pruned from both lists
         Assert.Empty(settings.FavoriteWallpapers);
         Assert.Empty(settings.BannedWallpapers);
+    }
+
+    // Regression guard: CleanupOldImages must not throw when CurrentWallpaperPath contains
+    // characters that cause Path.GetFullPath to throw (ArgumentException, NotSupportedException,
+    // or PathTooLongException). The try-catch must gracefully fall back so expired files are
+    // still deleted and the cleanup completes without crashing the scheduler.
+    [Fact]
+    public async Task CleanupOldImages_InvalidCurrentWallpaperPath_DoesNotThrow()
+    {
+        var source = new HttpWallpaperSourceService(NullLogger<HttpWallpaperSourceService>.Instance);
+        var sut = new DownloadWallpapers(NullLogger<DownloadWallpapers>.Instance, source);
+
+        var expiredPath = Path.Combine(_downloadDir, "expired.png");
+        TestHelpers.CreateSmallPng(expiredPath);
+        File.SetLastWriteTimeUtc(expiredPath, DateTime.UtcNow.AddDays(-400));
+
+        var settings = new WallpaperNexusSettings
+        {
+            Download = new DownloadSettings { Folder = _downloadDir, RetentionDays = 365 },
+            // Null byte triggers ArgumentException in Path.GetFullPath
+            CurrentWallpaperPath = "invalid:path\0chars",
+        };
+
+        // Act: should not throw despite the invalid CurrentWallpaperPath
+        var ex = await Record.ExceptionAsync(() => sut.CleanupOldImages(settings));
+
+        // Assert: cleanup completed without throwing and expired file was still deleted
+        Assert.Null(ex);
+        Assert.False(File.Exists(expiredPath), "Expired file should still be deleted when CurrentWallpaperPath is invalid");
     }
 
     [Fact]

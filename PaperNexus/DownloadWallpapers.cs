@@ -8,7 +8,7 @@ namespace PaperNexus;
 
 internal interface IDownloadWallpapers
 {
-    Task DownloadAllAsync();
+    public Task DownloadAllAsync();
 }
 
 internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IAddHostedSingleton<IDownloadWallpapers>
@@ -257,10 +257,11 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
     }
 
     // Deletes wallpaper files older than the configured retention period and prunes
-    // stale paths from FavoriteWallpapers and BannedWallpapers. Favorited files are
-    // excluded from the age-based deletion but their paths are still pruned if the file
-    // no longer exists (e.g. manually deleted outside the app). The caller is responsible
-    // for saving settings after this method returns.
+    // stale paths from FavoriteWallpapers and BannedWallpapers. Favorited files and the
+    // currently active wallpaper (CurrentWallpaperPath) are excluded from the age-based
+    // deletion but their paths are still pruned if the file no longer exists (e.g.
+    // manually deleted outside the app). The caller is responsible for saving settings
+    // after this method returns.
     internal async Task CleanupOldImages(WallpaperNexusSettings settings)
     {
         // Guard against the folder being deleted between the Directory.CreateDirectory
@@ -276,6 +277,23 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         var favorites = new HashSet<string>(
             settings.FavoriteWallpapers ?? [],
             StringComparer.OrdinalIgnoreCase);
+        // Resolve the currently active wallpaper to a full path so the comparison
+        // against FileInfo.FullName is reliable regardless of relative vs absolute storage.
+        // Path.GetFullPath can throw for several reasons — invalid characters (ArgumentException),
+        // unsupported path format such as ":" in the wrong position (NotSupportedException),
+        // or exceeding MAX_PATH (PathTooLongException) — so fall back to empty (treat as unmatched).
+        var currentWallpaper = string.Empty;
+        if (!string.IsNullOrEmpty(settings.CurrentWallpaperPath))
+        {
+            try
+            {
+                currentWallpaper = Path.GetFullPath(settings.CurrentWallpaperPath);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                Logger.LogWarning(ex, "CurrentWallpaperPath is invalid — ignoring for retention cleanup.");
+            }
+        }
         // Materialise the directory listing once so we can reuse it for the stale-path
         // check below without a second filesystem round-trip or a TOCTOU window.
         var allFiles = new DirectoryInfo(settings.Download.Folder).EnumerateFiles().ToList();
@@ -283,7 +301,9 @@ internal class DownloadWallpapers : ScheduledJobService, IDownloadWallpapers, IA
         var deleted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in allFiles)
         {
-            if (cutoff > file.LastWriteTimeUtc && !favorites.Contains(file.FullName))
+            if (cutoff > file.LastWriteTimeUtc
+                && !favorites.Contains(file.FullName)
+                && !string.Equals(file.FullName, currentWallpaper, StringComparison.OrdinalIgnoreCase))
             {
                 file.Delete();
                 deleted.Add(file.FullName);
