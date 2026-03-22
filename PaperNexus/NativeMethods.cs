@@ -1,6 +1,43 @@
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
+using PaperNexus.Core;
 
 namespace PaperNexus;
+
+// Abstraction over Windows desktop API calls so tests can run without changing the real wallpaper
+public interface IWallpaperApplier
+{
+    public bool SetWallpaper(string wallpaperPath);
+    public void ApplyFillStyle(WallpaperFillStyle style);
+}
+
+internal sealed class WallpaperApplier : IWallpaperApplier, IAddSingleton<IWallpaperApplier>
+{
+    public bool SetWallpaper(string wallpaperPath) => NativeMethods.SetDesktopWallpaper(wallpaperPath);
+
+    public void ApplyFillStyle(WallpaperFillStyle style)
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        // WallpaperStyle and TileWallpaper registry values under HKCU\Control Panel\Desktop
+        // control how Windows positions the wallpaper image.
+        var (wallpaperStyle, tileWallpaper) = style switch
+        {
+            WallpaperFillStyle.Tile => ("0", "1"),
+            WallpaperFillStyle.Center => ("0", "0"),
+            WallpaperFillStyle.Stretch => ("2", "0"),
+            WallpaperFillStyle.Fit => ("6", "0"),
+            WallpaperFillStyle.Fill => ("10", "0"),
+            WallpaperFillStyle.Span => ("22", "0"),
+            _ => ("10", "0"),
+        };
+
+        using var key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", writable: true);
+        key?.SetValue("WallpaperStyle", wallpaperStyle);
+        key?.SetValue("TileWallpaper", tileWallpaper);
+    }
+}
 
 internal static class NativeMethods
 {

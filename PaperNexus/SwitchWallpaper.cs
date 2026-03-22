@@ -1,6 +1,5 @@
 using Cronos;
 using PaperNexus.Core;
-using Microsoft.Win32;
 using SixLabors.Fonts;
 using BundledFonts = PaperNexus.Core.BundledFonts;
 using SixLabors.ImageSharp;
@@ -9,7 +8,6 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Processing;
-using System.Runtime.InteropServices;
 
 namespace PaperNexus;
 
@@ -24,12 +22,14 @@ public interface ISwitchWallpaper
 internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchWallpaper>
 {
     private readonly ILogger<SwitchWallpaper> _logger;
+    private readonly IWallpaperApplier _wallpaperApplier;
 
     public event Action<string>? WallpaperChanged;
 
-    public SwitchWallpaper(ILogger<SwitchWallpaper> logger)
+    public SwitchWallpaper(ILogger<SwitchWallpaper> logger, IWallpaperApplier wallpaperApplier)
     {
         _logger = logger.ThrowIfNull();
+        _wallpaperApplier = wallpaperApplier.ThrowIfNull();
     }
 
     // Advances to the next wallpaper according to the configured slideshow order.
@@ -275,10 +275,9 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
                 File.Delete(Path.Combine(AppContext.BaseDirectory, "current.png"));
             }
 
-            if (OperatingSystem.IsWindows())
-                ApplyFillStyle(settings.Slideshow.FillStyle);
+            _wallpaperApplier.ApplyFillStyle(settings.Slideshow.FillStyle);
             // Log a warning if the Win32 API call reports failure so silent wallpaper-not-set bugs surface in logs
-            var wallpaperSet = NativeMethods.SetDesktopWallpaper(currentPath);
+            var wallpaperSet = _wallpaperApplier.SetWallpaper(currentPath);
             if (!wallpaperSet)
                 _logger.LogWarning("SystemParametersInfo(SPI_SETDESKWALLPAPER) returned 0 for path: {Path}", currentPath);
             _logger.LogInformation("Switching wallpaper to: {Path}", next);
@@ -300,26 +299,6 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
 
     private const long SizeCeiling = 1 << 24; // 16 MB
 
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-    private static void ApplyFillStyle(WallpaperFillStyle style)
-    {
-        // WallpaperStyle and TileWallpaper registry values under HKCU\Control Panel\Desktop
-        // control how Windows positions the wallpaper image.
-        var (wallpaperStyle, tileWallpaper) = style switch
-        {
-            WallpaperFillStyle.Tile => ("0", "1"),
-            WallpaperFillStyle.Center => ("0", "0"),
-            WallpaperFillStyle.Stretch => ("2", "0"),
-            WallpaperFillStyle.Fit => ("6", "0"),
-            WallpaperFillStyle.Fill => ("10", "0"),
-            WallpaperFillStyle.Span => ("22", "0"),
-            _ => ("10", "0"),
-        };
-
-        using var key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", writable: true);
-        key?.SetValue("WallpaperStyle", wallpaperStyle);
-        key?.SetValue("TileWallpaper", tileWallpaper);
-    }
 }
 
 internal sealed class SwitchWallpaperJob : IScheduleScopedJob
