@@ -15,10 +15,10 @@ namespace PaperNexus;
 
 public interface ISwitchWallpaper
 {
-    event Action<string>? WallpaperChanged;
-    Task<string?> SwitchToNextAsync();
-    Task<string?> SwitchToRandomAsync();
-    Task<string?> SwitchToSpecificAsync(string path);
+    public event Action<string>? WallpaperChanged;
+    public Task<string?> SwitchToNextAsync();
+    public Task<string?> SwitchToRandomAsync();
+    public Task<string?> SwitchToSpecificAsync(string path);
 }
 
 internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchWallpaper>

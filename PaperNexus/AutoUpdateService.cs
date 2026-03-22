@@ -8,7 +8,7 @@ namespace PaperNexus;
 
 internal interface ICheckForUpdates
 {
-    Task CheckAsync(bool forceUpdate = false, IProgress<string>? progress = null);
+    public Task CheckAsync(bool forceUpdate = false, IProgress<string>? progress = null);
 }
 
 internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheckForUpdates>

@@ -375,9 +375,9 @@ public class SwitchWallpaperTests : IAsyncLifetime, IDisposable
     {
         // Arrange: two wallpapers, one favorited with weight 10 (very high boost).
         // Over many iterations the favorite should win the overwhelming majority of picks.
-        var pathFav  = Path.Combine(_wallpaperDir, "favorite.png");
+        var pathFav = Path.Combine(_wallpaperDir, "favorite.png");
         var pathNorm = Path.Combine(_wallpaperDir, "normal.png");
-        TestHelpers.CreateSmallPng(pathFav,  r: 100);
+        TestHelpers.CreateSmallPng(pathFav, r: 100);
         TestHelpers.CreateSmallPng(pathNorm, r: 200);
         TestHelpers.Cleanup();
 
@@ -425,9 +425,9 @@ public class SwitchWallpaperTests : IAsyncLifetime, IDisposable
         // Arrange: two wallpapers, one favorited but priority is disabled.
         // Both files should appear as equals in the pool — the test verifies the
         // non-favorite also gets picked at least once over many iterations.
-        var pathFav  = Path.Combine(_wallpaperDir, "favorite.png");
+        var pathFav = Path.Combine(_wallpaperDir, "favorite.png");
         var pathNorm = Path.Combine(_wallpaperDir, "normal.png");
-        TestHelpers.CreateSmallPng(pathFav,  r: 100);
+        TestHelpers.CreateSmallPng(pathFav, r: 100);
         TestHelpers.CreateSmallPng(pathNorm, r: 200);
         TestHelpers.Cleanup();
 

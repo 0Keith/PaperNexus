@@ -31,8 +31,8 @@ public record JobConfig(
 
 public interface IScheduleScopedJob
 {
-    Task<JobConfig> GetJobConfigAsync();
-    Task ExecuteAsync();
+    public Task<JobConfig> GetJobConfigAsync();
+    public Task ExecuteAsync();
 }
 
 public abstract class ScheduledJobService : IHostedService, IDisposable

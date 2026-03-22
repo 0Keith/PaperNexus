@@ -1254,11 +1254,11 @@ public partial class WallpaperConfigViewModel : ObservableObject
         {
             IntervalType.Seconds => $"*/{Math.Min(n, 59)} * * * * *",
             IntervalType.Minutes => $"*/{Math.Min(n, 59)} * * * *",
-            IntervalType.Hours   => $"0 */{Math.Min(n, 23)} * * *",
-            IntervalType.Days    => $"0 0 */{Math.Min(n, 28)} * *",
-            IntervalType.Weeks   => $"0 0 */{Math.Min(n * 7, 28)} * *",
-            IntervalType.Months  => $"0 0 1 */{Math.Min(n, 12)} *",
-            _                    => "0 0 1 1 *", // Years
+            IntervalType.Hours => $"0 */{Math.Min(n, 23)} * * *",
+            IntervalType.Days => $"0 0 */{Math.Min(n, 28)} * *",
+            IntervalType.Weeks => $"0 0 */{Math.Min(n * 7, 28)} * *",
+            IntervalType.Months => $"0 0 1 */{Math.Min(n, 12)} *",
+            _ => "0 0 1 1 *", // Years
         };
     }
 
