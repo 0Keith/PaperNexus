@@ -398,15 +398,28 @@ internal static class JobTimerStore
             _file.Refresh();
             if (_file.Exists)
             {
-                var json = await File.ReadAllTextAsync(_file.FullName);
-                var all = JsonConvert.DeserializeObject<Dictionary<string, JobExecutionContext>>(json);
-                if (all is not null)
+                try
                 {
-                    // Warm cache for all jobs at once so the next call for any job is a cache hit
-                    foreach (var entry in all)
-                        _cache.TryAdd(entry.Key, entry.Value);
-                    if (_cache.TryGetValue(jobName, out context))
-                        return context;
+                    var json = await File.ReadAllTextAsync(_file.FullName);
+                    var all = JsonConvert.DeserializeObject<Dictionary<string, JobExecutionContext>>(json);
+                    if (all is not null)
+                    {
+                        // Warm cache for all jobs at once so the next call for any job is a cache hit
+                        foreach (var entry in all)
+                            _cache.TryAdd(entry.Key, entry.Value);
+                        if (_cache.TryGetValue(jobName, out context))
+                            return context;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Cache the default so subsequent calls for the same job don't re-read the corrupt file
+                    _cache[jobName] = default;
+                    // Log the corrupt file so operators can diagnose why job contexts are missing.
+                    // Falls through to return default — same as when the file does not exist —
+                    // so the scheduler continues with a fresh context rather than retrying the
+                    // same corrupt file in an infinite backoff loop.
+                    Trace.TraceWarning("Failed to deserialize {0} for job '{1}': {2}", _file.FullName, jobName, ex.Message);
                 }
             }
             return default;
@@ -436,4 +449,8 @@ internal static class JobTimerStore
             }
         }
     }
+
+    // Clears the in-memory cache so unit tests start from a clean state.
+    // Only intended for test isolation — production code never calls this.
+    internal static void ResetForTesting() => _cache.Clear();
 }
