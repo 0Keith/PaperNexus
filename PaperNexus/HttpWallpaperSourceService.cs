@@ -34,18 +34,64 @@ internal class HttpWallpaperSourceService
         }
 
         var json = await getResponse.Content.ReadAsStringAsync(cancellationToken);
-        var images = ParseImages(source, json);
+
+        List<WallpaperImage> images;
+        try
+        {
+            images = ParseImages(source, json);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse images from source '{Name}'.", source.Name);
+            throw;
+        }
+
         _logger.LogInformation("Got {Count} image(s) from '{Name}' in {Elapsed}", images.Count, source.Name, watch.Elapsed);
         return images;
     }
 
     // Uses the source's JPath expressions to extract parallel lists of image URLs and titles
     // from the raw JSON, then zips them into WallpaperImage records.
-    private static List<WallpaperImage> ParseImages(WallpaperSource source, string json)
+    // Throws JsonException with a diagnostic message if the JSON is malformed or a JPath is invalid.
+    internal static List<WallpaperImage> ParseImages(WallpaperSource source, string json)
     {
-        var token = JToken.Parse(json);
-        var imageUrls = token.SelectTokens(source.ImageUrlJPath).Select(t => t.Value<string>() ?? string.Empty).ToList();
-        var titles = token.SelectTokens(source.TitleJPath).Select(t => t.Value<string>() ?? string.Empty).ToList();
+        // Parse the raw JSON response into a token tree
+        JToken token;
+        try
+        {
+            token = JToken.Parse(json);
+        }
+        catch (JsonReaderException ex)
+        {
+            var preview = json.Length > 200 ? json[..200] + "..." : json;
+            throw new JsonException($"Source '{source.Name}': response is not valid JSON. Preview: {preview}", ex);
+        }
+
+        // Extract image URLs using the configured JPath expression
+        List<string> imageUrls;
+        try
+        {
+            imageUrls = token.SelectTokens(source.ImageUrlJPath)
+                .Select(t => t.Value<string>() ?? string.Empty)
+                .ToList();
+        }
+        catch (JsonException ex)
+        {
+            throw new JsonException($"Source '{source.Name}': ImageUrlJPath '{source.ImageUrlJPath}' is invalid: {ex.Message}", ex);
+        }
+
+        // Extract titles using the configured JPath expression
+        List<string> titles;
+        try
+        {
+            titles = token.SelectTokens(source.TitleJPath)
+                .Select(t => t.Value<string>() ?? string.Empty)
+                .ToList();
+        }
+        catch (JsonException ex)
+        {
+            throw new JsonException($"Source '{source.Name}': TitleJPath '{source.TitleJPath}' is invalid: {ex.Message}", ex);
+        }
 
         // Zip stops at the shorter list, so mismatched result counts are handled gracefully
         return imageUrls
