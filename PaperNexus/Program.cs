@@ -7,13 +7,13 @@ global using Newtonsoft.Json;
 global using System.Diagnostics;
 global using System.Reflection;
 global using Avalonia;
+global using PaperNexus.Core.Platform;
 
 internal sealed class Program
 {
-    private const string EventName = "PaperNexus_ShowUI";
-    private const string MutexName = "PaperNexus_SingleInstance";
-
-    internal static EventWaitHandle? ShowUIEvent { get; private set; }
+    // Owns the cross-process lock and the show-window channel for the primary instance.
+    // Null until RunAsPrimaryInstance acquires it, and again after shutdown.
+    internal static ISingleInstance? Instance { get; private set; }
     internal static bool IsDebugMode { get; private set; }
     internal static bool IsInstallMode { get; private set; }
 
@@ -59,14 +59,13 @@ internal sealed class Program
 
     private static (string installDir, string installPath) GetInstallPaths()
     {
-        var path1 = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var installDir = Path.Combine(path1, "PaperNexus");
-        return (installDir, Path.Combine(installDir, "PaperNexus.exe"));
+        var installDir = PlatformPaths.DefaultInstallDirectory;
+        return (installDir, Path.Combine(installDir, PlatformPaths.ExecutableName));
     }
 
     private static string GetCurrentProcessPath()
     {
-        return Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "PaperNexus.exe");
+        return Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, PlatformPaths.ExecutableName);
     }
 
     private static bool IsRunningFromInstallLocation(string currentPath, string installPath)
@@ -81,7 +80,7 @@ internal sealed class Program
         // Fall back to the default AppData path comparison for existing installations
         // that predate the sentinel file (i.e. installed before this fix was added).
         var install = Path.GetFullPath(installPath);
-        return string.Equals(current, install, StringComparison.OrdinalIgnoreCase);
+        return PlatformPaths.PathEquals(current, install);
     }
 
     // Handles startup when the exe is not yet at the install location.
@@ -93,12 +92,12 @@ internal sealed class Program
             return;
 
         // A previous install may have copied the exe elsewhere and left a redirect marker.
-        // Launch the installed copy instead of showing the install screen again — this
+        // Launch the installed copy instead of showing the install screen again - this
         // prevents an "install loop" when the user re-runs the original downloaded exe.
         if (TryRedirectToInstalledCopy())
             return;
 
-        // Show the install screen — it performs the actual copy and relaunch when confirmed.
+        // Show the install screen - it performs the actual copy and relaunch when confirmed.
         IsInstallMode = true;
         RunApp(args);
     }
@@ -120,12 +119,12 @@ internal sealed class Program
             var installedExe = File.ReadAllText(redirectFile).Trim();
             if (!File.Exists(installedExe))
             {
-                // Installed copy was removed — clean up the stale redirect.
+                // Installed copy was removed - clean up the stale redirect.
                 File.Delete(redirectFile);
                 return false;
             }
 
-            Process.Start(new ProcessStartInfo(installedExe) { UseShellExecute = true });
+            ShellOpener.LaunchExecutable(installedExe);
             return true;
         }
         catch
@@ -149,9 +148,14 @@ internal sealed class Program
             // for locked files (the running exe can't overwrite itself).
             var source = Path.GetFullPath(currentPath);
             var dest = Path.GetFullPath(installPath);
-            var isSamePath = string.Equals(source, dest, StringComparison.OrdinalIgnoreCase);
+            var isSamePath = PlatformPaths.PathEquals(source, dest);
             if (!isSamePath)
+            {
                 File.Copy(currentPath, installPath, overwrite: true);
+                // File.Copy does not carry the Unix execute bit, so the installed copy
+                // would not be launchable on Linux without restoring it.
+                PlatformPaths.EnsureExecutable(installPath);
+            }
 
             // Mark this directory as an install location so startup recognises it
             // regardless of whether it matches the default AppData path.
@@ -165,7 +169,7 @@ internal sealed class Program
                 if (sourceDir is not null)
                 {
                     try { File.WriteAllText(Path.Combine(sourceDir, ".installed-at"), dest); }
-                    catch { /* best-effort — failing just means no redirect */ }
+                    catch { /* best-effort - failing just means no redirect */ }
                 }
             }
             // Carry over persisted data from beside the downloaded exe, if present.
@@ -176,17 +180,17 @@ internal sealed class Program
         catch (IOException)
         {
             // File may be locked by a running instance we could not detect.
-            // The exe might already exist at the install path from a previous install —
+            // The exe might already exist at the install path from a previous install -
             // ensure the sentinel is written so the app won't loop back to the install screen.
             if (!File.Exists(installPath))
                 return false;
             try { File.WriteAllText(Path.Combine(installDir, ".installed"), string.Empty); }
-            catch (IOException) { /* best effort — if this also fails, the install can't complete */ }
+            catch (IOException) { /* best effort - if this also fails, the install can't complete */ }
 
             // Also write the redirect for the source exe.
             var source = Path.GetFullPath(currentPath);
             var dest = Path.GetFullPath(installPath);
-            if (!string.Equals(source, dest, StringComparison.OrdinalIgnoreCase))
+            if (!PlatformPaths.PathEquals(source, dest))
             {
                 var sourceDir = Path.GetDirectoryName(source);
                 if (sourceDir is not null)
@@ -200,47 +204,34 @@ internal sealed class Program
         }
     }
 
-    // Enforces single-instance semantics: acquires the named mutex or signals the
+    // Enforces single-instance semantics: takes the cross-process lock or signals the
     // already-running instance to show its window, then runs the Avalonia app loop.
     private static void RunAsPrimaryInstance(string[] args)
     {
-        using var mutex = new Mutex(false, MutexName);
-        // If we can't own the mutex, another instance is already running.
-        if (!TryAcquireMutex(mutex))
+        var instance = SingleInstance.Create();
+        if (!instance.TryAcquire())
         {
-            TrySignalExistingInstance();
+            // Another instance owns the lock - hand the request over and exit.
+            instance.SignalExisting();
+            instance.Dispose();
             return;
         }
 
-        // Create the IPC event handle for show-UI signals from other instances.
-        // AutoReset: each Set() unblocks exactly one WaitOne().
-        ShowUIEvent = new EventWaitHandle(false, EventResetMode.AutoReset, EventName);
-        RunApp(args);
-        ShowUIEvent.Dispose();
-        ShowUIEvent = null;
-    }
+        Instance = instance;
 
-    private static bool TryAcquireMutex(Mutex mutex)
-    {
-        try
-        {
-            return mutex.WaitOne(0, exitContext: false);
-        }
-        catch (AbandonedMutexException)
-        {
-            return true; // previous instance crashed; we now own the mutex
-        }
+        // The tray "Exit" command calls Environment.Exit, which skips the disposal below,
+        // so release the lock from a process-exit handler as well. Disposal is idempotent.
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => instance.Dispose();
+
+        RunApp(args);
+        Instance = null;
+        instance.Dispose();
     }
 
     private static bool TrySignalExistingInstance()
     {
-#pragma warning disable CA1416
-        if (!EventWaitHandle.TryOpenExisting(EventName, out var existingEvent))
-            return false;
-#pragma warning restore CA1416
-        using (existingEvent)
-            existingEvent.Set();
-        return true;
+        using var probe = SingleInstance.Create();
+        return probe.SignalExisting();
     }
 
     // Wires up global exception logging, then starts the Avalonia application loop.

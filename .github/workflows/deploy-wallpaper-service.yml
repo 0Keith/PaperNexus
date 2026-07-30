@@ -33,15 +33,23 @@ jobs:
         else
           buildNum="$runNumber"
         fi
-        dotnet publish PaperNexus/PaperNexus.csproj \
-          --configuration Release \
-          --runtime win-x64 \
-          --self-contained true \
-          -p:PublishSingleFile=true \
-          -p:IncludeNativeLibrariesForSelfExtract=true \
-          -p:PublishTrimmed=false \
-          -p:Version="$buildNum.0.0" \
-          --output ./publish/PaperNexus
+
+        # One single-file, self-contained binary per supported platform.
+        for rid in win-x64 linux-x64; do
+          dotnet publish PaperNexus/PaperNexus.csproj \
+            --configuration Release \
+            --runtime "$rid" \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:PublishTrimmed=false \
+            -p:Version="$buildNum.0.0" \
+            --output "./publish/$rid"
+        done
+
+        # The auto-updater looks the Linux asset up by this exact name.
+        mv ./publish/linux-x64/PaperNexus ./publish/linux-x64/PaperNexus-linux-x64
+        chmod +x ./publish/linux-x64/PaperNexus-linux-x64
 
     - name: Install signing tools
       run: sudo apt-get install -y osslsigncode
@@ -96,10 +104,16 @@ jobs:
           -pass "$certPassword" \
           -h sha256 \
           -t http://timestamp.digicert.com \
-          -in ./publish/PaperNexus/PaperNexus.exe \
-          -out ./publish/PaperNexus/PaperNexus-signed.exe
-        mv ./publish/PaperNexus/PaperNexus-signed.exe ./publish/PaperNexus/PaperNexus.exe
+          -in ./publish/win-x64/PaperNexus.exe \
+          -out ./publish/win-x64/PaperNexus-signed.exe
+        mv ./publish/win-x64/PaperNexus-signed.exe ./publish/win-x64/PaperNexus.exe
         rm -f "$pfxPath"
+
+    # Authenticode is a PE-only format, so the Linux build's integrity is published as a
+    # SHA-256 digest instead. The auto-updater refuses any Linux update without this file.
+    - name: Checksum Linux binary
+      working-directory: ./publish/linux-x64
+      run: sha256sum PaperNexus-linux-x64 > PaperNexus-linux-x64.sha256
 
     - name: Create GitHub Release
       env:
@@ -138,7 +152,9 @@ jobs:
         gh release create "$newTag" \
           --title "Paper Nexus $newTag" \
           --notes "$notes" \
-          ./publish/PaperNexus/PaperNexus.exe
+          ./publish/win-x64/PaperNexus.exe \
+          ./publish/linux-x64/PaperNexus-linux-x64 \
+          ./publish/linux-x64/PaperNexus-linux-x64.sha256
         echo "NEW_TAG=$newTag" >> "$GITHUB_ENV"
 
     - name: Delete previous releases

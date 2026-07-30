@@ -417,9 +417,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
     {
         try
         {
-#pragma warning disable CA1416
-            App.UpdateStartupRegistration(value);
-#pragma warning restore CA1416
+            StartupRegistration.Update(value);
         }
         catch (Exception ex)
         {
@@ -866,7 +864,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             return;
         try
         {
-            Process.Start(new ProcessStartInfo("explorer.exe", folder) { UseShellExecute = true });
+            ShellOpener.OpenFolder(folder);
         }
         catch (Exception ex)
         {
@@ -920,7 +918,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             settings.Slideshow.Interval = SlideshowInterval ?? _selectedIntervalType?.Minimum ?? 1;
             settings.Slideshow.IntervalType = _selectedIntervalType?.Type ?? IntervalType.Minutes;
             var cronExpression = BuildSlideshowCronExpression();
-            // Only validate the expression when the user typed it directly — synthesised expressions are always valid
+            // Only validate the expression when the user typed it directly - synthesised expressions are always valid
             if (SlideshowScheduleMode == SlideshowScheduleMode.CronExpression)
             {
                 try
@@ -1198,7 +1196,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
             var wasActive = CurrentWallpaperPath.Equals(item.FilePath, StringComparison.OrdinalIgnoreCase);
             if (wasActive)
             {
-                // The deleted file can no longer be a favorite — clear the heart indicator so
+                // The deleted file can no longer be a favorite - clear the heart indicator so
                 // the UI does not show an empty-path wallpaper as favorited.
                 IsCurrentWallpaperFavorited = false;
 
@@ -1220,7 +1218,7 @@ public partial class WallpaperConfigViewModel : ObservableObject
                     }
                 }
 
-                // No switcher available or no remaining wallpapers — clear the display
+                // No switcher available or no remaining wallpapers - clear the display
                 CurrentWallpaperPath = string.Empty;
                 CurrentWallpaperName = "(none)";
                 RefreshPreviewImage();

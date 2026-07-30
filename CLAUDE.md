@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-.NET 10.0 Avalonia desktop app for automated wallpaper rotation on Windows. Solution: `PaperNexus.sln`.
+.NET 10.0 Avalonia desktop app for automated wallpaper rotation on Windows and Linux. Solution: `PaperNexus.sln`.
 
 ## Quick Reference
 
@@ -31,7 +31,8 @@ PaperNexus/
 │       ├── pull-request.yml             # PR build verification
 │       └── deploy-wallpaper-service.yml # Release builds + code signing
 ├── docs/
-│   └── ui-style-guide.md               # Avalonia AXAML patterns reference
+│   ├── ui-style-guide.md               # Avalonia AXAML patterns reference
+│   └── platform-support.md             # Windows/Linux platform layer reference
 ├── PaperNexus.Tests/                    # Unit tests (xUnit + NSubstitute)
 └── PaperNexus/                          # Main project
     ├── PaperNexus.csproj
@@ -44,6 +45,14 @@ PaperNexus/
     ├── SwitchWallpaper.cs               # Wallpaper switching logic + job wrapper
     ├── Assets/                          # logo.ico, logo.png, bundled fonts
     ├── Core/                            # DI, logging, scheduling, settings
+    │   ├── Platform/                   # All Windows/Linux differences live here
+    │   │   ├── PlatformPaths.cs        # Executable name, install dir, path comparison
+    │   │   ├── SingleInstance.cs       # Mutex+event (Windows) / Unix socket (Linux)
+    │   │   ├── StartupRegistration.cs  # Run key (Windows) / XDG autostart (Linux)
+    │   │   ├── IWallpaperBackend.cs    # Per-OS wallpaper backend contract
+    │   │   ├── LinuxWallpaperBackend.cs # KDE / GNOME / feh-xwallpaper-swaybg
+    │   │   ├── LinuxDesktop.cs         # Desktop detection + helper process runner
+    │   │   └── ShellOpener.cs          # explorer.exe / xdg-open, app relaunch
     │   ├── Bootstrapper.cs             # DI helpers, IAddSingleton<T>, AddServicesFrom()
     │   ├── Extensions.cs               # Utility extension methods
     │   ├── FileLogger.cs               # File-based ILogger implementation (async queue)
@@ -65,7 +74,8 @@ PaperNexus/
 - **Scheduled Jobs (preferred):** `IScheduleScopedJob` — separate business logic from scheduling. Job wrapper delegates to injected interface. Auto-discovered by `AddServicesFrom()`.
 - **Scheduled Jobs (legacy):** `ScheduledJobService` base class — `DownloadWallpapers` extends directly. Registered via `IAddHostedSingleton<T>`.
 - **DI:** `AddServicesFrom(assembly)` auto-discovers `IAddSingleton<T>`, `IAddHostedSingleton<T>`, and `IScheduleScopedJob` implementations.
-- **Auto-Update:** Queries GitHub Releases API, compares `vN` tag as integer against `Assembly.Version.Major`, downloads exe, swaps via self-deleting batch script with rollback.
+- **Platform Layer (`Core/Platform/`):** Every Windows/Linux difference is isolated here - no other file may call a Windows-only API, hardcode `.exe`, or compare paths case-insensitively. See `docs/platform-support.md`.
+- **Auto-Update:** Queries GitHub Releases API, compares `vN` tag as integer against `Assembly.Version.Major`, downloads the per-platform asset (`PaperNexus.exe` / `PaperNexus-linux-x64`), verifies it (Authenticode on Windows, published SHA-256 on Linux), swaps via self-deleting script (`.bat` / `.sh`) with rollback.
 - **Auto-Install:** First run copies exe to the chosen install directory (default `%LOCALAPPDATA%\PaperNexus\`), migrates settings, writes a `.installed` sentinel file alongside the exe, then relaunches. On subsequent launches, `IsRunningFromInstallLocation` detects the sentinel file so custom install paths (not equal to the default AppData path) are recognised correctly and the install flow is not re-triggered.
 - **Single Instance:** Named `Mutex` + `EventWaitHandle` for IPC (signals running instance to show UI).
 - **Tray-only:** `ShutdownMode.OnExplicitShutdown`. Menu: "Open Settings", "Next Wallpaper", "Random Wallpaper", "Exit". Each item has a programmatically-drawn SixLabors icon.
@@ -74,7 +84,8 @@ PaperNexus/
 - **Wallpaper Sources (JPath-based):** `HttpWallpaperSourceService` uses Newtonsoft `SelectTokens` with `ImageUrlJPath`/`TitleJPath`. Sources edited via `WallpaperSourceDialog` (name, URL, JPath, cron, enabled toggle, live Test button).
 - **`NonScrollableComboBox`:** Suppresses scroll wheel unless dropdown is open — prevents accidental changes while scrolling the settings page.
 - **Favorites:** Heart toggle, stored in `settings.json`, excluded from retention cleanup.
-- **Windows Startup:** Registry key at `HKCU\...\Run\PaperNexus`.
+- **Startup at login:** Registry key at `HKCU\...\Run\PaperNexus` on Windows; `~/.config/autostart/PaperNexus.desktop` on Linux.
+- **Wallpaper on Linux:** No cross-desktop API - dispatches to KDE Plasma (`evaluateScript` over D-Bus), GNOME (`gsettings`), or `feh`/`xwallpaper`/`swaybg`. SteamOS Desktop Mode (KDE Plasma) is the Linux deployment target.
 
 ## Dependencies
 
@@ -108,7 +119,7 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 ## Build & CI/CD
 
 - **PR workflow:** restore → build (Release) → test (continue-on-error). `ubuntu-latest`, `actions/checkout@v6`.
-- **Deploy workflow:** push to `main`/tags/manual → publish win-x64 single-file → sign exe → GitHub Release. `ubuntu-latest`; signing uses `openssl` + `osslsigncode` (Linux equivalents of `New-SelfSignedCertificate`/`signtool.exe`).
+- **Deploy workflow:** push to `main`/tags/manual → publish win-x64 and linux-x64 single-file → sign the exe, checksum the Linux binary → GitHub Release with three assets. `ubuntu-latest`; signing uses `openssl` + `osslsigncode` (Linux equivalents of `New-SelfSignedCertificate`/`signtool.exe`).
 - **Version:** Default `0.0.0`, CI sets `-p:Version=$buildNum.0.0`. Tags use `vN` format. Auto-updater compares `Version.Major` as integer.
 - **Code signing:** Self-signed cert, auto-generated on first run, stored as `SIGNING_CERTIFICATE`/`SIGNING_CERTIFICATE_PASSWORD` secrets. Requires `GH_PAT` for persistence. 5-year validity, auto-renews at 30 days remaining.
 - **Publishing:** `dotnet publish PaperNexus/PaperNexus.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false`
@@ -117,6 +128,7 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 ## Guidelines
 
 - .NET 10.0, Avalonia UI (not WPF), root namespace `PaperNexus` / `PaperNexus.Core`
+- **Platform differences go in `Core/Platform/`** - read `docs/platform-support.md` before touching wallpaper setting, startup registration, single-instance, install/update paths, or any path comparison
 - AXAML assets: `avares://PaperNexus/Assets/...`
 - New scheduled jobs: use `IScheduleScopedJob` pattern, not `ScheduledJobService`
 - Never commit secrets. Check `dotnet list package --vulnerable`.
@@ -126,4 +138,5 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 - **Branch protection on `main`:** PRs required, `build` status check required, `enforce_admins: true` (owner cannot bypass)
 - **Always start work on a feature branch** — never commit directly to `main`; create a descriptive branch (e.g., `feature/wallpaper-preview`, `fix/auto-update`) before making any changes
 - **Comment addition tasks:** Add comments in small, focused batches (1–3 files at a time) rather than delegating all files to a single agent. Large batches risk code corruption.
+- **Verify Linux changes against the real desktop**, not the app log - read the desktop's own state (e.g. `gsettings get org.gnome.desktop.background picture-uri`). Setup is in `docs/platform-support.md`.
 - **No system-level calls in unit tests:** Tests must never invoke real OS APIs (e.g., `NativeMethods`, registry writes, `SetDesktopWallpaper`). Use injectable interfaces with no-op test doubles (e.g., `NoOpWallpaperApplier`) to isolate from the system.

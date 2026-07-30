@@ -1,7 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
-using Microsoft.Win32;
 using PaperNexus.Core;
 
 namespace PaperNexus.Views;
@@ -33,13 +32,13 @@ public partial class InstallScreen : Window
                 // leaves the original exe behind and causes an install loop.
                 var currentDir = Path.GetDirectoryName(Path.GetFullPath(Program.CurrentExePath));
                 var selectedFull = Path.GetFullPath(selected);
-                if (currentDir is not null && string.Equals(selectedFull, currentDir, StringComparison.OrdinalIgnoreCase))
+                if (currentDir is not null && PlatformPaths.PathEquals(selectedFull, currentDir))
                     InstallPathText.Text = selected;
                 else
                     InstallPathText.Text = Path.Combine(selected, "PaperNexus");
             }
         }
-        catch { /* picker cancelled or unavailable — leave path unchanged */ }
+        catch { /* picker cancelled or unavailable - leave path unchanged */ }
     }
 
     private async void OnInstallClicked(object sender, RoutedEventArgs e)
@@ -54,7 +53,7 @@ public partial class InstallScreen : Window
         var installDir = InstallPathText.Text?.Trim();
         if (string.IsNullOrEmpty(installDir))
             installDir = Program.InstallDir;
-        var installExePath = Path.Combine(installDir, "PaperNexus.exe");
+        var installExePath = Path.Combine(installDir, PlatformPaths.ExecutableName);
 
         try
         {
@@ -64,7 +63,7 @@ public partial class InstallScreen : Window
 
             if (!success)
             {
-                // Install failed — re-enable so the user can try again.
+                // Install failed - re-enable so the user can try again.
                 InstallButton.Content = "Install";
                 InstallButton.IsEnabled = true;
                 CancelButton.IsEnabled = true;
@@ -84,22 +83,14 @@ public partial class InstallScreen : Window
                 await settings.SaveAsync();
             }
 
-            // Always touch the registry during install so a stale entry from a previous
-            // install at a different path doesn't survive and launch the wrong (possibly
-            // missing) exe on Windows startup.
-            // (App.UpdateStartupRegistration uses Environment.ProcessPath which is the
-            // un-installed copy, so we must write the registry entry here ourselves.)
-#pragma warning disable CA1416
-            using var key = Registry.CurrentUser.OpenSubKey(
-                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", writable: true);
-            if (RunOnStartupCheckBox.IsChecked == true)
-                key?.SetValue("PaperNexus", $"\"{installExePath}\" --startup");
-            else
-                key?.DeleteValue("PaperNexus", throwOnMissingValue: false);
-#pragma warning restore CA1416
+            // Always rewrite the startup registration during install so a stale entry from
+            // a previous install at a different path doesn't survive and launch the wrong
+            // (possibly missing) executable at login. The installed path is passed
+            // explicitly because Environment.ProcessPath is still the un-installed copy.
+            StartupRegistration.Update(RunOnStartupCheckBox.IsChecked == true, installExePath);
 
             // Launch the newly-installed copy and exit the installer process.
-            Process.Start(new ProcessStartInfo(installExePath) { UseShellExecute = true });
+            ShellOpener.LaunchExecutable(installExePath);
             Environment.Exit(0);
         }
         catch

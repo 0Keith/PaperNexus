@@ -1,25 +1,46 @@
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Microsoft.Win32;
 using PaperNexus.Core;
+using PaperNexus.Core.Platform;
 
 namespace PaperNexus;
 
-// Abstraction over Windows desktop API calls so tests can run without changing the real wallpaper
+// Abstraction over desktop shell calls so tests can run without changing the real wallpaper
 public interface IWallpaperApplier
 {
     public bool SetWallpaper(string wallpaperPath);
     public void ApplyFillStyle(WallpaperFillStyle style);
 }
 
+// Single registered implementation. It owns no platform logic itself - it picks the
+// backend for the running OS once and forwards every call to it. Keeping one registered
+// type preserves the IAddSingleton auto-discovery contract in Bootstrapper.
 internal sealed class WallpaperApplier : IWallpaperApplier, IAddSingleton<IWallpaperApplier>
+{
+    private readonly IWallpaperBackend _backend = SelectBackend();
+
+    private static IWallpaperBackend SelectBackend()
+    {
+        if (OperatingSystem.IsWindows())
+            return new WindowsWallpaperBackend();
+        if (OperatingSystem.IsLinux())
+            return new LinuxWallpaperBackend();
+        return new NoOpWallpaperBackend();
+    }
+
+    public bool SetWallpaper(string wallpaperPath) => _backend.SetWallpaper(wallpaperPath);
+
+    public void ApplyFillStyle(WallpaperFillStyle style) => _backend.ApplyFillStyle(style);
+}
+
+[SupportedOSPlatform("windows")]
+internal sealed class WindowsWallpaperBackend : IWallpaperBackend
 {
     public bool SetWallpaper(string wallpaperPath) => NativeMethods.SetDesktopWallpaper(wallpaperPath);
 
     public void ApplyFillStyle(WallpaperFillStyle style)
     {
-        if (!OperatingSystem.IsWindows())
-            return;
-
         // WallpaperStyle and TileWallpaper registry values under HKCU\Control Panel\Desktop
         // control how Windows positions the wallpaper image.
         var (wallpaperStyle, tileWallpaper) = style switch
@@ -39,6 +60,7 @@ internal sealed class WallpaperApplier : IWallpaperApplier, IAddSingleton<IWallp
     }
 }
 
+[SupportedOSPlatform("windows")]
 internal static class NativeMethods
 {
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
