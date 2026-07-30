@@ -80,13 +80,18 @@ public static class StartupRegistration
         }
 
         // Exec values are shell-like: quote the path so directories containing spaces work.
+        // Icon and StartupWMClass mirror the application launcher so the session manager
+        // and the dock resolve an autostarted window to the same entry rather than
+        // creating a second, icon-less one.
         var contents = $"""
             [Desktop Entry]
             Type=Application
             Name=PaperNexus
             Comment=Automated wallpaper rotation
             Exec="{exePath}" --startup
+            Icon={(File.Exists(DesktopEntry.IconPath) ? "papernexus" : DesktopEntry.IconPath)}
             Terminal=false
+            StartupWMClass={DesktopEntry.WindowClass}
             X-GNOME-Autostart-enabled=true
             """;
 

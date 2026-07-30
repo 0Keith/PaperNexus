@@ -52,6 +52,7 @@ PaperNexus/
     │   │   ├── IWallpaperBackend.cs    # Per-OS wallpaper backend contract
     │   │   ├── LinuxWallpaperBackend.cs # KDE / GNOME / feh-xwallpaper-swaybg
     │   │   ├── LinuxDesktop.cs         # Desktop detection + helper process runner
+    │   │   ├── DesktopEntry.cs         # XDG launcher + icon so the app can be pinned
     │   │   └── ShellOpener.cs          # explorer.exe / xdg-open, app relaunch
     │   ├── Bootstrapper.cs             # DI helpers, IAddSingleton<T>, AddServicesFrom()
     │   ├── Extensions.cs               # Utility extension methods
@@ -85,6 +86,7 @@ PaperNexus/
 - **`NonScrollableComboBox`:** Suppresses scroll wheel unless dropdown is open — prevents accidental changes while scrolling the settings page.
 - **Favorites:** Heart toggle, stored in `settings.json`, excluded from retention cleanup.
 - **Startup at login:** Registry key at `HKCU\...\Run\PaperNexus` on Windows; `~/.config/autostart/PaperNexus.desktop` on Linux.
+- **Linux launcher:** `DesktopEntry` writes `~/.local/share/applications/PaperNexus.desktop` and a hicolor icon on every launch. Required for dock pinning: without it the shell synthesises a temporary entry that vanishes when the app exits. `WM_CLASS`, `StartupWMClass`, and the `.desktop` basename must all stay `PaperNexus`.
 - **Wallpaper on Linux:** No cross-desktop API - dispatches to KDE Plasma (`evaluateScript` over D-Bus), GNOME (`gsettings`), or `feh`/`xwallpaper`/`swaybg`. SteamOS Desktop Mode (KDE Plasma) is the Linux deployment target.
 
 ## Dependencies
