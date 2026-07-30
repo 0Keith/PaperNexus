@@ -118,11 +118,12 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 
 ## Build & CI/CD
 
-- **PR workflow:** restore → build (Release) → test (continue-on-error). `ubuntu-latest`, `actions/checkout@v6`.
-- **Deploy workflow:** push to `main`/tags/manual → publish win-x64 and linux-x64 single-file → sign the exe, checksum the Linux binary → GitHub Release with three assets. `ubuntu-latest`; signing uses `openssl` + `osslsigncode` (Linux equivalents of `New-SelfSignedCertificate`/`signtool.exe`).
+- **PR workflow:** set up .NET → restore → build (Release) → test (continue-on-error). Self-hosted runner (`[self-hosted, Linux, X64]`), `actions/checkout@v6`.
+- **Deploy workflow:** push to `main`/tags/manual → publish win-x64 and linux-x64 single-file → sign the exe, checksum the Linux binary → GitHub Release with three assets. Self-hosted runner (`[self-hosted, Linux, X64]`); signing uses `openssl` + `osslsigncode` (Linux equivalents of `New-SelfSignedCertificate`/`signtool.exe`).
 - **Version:** Default `0.0.0`, CI sets `-p:Version=$buildNum.0.0`. Tags use `vN` format. Auto-updater compares `Version.Major` as integer.
 - **Code signing:** Self-signed cert, auto-generated on first run, stored as `SIGNING_CERTIFICATE`/`SIGNING_CERTIFICATE_PASSWORD` secrets. Requires `GH_PAT` for persistence. 5-year validity, auto-renews at 30 days remaining.
 - **Publishing:** `dotnet publish PaperNexus/PaperNexus.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false`
+- **Self-hosted runner:** Both workflows run on `[self-hosted, Linux, X64]`. The runner has no system .NET SDK and its user cannot write `/usr/share/dotnet`, so every job needs `actions/setup-dotnet@v5` with `DOTNET_INSTALL_DIR: ${{ runner.tool_cache }}/dotnet`. Tools that persist between runs (osslsigncode) are reused rather than reinstalled.
 - **Actions maintenance:** 30-day cycle. **Next update: March 28, 2026.**
 
 ## Guidelines
