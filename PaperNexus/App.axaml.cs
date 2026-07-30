@@ -65,6 +65,18 @@ public partial class App : Application
                 })
                 .Build();
 
+            // Install the Linux application launcher and icon before touching startup
+            // registration, because the autostart entry points at the icon this writes.
+            // Doing it on every launch keeps the Exec line correct if the app moves and
+            // repairs installs made before the launcher existed.
+            try
+            {
+                DesktopEntry.Install(
+                    Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, PlatformPaths.ExecutableName),
+                    () => AssetLoader.Open(new Uri("avares://PaperNexus/Assets/logo.png")));
+            }
+            catch (Exception ex) { Logger?.LogError(ex, "Failed to install the desktop launcher."); }
+
             // Apply startup registration based on the persisted setting
             _ = WallpaperNexusSettings.LoadAsync().ContinueWith(t =>
             {

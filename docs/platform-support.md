@@ -13,6 +13,7 @@ a Windows-only API, hardcode `.exe`, or compare paths case-insensitively.
 | `StartupRegistration.cs` | Launch at login | `HKCU\...\CurrentVersion\Run` | `~/.config/autostart/PaperNexus.desktop` |
 | `IWallpaperBackend.cs`, `LinuxWallpaperBackend.cs`, `NativeMethods.cs` | Setting the desktop wallpaper and its fill style | `SystemParametersInfo` + `HKCU\Control Panel\Desktop` | KDE Plasma / GNOME / generic setters |
 | `LinuxDesktop.cs` | Desktop environment detection, running helper commands | not used | `XDG_CURRENT_DESKTOP` etc., then process-name inference |
+| `DesktopEntry.cs` | Application launcher and icon so the app can be pinned | not used (icon comes from the executable's own resources) | `~/.local/share/applications/PaperNexus.desktop` + hicolor icon |
 | `ShellOpener.cs` | Opening folders, URLs, and relaunching the app | `explorer.exe`, shell execute | `xdg-open`, shell execute |
 
 `WallpaperApplier` remains the single type registered for `IWallpaperApplier`, so the
@@ -36,6 +37,35 @@ Both KDE and GNOME only repaint when the stored value actually changes, and Pape
 writes the same `current.png`, so each backend clears the key before writing the real path.
 `swaybg` runs for as long as the wallpaper is displayed, so the backend keeps its process and
 terminates the old instance only after the replacement is running.
+
+## Pinning to the dock or task manager on Linux
+
+A dock can only pin a `.desktop` file it knows about. With none installed, GNOME Shell and
+the KDE task manager synthesise a temporary entry from the running window, and that entry
+disappears when the app exits - so a pinned PaperNexus showed an icon only while running.
+
+`DesktopEntry.Install` therefore writes both halves on every launch:
+
+- `~/.local/share/applications/PaperNexus.desktop`, carrying `StartupWMClass=PaperNexus`.
+- `~/.local/share/icons/hicolor/256x256/apps/papernexus.png`, downscaled from the bundled
+  logo (the source asset is several megabytes and icon caches load every entry eagerly).
+
+Three names must stay in agreement or the shell opens a second dock item beside the pinned
+one: the window's `WM_CLASS`, the `StartupWMClass` key, and the `.desktop` basename. All
+three are `PaperNexus`, and `DesktopEntryTests` asserts they cannot drift apart.
+
+Installing on every launch is deliberate - it repairs installs made before the launcher
+existed and corrects the `Exec` line if the executable moves. `StartupRegistration`'s
+autostart entry mirrors the same icon and `StartupWMClass` so an autostarted window
+resolves to the same launcher.
+
+To verify a change here, check the desktop's own resolution rather than the file contents,
+with the app closed:
+
+```python
+from gi.repository import Gio
+Gio.DesktopAppInfo.new("PaperNexus.desktop")   # must not be None
+```
 
 ## Auto-update
 
