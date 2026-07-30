@@ -102,7 +102,7 @@ public class AnnotationSettings
 public class DownloadSettings
 {
     public string Folder { get; set; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "PaperNexus");
+        PaperNexus.Core.Platform.PlatformPaths.DefaultPicturesDirectory, "PaperNexus");
     public int ResolutionWidth { get; set; } = 0;
     public int ResolutionHeight { get; set; } = 0;
     public int RetentionDays { get; set; } = 365;
@@ -111,8 +111,7 @@ public class DownloadSettings
 public class WallpaperNexusSettings
 {
     public static readonly string SettingsFilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "PaperNexus", "settings.json");
+        PaperNexus.Core.Platform.PlatformPaths.DefaultInstallDirectory, "settings.json");
 
     public SlideshowSettings Slideshow { get; set; } = new();
     public DownloadSettings Download { get; set; } = new();

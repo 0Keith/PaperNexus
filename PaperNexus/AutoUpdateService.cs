@@ -14,13 +14,21 @@ internal interface ICheckForUpdates
 internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheckForUpdates>
 {
     private const string GitHubRepo = "0Keith/PaperNexus";
-    private const string AssetName = "PaperNexus.exe";
+
+    // Each platform ships its own release asset. The Windows build is Authenticode-signed,
+    // which is a PE-only format, so the Linux build's integrity is verified against a
+    // SHA-256 digest published alongside it instead.
+    private static string AssetName => OperatingSystem.IsWindows()
+        ? "PaperNexus.exe"
+        : "PaperNexus-linux-x64";
+
+    private static string ChecksumAssetName => AssetName + ".sha256";
 
     private readonly ILogger<AutoUpdateService> _logger;
 
     // Two separate HttpClient instances, both long-lived singletons on this service:
-    //   _apiClient  — short 30-second timeout for small GitHub API JSON responses.
-    //   _downloadClient — 10-minute timeout for streaming the full exe binary (50+ MB).
+    //   _apiClient  - short 30-second timeout for small GitHub API JSON responses.
+    //   _downloadClient - 10-minute timeout for streaming the full exe binary (50+ MB).
     // Using a single 30-second client caused reliable timeouts on slow connections during
     // the body-streaming phase even though headers arrived quickly, because HttpClient's
     // Timeout counts from the moment the request is initiated, not just the header wait.
@@ -82,7 +90,7 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
             throw new InvalidOperationException("Release version tag is empty.");
         }
 
-        // Tags are "vN" — strip the leading 'v' and parse as an integer build number
+        // Tags are "vN" - strip the leading 'v' and parse as an integer build number
         var versionStr = tag.TrimStart('v');
         if (!int.TryParse(versionStr, out var latestBuild))
         {
@@ -107,16 +115,21 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
             throw new InvalidOperationException($"No assets found in release {tag}.");
         }
 
-        // Find the download URL for PaperNexus.exe in the release assets list
+        // Find the download URL for this platform's binary, plus its checksum sidecar
+        // if the release publishes one (used for integrity verification on Linux).
         string? downloadUrl = null;
+        string? checksumUrl = null;
         foreach (var asset in assetsElement.EnumerateArray())
         {
-            if (asset.TryGetProperty("name", out var nameEl) && nameEl.GetString() == AssetName
-                && asset.TryGetProperty("browser_download_url", out var urlEl))
-            {
+            if (!asset.TryGetProperty("name", out var nameEl)
+                || !asset.TryGetProperty("browser_download_url", out var urlEl))
+                continue;
+
+            var assetName = nameEl.GetString();
+            if (assetName == AssetName)
                 downloadUrl = urlEl.GetString();
-                break;
-            }
+            else if (assetName == ChecksumAssetName)
+                checksumUrl = urlEl.GetString();
         }
 
         if (downloadUrl is null)
@@ -130,8 +143,9 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         // Stage the download beside the running exe; the batch script will move it into place
         var newExePath = exePath + ".new";
         var backupPath = exePath + ".bak";
-        // Use a unique batch name to avoid collisions if a previous update was interrupted
-        var batchPath = Path.Combine(Path.GetDirectoryName(exePath)!, $"update-{Guid.NewGuid():N}.bat");
+        // Use a unique script name to avoid collisions if a previous update was interrupted
+        var scriptExtension = OperatingSystem.IsWindows() ? "bat" : "sh";
+        var scriptPath = Path.Combine(Path.GetDirectoryName(exePath)!, $"update-{Guid.NewGuid():N}.{scriptExtension}");
 
         _logger.LogInformation("Downloading v{Latest} from {Url}", latestBuild, downloadUrl);
         progress?.Report($"Downloading {tag}...");
@@ -156,70 +170,57 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
             throw;
         }
 
-        // Verify the downloaded exe has a valid Authenticode signature from PaperNexus.
-        // This prevents executing a tampered or unsigned binary.
-        if (!VerifyAuthenticodeSignature(newExePath))
+        // Verify the download before it is ever executed, so a tampered or truncated
+        // binary is discarded rather than swapped into place.
+        if (!await VerifyDownloadAsync(newExePath, checksumUrl))
         {
             File.Delete(newExePath);
-            _logger.LogWarning("Update signature verification failed. Update aborted.");
-            throw new InvalidOperationException("Downloaded update failed signature verification.");
+            _logger.LogWarning("Update integrity verification failed. Update aborted.");
+            throw new InvalidOperationException("Downloaded update failed integrity verification.");
         }
 
-        // Remove the Zone.Identifier alternate data stream so Smart App Control
-        // does not treat the downloaded file as untrusted internet content.
-        try
+        if (OperatingSystem.IsWindows())
         {
-            File.Delete(newExePath + ":Zone.Identifier");
+            // Remove the Zone.Identifier alternate data stream so Smart App Control
+            // does not treat the downloaded file as untrusted internet content.
+            try
+            {
+                File.Delete(newExePath + ":Zone.Identifier");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug("Zone.Identifier removal skipped: {Message}", ex.Message);
+            }
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogDebug("Zone.Identifier removal skipped: {Message}", ex.Message);
+            // The download arrives without the execute bit, which the swap script needs.
+            PlatformPaths.EnsureExecutable(newExePath);
         }
 
-        // The batch script:
+        // The swap script (same steps on both platforms, written in each one's shell):
         //  1. Waits 2 s for the current process to exit
-        //  2. Backs up the running exe
-        //  3. Moves the new exe into place
+        //  2. Backs up the running binary
+        //  3. Moves the new binary into place
         //  4. Launches the updated app
         //  5. Waits 8 s and checks the process is running; if not, rolls back from backup
         //  6. Deletes the backup and self-deletes
         try
         {
-            await File.WriteAllTextAsync(batchPath,
-                $"""
-                @echo off
-                timeout /t 2 /nobreak > nul
-                copy /y "{exePath}" "{backupPath}" > nul
-                if errorlevel 1 exit /b 1
-                move /y "{newExePath}" "{exePath}"
-                if errorlevel 1 (
-                    del "{backupPath}" 2>nul
-                    exit /b 1
-                )
-                start "" "{exePath}" --updated
-                timeout /t 8 /nobreak > nul
-                tasklist /fi "imagename eq {AssetName}" /fo csv 2>nul | findstr /i "{Path.GetFileNameWithoutExtension(AssetName)}" > nul
-                if errorlevel 1 (
-                    copy /y "{backupPath}" "{exePath}" > nul
-                    start "" "{exePath}"
-                )
-                del "{backupPath}" 2>nul
-                del "%~f0"
-                """);
+            if (OperatingSystem.IsWindows())
+                await WriteWindowsSwapScriptAsync(scriptPath, exePath, newExePath, backupPath);
+            else
+                await WriteUnixSwapScriptAsync(scriptPath, exePath, newExePath, backupPath);
 
-            Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{batchPath}\"")
-            {
-                CreateNoWindow = true,
-                UseShellExecute = false,
-            });
+            LaunchSwapScript(scriptPath);
         }
         catch (Exception ex)
         {
-            // Clean up the staged binary and batch script so the install directory is not
+            // Clean up the staged binary and script so the install directory is not
             // left with orphaned files. The update will be retried at the next scheduled check.
             _logger.LogWarning("Failed to launch updater script: {Message}", ex.Message);
             try { File.Delete(newExePath); } catch { }
-            try { File.Delete(batchPath); } catch { }
+            try { File.Delete(scriptPath); } catch { }
             throw;
         }
 
@@ -229,9 +230,117 @@ internal sealed class AutoUpdateService : ICheckForUpdates, IAddSingleton<ICheck
         Environment.Exit(0);
     }
 
+    private static Task WriteWindowsSwapScriptAsync(string scriptPath, string exePath, string newExePath, string backupPath)
+    {
+        var processName = Path.GetFileName(exePath);
+        return File.WriteAllTextAsync(scriptPath,
+            $"""
+            @echo off
+            timeout /t 2 /nobreak > nul
+            copy /y "{exePath}" "{backupPath}" > nul
+            if errorlevel 1 exit /b 1
+            move /y "{newExePath}" "{exePath}"
+            if errorlevel 1 (
+                del "{backupPath}" 2>nul
+                exit /b 1
+            )
+            start "" "{exePath}" --updated
+            timeout /t 8 /nobreak > nul
+            tasklist /fi "imagename eq {processName}" /fo csv 2>nul | findstr /i "{Path.GetFileNameWithoutExtension(processName)}" > nul
+            if errorlevel 1 (
+                copy /y "{backupPath}" "{exePath}" > nul
+                start "" "{exePath}"
+            )
+            del "{backupPath}" 2>nul
+            del "%~f0"
+            """);
+    }
+
+    private static async Task WriteUnixSwapScriptAsync(string scriptPath, string exePath, string newExePath, string backupPath)
+    {
+        // setsid detaches the relaunched app from this script's process group so it
+        // survives the script exiting. pgrep -f matches the full command line because the
+        // Linux binary has no extension for pgrep's default name match to key on.
+        var script = $"""
+            #!/bin/sh
+            sleep 2
+            cp -f '{exePath}' '{backupPath}' || exit 1
+            if ! mv -f '{newExePath}' '{exePath}'; then
+                rm -f '{backupPath}'
+                exit 1
+            fi
+            chmod +x '{exePath}'
+            setsid '{exePath}' --updated >/dev/null 2>&1 &
+            sleep 8
+            if ! pgrep -f '{exePath}' >/dev/null 2>&1; then
+                cp -f '{backupPath}' '{exePath}'
+                chmod +x '{exePath}'
+                setsid '{exePath}' >/dev/null 2>&1 &
+            fi
+            rm -f '{backupPath}'
+            rm -f "$0"
+            """;
+
+        await File.WriteAllTextAsync(scriptPath, script.ReplaceLineEndings("\n"));
+        PlatformPaths.EnsureExecutable(scriptPath);
+    }
+
+    private static void LaunchSwapScript(string scriptPath)
+    {
+        var startInfo = OperatingSystem.IsWindows()
+            ? new ProcessStartInfo("cmd.exe", $"/c \"{scriptPath}\"")
+            : new ProcessStartInfo("/bin/sh", scriptPath);
+        startInfo.CreateNoWindow = true;
+        startInfo.UseShellExecute = false;
+        Process.Start(startInfo);
+    }
+
+    // Confirms the staged download is the artifact the release published, before it is
+    // executed. Windows builds carry an Authenticode signature; Linux builds are matched
+    // against the SHA-256 digest published as a sidecar asset in the same release.
+    private async Task<bool> VerifyDownloadAsync(string filePath, string? checksumUrl)
+    {
+        if (OperatingSystem.IsWindows())
+            return VerifyAuthenticodeSignature(filePath);
+
+        if (string.IsNullOrEmpty(checksumUrl))
+        {
+            _logger.LogWarning("Release publishes no '{Asset}' checksum; refusing to install an unverifiable update.", ChecksumAssetName);
+            return false;
+        }
+
+        string expected;
+        try
+        {
+            // The sidecar is in `sha256sum` format: "<hex digest>  <filename>".
+            var contents = await _apiClient.GetStringAsync(checksumUrl);
+            expected = contents.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Could not fetch update checksum: {Message}", ex.Message);
+            return false;
+        }
+
+        string actual;
+        await using (var stream = File.OpenRead(filePath))
+        {
+            var digest = await System.Security.Cryptography.SHA256.HashDataAsync(stream);
+            actual = Convert.ToHexString(digest);
+        }
+
+        if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning("Update checksum mismatch. Expected {Expected}, got {Actual}.", expected, actual);
+            return false;
+        }
+        return true;
+    }
+
     // Checks that the file at filePath carries a valid Authenticode signature whose
     // subject CN matches "PaperNexus". Returns false (rather than throwing) if the
     // certificate is missing, invalid, or signed by an unexpected issuer.
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private bool VerifyAuthenticodeSignature(string filePath)
     {
         try

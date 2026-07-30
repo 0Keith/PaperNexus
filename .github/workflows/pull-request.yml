@@ -9,11 +9,22 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
+
+    # The self-hosted runner has no system-wide .NET software development kit,
+    # and the unprivileged runner user cannot create the default /usr/share/dotnet
+    # install location. Installing into the runner tool cache is both writable and
+    # persistent, so the download happens once and is reused by later runs.
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: '10.0.x'
+      env:
+        DOTNET_INSTALL_DIR: ${{ runner.tool_cache }}/dotnet
 
     - name: Restore dependencies
       run: dotnet restore

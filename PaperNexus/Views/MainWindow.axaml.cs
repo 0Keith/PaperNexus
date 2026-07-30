@@ -439,14 +439,13 @@ public partial class MainWindow : Window
         {
             var appDir = AppContext.BaseDirectory;
             var exePath = Environment.ProcessPath
-                ?? Path.Combine(appDir, "PaperNexus.exe");
+                ?? Path.Combine(appDir, PlatformPaths.ExecutableName);
 
             // Delete everything in the app directory except the running exe
             foreach (var file in Directory.GetFiles(appDir))
             {
                 // Skip the running exe — it cannot be deleted while in use and is not "data"
-                if (string.Equals(Path.GetFullPath(file), Path.GetFullPath(exePath),
-                    StringComparison.OrdinalIgnoreCase))
+                if (PlatformPaths.PathEquals(Path.GetFullPath(file), Path.GetFullPath(exePath)))
                     continue;
                 try { File.Delete(file); }
                 catch { /* skip locked files */ }
@@ -459,7 +458,7 @@ public partial class MainWindow : Window
             }
 
             // Restart the application
-            Process.Start(new ProcessStartInfo(exePath) { UseShellExecute = true });
+            ShellOpener.LaunchExecutable(exePath);
             Environment.Exit(0);
         }
         catch (Exception ex)

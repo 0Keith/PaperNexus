@@ -7,7 +7,6 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using PaperNexus.Views;
 using PaperNexus.ViewModels;
-using Microsoft.Win32;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing;
 using SixLabors.ImageSharp.Drawing.Processing;
@@ -46,7 +45,7 @@ public partial class App : Application
             // Keep running when any window is closed
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
-            // In install mode, show only the install screen — skip all service/tray setup.
+            // In install mode, show only the install screen - skip all service/tray setup.
             if (Program.IsInstallMode)
             {
                 new Views.InstallScreen().Show();
@@ -67,13 +66,11 @@ public partial class App : Application
                 .Build();
 
             // Apply startup registration based on the persisted setting
-#pragma warning disable CA1416
             _ = WallpaperNexusSettings.LoadAsync().ContinueWith(t =>
             {
-                try { UpdateStartupRegistration(t.Result.RunOnStartup); }
+                try { StartupRegistration.Update(t.Result.RunOnStartup); }
                 catch (Exception ex) { Logger?.LogError(ex, "Failed to apply startup registration on launch."); }
             });
-#pragma warning restore CA1416
 
             var launchedOnStartup = desktop.Args?.Contains("--startup") == true;
 
@@ -85,7 +82,7 @@ public partial class App : Application
             }
 
             // Close the splash once the background host has started, but show it for at least 2 seconds.
-            // In debug mode skip the delay and go straight to the main window — avoids a window-count-zero
+            // In debug mode skip the delay and go straight to the main window - avoids a window-count-zero
             // gap that would trigger OnLastWindowClose shutdown before the main window opens.
             var splashDelay = Program.IsDebugMode ? Task.CompletedTask : Task.Delay(2000);
             _ = Task.WhenAll(_backgroundHost.StartAsync(), splashDelay).ContinueWith(_ =>
@@ -97,32 +94,18 @@ public partial class App : Application
                         ShowMainWindow();
                 }));
 
-            // Show only the tray icon — no window at startup
+            // Show only the tray icon - no window at startup
             SetupTrayIcon(desktop);
 
-            // Monitor for show-UI signals from second instances
-            if (Program.ShowUIEvent is not null)
+            // Monitor for show-UI signals from second instances. The listener blocks while
+            // waiting, so it runs on its own thread and polls internally for _exiting.
+            // Window creation must happen on the UI thread, hence the dispatcher post.
+            var singleInstance = Program.Instance;
+            if (singleInstance is not null)
             {
-                _ = Task.Run(() =>
-                {
-                    // Poll with a 1-second timeout so we can check _exiting without blocking forever
-                    while (!_exiting)
-                    {
-                        try
-                        {
-                            if (Program.ShowUIEvent.WaitOne(1000))
-                            {
-                                if (!_exiting)
-                                    ShowMainWindow();
-                            }
-                        }
-                        catch (ObjectDisposedException)
-                        {
-                            // Event was disposed during shutdown — exit the listener loop
-                            break;
-                        }
-                    }
-                });
+                _ = Task.Run(() => singleInstance.Listen(
+                    onShowRequested: () => Dispatcher.UIThread.Post(ShowMainWindow),
+                    stopWhen: () => _exiting));
             }
         }
 
@@ -183,7 +166,7 @@ public partial class App : Application
                 if (switcher is null)
                     return;
                 var next = await Task.Run(switcher.SwitchToRandomAsync);
-                // Same fallback pattern as "Next Wallpaper" — download if the folder is empty
+                // Same fallback pattern as "Next Wallpaper" - download if the folder is empty
                 if (next is null)
                 {
                     var downloader = _backgroundHost?.Services.GetService<IDownloadWallpapers>();
@@ -349,26 +332,4 @@ public partial class App : Application
         ctx.Fill(Color.Tomato, new RectangularPolygon(7, 2, 2, 7));
     });
 
-    // Adds or removes the Windows startup registry entry under HKCU\...\Run.
-    // Also removes legacy key names from earlier app versions to clean up on upgrade.
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-    internal static void UpdateStartupRegistration(bool enable)
-    {
-        using var key = Registry.CurrentUser.OpenSubKey(
-            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", writable: true);
-        // Clean up old names from previous app identity
-        key?.DeleteValue("Excogitated Wallpaper Service", throwOnMissingValue: false);
-        key?.DeleteValue("Wallpaper Nexus", throwOnMissingValue: false);
-        if (enable)
-        {
-            var exePath = Environment.ProcessPath
-                ?? Path.ChangeExtension(Assembly.GetEntryAssembly()!.Location, ".exe");
-            // Pass --startup so the app knows it was launched by Windows at login
-            key?.SetValue("PaperNexus", $"\"{exePath}\" --startup");
-        }
-        else
-        {
-            key?.DeleteValue("PaperNexus", throwOnMissingValue: false);
-        }
-    }
 }

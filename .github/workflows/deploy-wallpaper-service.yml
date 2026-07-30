@@ -12,11 +12,22 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
+
+    # The self-hosted runner has no system-wide .NET software development kit,
+    # and the unprivileged runner user cannot create the default /usr/share/dotnet
+    # install location. Installing into the runner tool cache is both writable and
+    # persistent, so the download happens once and is reused by later runs.
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: '10.0.x'
+      env:
+        DOTNET_INSTALL_DIR: ${{ runner.tool_cache }}/dotnet
 
     - name: Restore dependencies
       run: dotnet restore
@@ -33,18 +44,35 @@ jobs:
         else
           buildNum="$runNumber"
         fi
-        dotnet publish PaperNexus/PaperNexus.csproj \
-          --configuration Release \
-          --runtime win-x64 \
-          --self-contained true \
-          -p:PublishSingleFile=true \
-          -p:IncludeNativeLibrariesForSelfExtract=true \
-          -p:PublishTrimmed=false \
-          -p:Version="$buildNum.0.0" \
-          --output ./publish/PaperNexus
 
+        # One single-file, self-contained binary per supported platform.
+        for rid in win-x64 linux-x64; do
+          dotnet publish PaperNexus/PaperNexus.csproj \
+            --configuration Release \
+            --runtime "$rid" \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:PublishTrimmed=false \
+            -p:Version="$buildNum.0.0" \
+            --output "./publish/$rid"
+        done
+
+        # The auto-updater looks the Linux asset up by this exact name.
+        mv ./publish/linux-x64/PaperNexus ./publish/linux-x64/PaperNexus-linux-x64
+        chmod +x ./publish/linux-x64/PaperNexus-linux-x64
+
+    # The self-hosted runner persists between runs, so osslsigncode survives from
+    # the run that installed it. Installing unconditionally would re-run apt on
+    # every build and fail outright on a runner whose user has no sudo rights.
     - name: Install signing tools
-      run: sudo apt-get install -y osslsigncode
+      run: |
+        if command -v osslsigncode >/dev/null 2>&1; then
+          echo "osslsigncode already present: $(command -v osslsigncode)"
+          exit 0
+        fi
+        sudo apt-get update
+        sudo apt-get install -y osslsigncode
 
     - name: Sign executable (self-signed)
       env:
@@ -96,10 +124,16 @@ jobs:
           -pass "$certPassword" \
           -h sha256 \
           -t http://timestamp.digicert.com \
-          -in ./publish/PaperNexus/PaperNexus.exe \
-          -out ./publish/PaperNexus/PaperNexus-signed.exe
-        mv ./publish/PaperNexus/PaperNexus-signed.exe ./publish/PaperNexus/PaperNexus.exe
+          -in ./publish/win-x64/PaperNexus.exe \
+          -out ./publish/win-x64/PaperNexus-signed.exe
+        mv ./publish/win-x64/PaperNexus-signed.exe ./publish/win-x64/PaperNexus.exe
         rm -f "$pfxPath"
+
+    # Authenticode is a PE-only format, so the Linux build's integrity is published as a
+    # SHA-256 digest instead. The auto-updater refuses any Linux update without this file.
+    - name: Checksum Linux binary
+      working-directory: ./publish/linux-x64
+      run: sha256sum PaperNexus-linux-x64 > PaperNexus-linux-x64.sha256
 
     - name: Create GitHub Release
       env:
@@ -138,7 +172,9 @@ jobs:
         gh release create "$newTag" \
           --title "Paper Nexus $newTag" \
           --notes "$notes" \
-          ./publish/PaperNexus/PaperNexus.exe
+          ./publish/win-x64/PaperNexus.exe \
+          ./publish/linux-x64/PaperNexus-linux-x64 \
+          ./publish/linux-x64/PaperNexus-linux-x64.sha256
         echo "NEW_TAG=$newTag" >> "$GITHUB_ENV"
 
     - name: Delete previous releases
