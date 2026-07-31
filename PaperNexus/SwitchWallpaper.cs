@@ -172,7 +172,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
             title = title[..separatorIndex];
         using var img = await Image.LoadAsync(next).ConfigureAwait(false);
 
-        // Only clone the image when annotation is needed — cloning a 4K image allocates
+        // Only clone the image when annotation is needed - cloning a 4K image allocates
         // 50–100 MB of pixel data unnecessarily when annotation is off.
         // When annotating, clone so the original pixels are never modified.
         // annotatedOwned tracks whether we own the clone (and must dispose it) or are
@@ -194,7 +194,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
             var pixel = color.ToPixel<Rgba32>();
             var outlineColor = pixel.R + pixel.G + pixel.B > 382 ? Color.Black : Color.White;
             var outlinePen = annotation.OutlineEnabled
-                ? Pens.Solid(outlineColor, fontSize / 36f)
+                ? Pens.Solid(outlineColor, AnnotationOutlineWidth(fontSize))
                 : null;
             var brush = new SolidBrush(color);
             // Offset from corner edges by a fixed margin; right-side positions use a symmetric offset from the right
@@ -211,7 +211,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
                 var options = new RichTextOptions(font) { Origin = position };
                 if (annotPos is AnnotationPosition.TopRight or AnnotationPosition.BottomRight)
                     options.HorizontalAlignment = HorizontalAlignment.Right;
-                o.DrawText(options, title, brush, outlinePen);
+                DrawOutlinedText(o, options, title, brush, outlinePen);
 
                 // In debug mode, add a smaller timestamp label immediately below/above the title
                 if (settings.DebugMode)
@@ -224,7 +224,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
                     var tsOptions = new RichTextOptions(tsFont) { Origin = new PointF(position.X, tsY) };
                     if (annotPos is AnnotationPosition.TopRight or AnnotationPosition.BottomRight)
                         tsOptions.HorizontalAlignment = HorizontalAlignment.Right;
-                    o.DrawText(tsOptions, timestamp, brush, outlinePen);
+                    DrawOutlinedText(o, tsOptions, timestamp, brush, outlinePen);
                 }
             });
             annotatedOwned = true;
@@ -250,7 +250,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
             if (ms.Length <= SizeCeiling)
             {
                 currentPath = Path.Combine(AppContext.BaseDirectory, "current.png");
-                // Seek to the start and copy the stream directly — avoids allocating a second byte[] copy of the encoded image
+                // Seek to the start and copy the stream directly - avoids allocating a second byte[] copy of the encoded image
                 ms.Position = 0;
                 using var pngFile = new FileStream(currentPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
                 await ms.CopyToAsync(pngFile).ConfigureAwait(false);
@@ -268,7 +268,7 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
                     if (ms.Length <= SizeCeiling)
                         break;
                 }
-                // Seek to the start and copy the stream directly — avoids allocating a second byte[] copy of the encoded image
+                // Seek to the start and copy the stream directly - avoids allocating a second byte[] copy of the encoded image
                 ms.Position = 0;
                 using var jpgFile = new FileStream(currentPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
                 await ms.CopyToAsync(jpgFile).ConfigureAwait(false);
@@ -299,6 +299,34 @@ internal sealed class SwitchWallpaper : ISwitchWallpaper, IAddSingleton<ISwitchW
 
     private const long SizeCeiling = 1 << 24; // 16 MB
 
+    // Stroke width for the annotation outline, in pixels.
+    //
+    // This was previously fontSize/36, which is 0.5px at the default 18pt - a sub-pixel
+    // stroke that antialiases away to nothing, so small text had no visible outline at all.
+    // 1/12 was chosen by rendering the candidates side by side: clearly visible at 18pt
+    // while leaving the letterforms open, where 1/6 was heavy enough to close up adjacent
+    // glyphs. The floor guarantees at least one solid pixel however small the font.
+    internal static float AnnotationOutlineWidth(int fontSize) => Math.Max(1f, fontSize / 12f);
+
+    // Draws the outline and the glyph fill as two separate passes.
+    //
+    // ImageSharp's DrawText(options, text, brush, pen) overload fills first and then strokes
+    // on top. A stroke is centred on the glyph edge, so that inward half eats into the letter
+    // and visibly thins small text. Stroking first and filling over it keeps the glyph at its
+    // full weight and leaves all the contrast outside the letterform, which is what makes the
+    // outline readable at small font sizes.
+    private static void DrawOutlinedText(
+        IImageProcessingContext context,
+        RichTextOptions options,
+        string text,
+        Brush brush,
+        Pen? outlinePen)
+    {
+        if (outlinePen is not null)
+            context.DrawText(options, text, brush: null, pen: outlinePen);
+
+        context.DrawText(options, text, brush, pen: null);
+    }
 }
 
 internal sealed class SwitchWallpaperJob : IScheduleScopedJob
@@ -330,7 +358,7 @@ internal sealed class SwitchWallpaperJob : IScheduleScopedJob
         }
         catch (CronFormatException)
         {
-            _logger.LogWarning("Slideshow cron expression '{Expression}' is invalid — wallpaper switching disabled until corrected.", stored);
+            _logger.LogWarning("Slideshow cron expression '{Expression}' is invalid - wallpaper switching disabled until corrected.", stored);
             return new JobConfig();
         }
     }
@@ -339,6 +367,6 @@ internal sealed class SwitchWallpaperJob : IScheduleScopedJob
     {
         var next = await _switcher.SwitchToNextAsync();
         if (next is null)
-            _logger.LogInformation("Wallpapers folder not configured or no wallpapers found — skipping.");
+            _logger.LogInformation("Wallpapers folder not configured or no wallpapers found - skipping.");
     }
 }

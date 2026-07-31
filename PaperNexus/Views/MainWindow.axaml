@@ -511,8 +511,11 @@
                                 <Grid ColumnDefinitions="*,12,*" >
                                     <StackPanel Grid.Column="0" Spacing="4">
                                         <TextBlock Text="Size" FontSize="12" Opacity="0.6"/>
+                                        <!-- Font size is an absolute point size, so a title that
+                                             reads well on 1080p is tiny on a 4K wallpaper. The cap
+                                             is high enough to dial in a large image by hand. -->
                                         <NumericUpDown Value="{Binding AnnotationFontSize}"
-                                                       Minimum="8" Maximum="72" Increment="2"
+                                                       Minimum="8" Maximum="200" Increment="2"
                                                        FormatString="0"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="2" Spacing="4">
