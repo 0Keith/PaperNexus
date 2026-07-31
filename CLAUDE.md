@@ -138,7 +138,9 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 - **Update `CLAUDE.md`** after structural/pattern changes
 - **No Linear issues** for this repo
 - "Remember" = update `CLAUDE.md` (not just the memory directory)
-- **Branch protection on `main`:** PRs required, `build` status check required, `enforce_admins: true` (owner cannot bypass)
+- **Merging:** Land every PR with `gh pr merge --squash --auto`. `main` requires signed commits, and agent commits are unsigned - GitHub creates the squash commit itself and signs it with its web-flow key, so the commit reaching `main` is verified without any local signing setup. An immediate (non-`--auto`) API merge is refused by the signature rule. The web UI merge button is the fallback if auto-merge stalls.
+- **Branch protection on `main`:** ruleset requires PRs, squash-only, linear history, signed commits, and both `build` and `CodeQL` status checks; no bypass actors (owner cannot bypass)
+- **CodeQL:** code scanning default setup (`actions` + `csharp`) supplies the required `CodeQL` check. It only attaches to PRs opened *after* it was enabled - a PR predating that must be closed and reopened for the check to appear
 - **Always start work on a feature branch** — never commit directly to `main`; create a descriptive branch (e.g., `feature/wallpaper-preview`, `fix/auto-update`) before making any changes
 - **Comment addition tasks:** Add comments in small, focused batches (1–3 files at a time) rather than delegating all files to a single agent. Large batches risk code corruption.
 - **Verify Linux changes against the real desktop**, not the app log - read the desktop's own state (e.g. `gsettings get org.gnome.desktop.background picture-uri`). Setup is in `docs/platform-support.md`.
