@@ -16,7 +16,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
 
     # The self-hosted runner has no system-wide .NET software development kit,
     # and the unprivileged runner user cannot create the default /usr/share/dotnet
