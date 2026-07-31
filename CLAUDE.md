@@ -13,7 +13,7 @@ dotnet run --project PaperNexus --configuration Release -- --debug
 dotnet test --configuration Release
 ```
 
-**Always use `--debug` when running locally.** Without it, `dotnet run` triggers the auto-install path (copies exe to `%LOCALAPPDATA%\PaperNexus\`) and exits immediately — the window never appears directly.
+**Always use `--debug` when running locally.** Without it, `dotnet run` triggers the auto-install path (copies exe to `%LOCALAPPDATA%\PaperNexus\`) and exits immediately - the window never appears directly.
 
 After launching, monitor the background task output for runtime errors. Watch for unhandled exceptions, AVLN binding errors, or service failures.
 
@@ -72,8 +72,8 @@ PaperNexus/
 ## Key Architecture
 
 - **MVVM** with `CommunityToolkit.Mvvm` (`[ObservableProperty]`, `[RelayCommand]`)
-- **Scheduled Jobs (preferred):** `IScheduleScopedJob` — separate business logic from scheduling. Job wrapper delegates to injected interface. Auto-discovered by `AddServicesFrom()`.
-- **Scheduled Jobs (legacy):** `ScheduledJobService` base class — `DownloadWallpapers` extends directly. Registered via `IAddHostedSingleton<T>`.
+- **Scheduled Jobs (preferred):** `IScheduleScopedJob` - separate business logic from scheduling. Job wrapper delegates to injected interface. Auto-discovered by `AddServicesFrom()`.
+- **Scheduled Jobs (legacy):** `ScheduledJobService` base class - `DownloadWallpapers` extends directly. Registered via `IAddHostedSingleton<T>`.
 - **DI:** `AddServicesFrom(assembly)` auto-discovers `IAddSingleton<T>`, `IAddHostedSingleton<T>`, and `IScheduleScopedJob` implementations.
 - **Platform Layer (`Core/Platform/`):** Every Windows/Linux difference is isolated here - no other file may call a Windows-only API, hardcode `.exe`, or compare paths case-insensitively. See `docs/platform-support.md`.
 - **Auto-Update:** Queries GitHub Releases API, compares `vN` tag as integer against `Assembly.Version.Major`, downloads the per-platform asset (`PaperNexus.exe` / `PaperNexus-linux-x64`), verifies it (Authenticode on Windows, published SHA-256 on Linux), swaps via self-deleting script (`.bat` / `.sh`) with rollback.
@@ -83,7 +83,7 @@ PaperNexus/
 - **Wallpaper Processing:** Writes to `current.png`/`.jpg`. Title overlay via SixLabors at switch time. PNG preferred; JPEG fallback if >16 MB.
 - **`ISwitchWallpaper`:** Exposes `WallpaperChanged` event, `SwitchToNextAsync()`, and `SwitchToRandomAsync()`.
 - **Wallpaper Sources (JPath-based):** `HttpWallpaperSourceService` uses Newtonsoft `SelectTokens` with `ImageUrlJPath`/`TitleJPath`. Sources edited via `WallpaperSourceDialog` (name, URL, JPath, cron, enabled toggle, live Test button).
-- **`NonScrollableComboBox`:** Suppresses scroll wheel unless dropdown is open — prevents accidental changes while scrolling the settings page.
+- **`NonScrollableComboBox`:** Suppresses scroll wheel unless dropdown is open - prevents accidental changes while scrolling the settings page.
 - **Favorites:** Heart toggle, stored in `settings.json`, excluded from retention cleanup.
 - **Startup at login:** Registry key at `HKCU\...\Run\PaperNexus` on Windows; `~/.config/autostart/PaperNexus.desktop` on Linux.
 - **Linux launcher:** `DesktopEntry` writes `~/.local/share/applications/PaperNexus.desktop` and a hicolor icon on every launch. Required for dock pinning: without it the shell synthesises a temporary entry that vanishes when the app exits. `WM_CLASS`, `StartupWMClass`, and the `.desktop` basename must all stay `PaperNexus`.
@@ -96,10 +96,10 @@ Avalonia 11.3.12, CommunityToolkit.Mvvm 8.4.0, Cronos 0.11.1, CronExpressionDesc
 ## Settings
 
 `Core/WallpaperNexusSettings.cs` → `%LOCALAPPDATA%\PaperNexus\settings.json`:
-- `SlideshowSettings` — `Enabled` flag, schedule mode, interval (double) + `IntervalType` (Seconds/Minutes/Hours/Days/Weeks/Months/Years), cron expression, order (alphabetical/random/oldest/newest), fill style, `FavoritePriorityEnabled`, `FavoritePriorityWeight` (default: 3)
-- `DownloadSettings` — folder path (default: `%USERPROFILE%\Pictures\PaperNexus`), `ResolutionWidth`/`ResolutionHeight`, retention days (default: 365)
-- `List<WallpaperSource>` — name, URL, `ImageUrlJPath`, `TitleJPath`, cron, `IsEnabled`, `LastDownloadUtc`; defaults: "Bing Daily 4k" + "Spotlight Daily 4k"
-- `AnnotationSettings` — font (Cinzel, bundled), size (18), color (#F5F5F5), position, `OutlineEnabled`
+- `SlideshowSettings` - `Enabled` flag, schedule mode, interval (double) + `IntervalType` (Seconds/Minutes/Hours/Days/Weeks/Months/Years), cron expression, order (alphabetical/random/oldest/newest), fill style, `FavoritePriorityEnabled`, `FavoritePriorityWeight` (default: 3)
+- `DownloadSettings` - folder path (default: `%USERPROFILE%\Pictures\PaperNexus`), `ResolutionWidth`/`ResolutionHeight`, retention days (default: 365)
+- `List<WallpaperSource>` - name, URL, `ImageUrlJPath`, `TitleJPath`, cron, `IsEnabled`, `LastDownloadUtc`; defaults: "Bing Daily 4k" + "Spotlight Daily 4k"
+- `AnnotationSettings` - font (default Cinzel, bundled; the picker lists every installed system family, never a hardcoded name list), size (default 18, UI range 8–200 - an absolute point size, so a title sized for 1080p is tiny on 4K), color (#F5F5F5), position, `OutlineEnabled` (stroke width `fontSize/12` with a 1px floor, drawn as a stroke pass then a fill pass so the outline does not thin small glyphs)
 - `FavoriteWallpapers`, `BannedWallpapers`, window position/size, `RunOnStartup`, `AutoUpdatesEnabled`, `DebugMode`, `AnnotateWallpaper`, `MinimizeToTray`, `CurrentWallpaperPath`
 
 ## Code Style
@@ -110,7 +110,7 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 
 **Action buttons belong on the item they act on:** Buttons or controls that require a selection (e.g. "Set as current", "Remove") should live on the row/card of the item they modify, not in a separate toolbar. Toolbars are for global actions only.
 
-**Comments for intended behavior:** Use comments to document *why* and *what* a method or block is intended to do — especially for non-obvious logic, edge cases, and side-effect sequences.
+**Comments for intended behavior:** Use comments to document *why* and *what* a method or block is intended to do - especially for non-obvious logic, edge cases, and side-effect sequences.
 
 **Local vars over inline wrapping:** Extract method call arguments into named local variables rather than nesting inline. E.g., `var current = Path.GetFullPath(x); var install = Path.GetFullPath(y); string.Equals(current, install, ...)` over `string.Equals(Path.GetFullPath(x), Path.GetFullPath(y), ...)`.
 
@@ -141,7 +141,7 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 - **Merging:** Land every PR with `gh pr merge --squash --auto`. Every commit reaching `main` is signed regardless of local setup, because GitHub creates the squash commit itself and signs it with its web-flow key. Branch commits are deliberately *not* required to be signed: the ruleset's `required_signatures` rule was removed, since PRs are mandatory and the squash commit is signed either way. While that rule was active it refused the merge outright - even with `--auto` armed and all checks green - because it evaluates the branch commits before GitHub ever creates the signed squash commit.
 - **Branch protection on `main`:** ruleset requires PRs, squash-only, linear history, and both `build` and `CodeQL` status checks; no bypass actors (owner cannot bypass)
 - **CodeQL:** code scanning default setup (`actions` + `csharp`) supplies the required `CodeQL` check. It only attaches to PRs opened *after* it was enabled - a PR predating that must be closed and reopened for the check to appear
-- **Always start work on a feature branch** — never commit directly to `main`; create a descriptive branch (e.g., `feature/wallpaper-preview`, `fix/auto-update`) before making any changes
+- **Always start work on a feature branch** - never commit directly to `main`; create a descriptive branch (e.g., `feature/wallpaper-preview`, `fix/auto-update`) before making any changes
 - **Comment addition tasks:** Add comments in small, focused batches (1–3 files at a time) rather than delegating all files to a single agent. Large batches risk code corruption.
 - **Verify Linux changes against the real desktop**, not the app log - read the desktop's own state (e.g. `gsettings get org.gnome.desktop.background picture-uri`). Setup is in `docs/platform-support.md`.
 - **No system-level calls in unit tests:** Tests must never invoke real OS APIs (e.g., `NativeMethods`, registry writes, `SetDesktopWallpaper`). Use injectable interfaces with no-op test doubles (e.g., `NoOpWallpaperApplier`) to isolate from the system.

@@ -104,21 +104,24 @@ public partial class WallpaperConfigViewModel : ObservableObject
 
     public static readonly IReadOnlyList<string> FontFamilyOptions = BuildFontFamilyOptions();
 
-    // Builds the font picker list: bundled fonts first, then curated system fonts
-    // that are actually installed on the current machine (system fonts vary by OS/locale).
+    // Builds the font picker list: bundled fonts first, then every font family installed
+    // on this machine.
+    //
+    // This used to probe a hardcoded list of eleven Windows font names (Arial, Segoe UI,
+    // MS Gothic, and so on) and keep the ones that resolved. On Linux none of those exist,
+    // so the picker collapsed to the single bundled family and the user could not choose a
+    // font at all. Enumerating the installed families instead means the list reflects the
+    // machine rather than a guess about which fonts a machine ought to have.
     private static List<string> BuildFontFamilyOptions()
     {
         var fonts = new List<string>(BundledFonts.Names);
-        string[] commonSystemFonts = [
-            "MS Gothic", "Arial", "Segoe UI", "Consolas",
-            "Georgia", "Times New Roman", "Verdana", "Tahoma",
-            "Courier New", "Impact", "Comic Sans MS",
-        ];
-        foreach (var name in commonSystemFonts)
-        {
-            if (SixLabors.Fonts.SystemFonts.TryGet(name, out _))
-                fonts.Add(name);
-        }
+
+        var systemFamilies = SixLabors.Fonts.SystemFonts.Families
+            .Select(f => f.Name)
+            .Where(name => !fonts.Contains(name, StringComparer.OrdinalIgnoreCase))
+            .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase);
+
+        fonts.AddRange(systemFamilies);
         return fonts;
     }
 
