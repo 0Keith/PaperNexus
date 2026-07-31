@@ -406,7 +406,14 @@ public partial class WallpaperConfigViewModel : ObservableObject
     partial void OnAnnotateWallpaperChanged(bool value) => TriggerSave();
     partial void OnAnnotationFontFamilyChanged(string value) => TriggerSave();
     partial void OnAnnotationFontSizeChanged(int value) => TriggerSave();
-    partial void OnAnnotationColorChanged(string value) => TriggerSave();
+    partial void OnAnnotationColorChanged(string value)
+    {
+        TriggerSave();
+        // A few hex values spell words and are a reasonable thing to try in a colour box.
+        var message = EasterEggs.MagicColorMessage(value);
+        if (message is not null)
+            _ = ShowTransientStatusAsync(message, 5000);
+    }
     partial void OnAnnotationOutlineEnabledChanged(bool value) => TriggerSave();
     partial void OnSelectedAnnotationPositionChanged(AnnotationPositionOption value) => TriggerSave();
     partial void OnAutoUpdatesEnabledChanged(bool value) => TriggerSave();
@@ -700,7 +707,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
                 await settings.SaveAsync();
                 if (!FavoriteWallpapers.Contains(path, StringComparer.OrdinalIgnoreCase))
                     FavoriteWallpapers.Add(path);
-                await ShowTransientStatusAsync("✓ Added to favorites.");
+                // Round numbers of favorites get a nod instead of the usual confirmation.
+                var milestone = EasterEggs.FavoriteMilestoneMessage(settings.FavoriteWallpapers.Count);
+                await ShowTransientStatusAsync(milestone ?? "✓ Added to favorites.", milestone is null ? 3000 : 5000);
             }
         }
         catch (Exception ex)
@@ -1145,6 +1154,10 @@ public partial class WallpaperConfigViewModel : ObservableObject
                     FavoriteWallpapers.Add(item.FilePath);
                 if (CurrentWallpaperPath.Equals(item.FilePath, StringComparison.OrdinalIgnoreCase))
                     IsCurrentWallpaperFavorited = true;
+
+                var milestone = EasterEggs.FavoriteMilestoneMessage(settings.FavoriteWallpapers.Count);
+                if (milestone is not null)
+                    await ShowTransientStatusAsync(milestone, 5000);
             }
             await settings.SaveAsync();
         }

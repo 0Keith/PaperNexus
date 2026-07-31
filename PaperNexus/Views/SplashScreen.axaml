@@ -31,6 +31,7 @@
                    Margin="0,0,0,8" />
 
         <TextBlock Grid.Row="3"
+                   x:Name="StatusText"
                    Text="Starting up..."
                    FontSize="13"
                    Foreground="#707070"
