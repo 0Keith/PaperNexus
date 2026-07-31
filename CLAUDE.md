@@ -29,7 +29,8 @@ PaperNexus/
 ├── .github/
 │   └── workflows/
 │       ├── pull-request.yml             # PR build verification
-│       └── deploy-wallpaper-service.yml # Release builds + code signing
+│       ├── deploy-wallpaper-service.yml # Release builds + code signing
+│       └── deploy-website.yml           # Azure Static Web Apps deploy (website/ only)
 ├── docs/
 │   ├── ui-style-guide.md               # Avalonia AXAML patterns reference
 │   └── platform-support.md             # Windows/Linux platform layer reference
@@ -125,7 +126,8 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 - **Version:** Default `0.0.0`, CI sets `-p:Version=$buildNum.0.0`. Tags use `vN` format. Auto-updater compares `Version.Major` as integer.
 - **Code signing:** Self-signed cert, auto-generated on first run, stored as `SIGNING_CERTIFICATE`/`SIGNING_CERTIFICATE_PASSWORD` secrets. Requires `GH_PAT` for persistence. 5-year validity, auto-renews at 30 days remaining.
 - **Publishing:** `dotnet publish PaperNexus/PaperNexus.csproj -c Release -r <win-x64|linux-x64> --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false`. The Linux output is renamed to `PaperNexus-linux-x64` because the auto-updater looks the asset up by that exact name.
-- **Self-hosted runner:** Both workflows run on `[self-hosted, Linux, X64]`. The runner has no system .NET SDK and its user cannot write `/usr/share/dotnet`, so every job needs `actions/setup-dotnet@v5` with `DOTNET_INSTALL_DIR: ${{ runner.tool_cache }}/dotnet`. Tools that persist between runs (osslsigncode) are reused rather than reinstalled.
+- **Website workflow:** `deploy-website.yml` deploys `website/` to Azure Static Web Apps. It stays on `ubuntu-latest` - `Azure/static-web-apps-deploy` is a Docker container action, which a self-hosted runner cannot run without Docker. Triggered only by changes under `website/`.
+- **Self-hosted runner:** The .NET workflows run on `[self-hosted, Linux, X64]`. The runner has no system .NET SDK and its user cannot write `/usr/share/dotnet`, so every job needs `actions/setup-dotnet@v5` with `DOTNET_INSTALL_DIR: ${{ runner.tool_cache }}/dotnet`. Tools that persist between runs (osslsigncode) are reused rather than reinstalled.
 - **Actions maintenance:** 30-day cycle. Currently `actions/checkout@v6`, `actions/setup-dotnet@v5`. **Next update: August 29, 2026.**
 
 ## Guidelines
