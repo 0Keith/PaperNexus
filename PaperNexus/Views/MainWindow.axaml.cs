@@ -69,13 +69,7 @@ public partial class MainWindow : Window
         "🌟 This wallpaper? Chef's kiss.",
     ];
 
-    private static readonly Key[] KonamiCode =
-    [
-        Key.Up, Key.Up, Key.Down, Key.Down,
-        Key.Left, Key.Right, Key.Left, Key.Right,
-        Key.B, Key.A,
-    ];
-    private int _konamiIndex;
+    private readonly KonamiSequence _konami = new();
 
     public MainWindow()
     {
@@ -125,7 +119,7 @@ public partial class MainWindow : Window
         {
             _versionClickCount = 0;
             if (DataContext is WallpaperConfigViewModel vm)
-                await vm.ShowTransientStatusAsync("🥚 You found the easter egg! No wallpapers were harmed.", 5000);
+                await vm.ShowTransientStatusAsync(EasterEggs.NextVersionMessage(), 5000);
         }
     }
 
@@ -142,27 +136,18 @@ public partial class MainWindow : Window
             vm.CheckForUpdatesForceCommand.Execute(null);
     }
 
-    // Implements the Konami Code easter egg: tracks the key sequence and shows a message
-    // when the full sequence is entered. If a wrong key is pressed, the counter resets
-    // (but if the wrong key happens to be the first key in the sequence, start from 1).
+    // Implements the Konami Code easter egg. The sequence matching lives in KonamiSequence
+    // so it can be unit tested without driving a window; this override only supplies keys
+    // and shows the reward.
     protected override async void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
 
-        if (e.Key == KonamiCode[_konamiIndex])
-        {
-            _konamiIndex++;
-            if (_konamiIndex == KonamiCode.Length)
-            {
-                _konamiIndex = 0;
-                if (DataContext is WallpaperConfigViewModel vm)
-                    await vm.ShowTransientStatusAsync("🎮 +30 lives granted! (wallpaper edition)", 5000);
-            }
-        }
-        else
-        {
-            _konamiIndex = e.Key == KonamiCode[0] ? 1 : 0;
-        }
+        if (!_konami.Advance(e.Key.ToString()))
+            return;
+
+        if (DataContext is WallpaperConfigViewModel vm)
+            await vm.ShowTransientStatusAsync("🎮 +30 lives granted! (wallpaper edition)", 5000);
     }
 
     // Restores the saved window position and size from settings, then triggers the ViewModel
@@ -217,7 +202,7 @@ public partial class MainWindow : Window
             var index = vm.Sources.IndexOf(vm.SelectedSource);
             if (index < 0)
             {
-                // Source was removed while the dialog was open — just append the result
+                // Source was removed while the dialog was open - just append the result
                 vm.Sources.Add(dialog.Result);
             }
             else
@@ -271,7 +256,7 @@ public partial class MainWindow : Window
 
         var confirmed = await ShowYesNoDialog(
             "Disable Minimize to Tray",
-            "Without minimize to tray, closing the window will fully exit PaperNexus.\n\nAll the automatic greatness — scheduled wallpaper rotation, auto-downloads, and background updates — will stop until you manually reopen the app.\n\nDisable anyway?");
+            "Without minimize to tray, closing the window will fully exit PaperNexus.\n\nAll the automatic greatness - scheduled wallpaper rotation, auto-downloads, and background updates - will stop until you manually reopen the app.\n\nDisable anyway?");
 
         if (confirmed)
         {
@@ -393,7 +378,7 @@ public partial class MainWindow : Window
         if (!DebugModeCheckBox.IsChecked.GetValueOrDefault())
             return;
 
-        // Revert the check immediately — we'll set it if all 17 pass
+        // Revert the check immediately - we'll set it if all 17 pass
         DebugModeCheckBox.IsChecked = false;
         vm.DebugMode = false;
 
@@ -429,7 +414,7 @@ public partial class MainWindow : Window
             return;
 
         var doubleConfirmed = await ShowYesNoDialog(
-            "Factory Reset — Final Confirmation",
+            "Factory Reset - Final Confirmation",
             "This cannot be undone. Seriously. Last chance to back out.");
 
         if (!doubleConfirmed)
@@ -444,7 +429,7 @@ public partial class MainWindow : Window
             // Delete everything in the app directory except the running exe
             foreach (var file in Directory.GetFiles(appDir))
             {
-                // Skip the running exe — it cannot be deleted while in use and is not "data"
+                // Skip the running exe - it cannot be deleted while in use and is not "data"
                 if (PlatformPaths.PathEquals(Path.GetFullPath(file), Path.GetFullPath(exePath)))
                     continue;
                 try { File.Delete(file); }
