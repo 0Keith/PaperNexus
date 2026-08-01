@@ -3,7 +3,7 @@
         x:Class="PaperNexus.Views.InstallScreen"
         Width="400" Height="480"
         WindowStartupLocation="CenterScreen"
-        SystemDecorations="None"
+        WindowDecorations="None"
         CanResize="False"
         Topmost="True"
         Background="#1E1E1E">

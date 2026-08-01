@@ -93,7 +93,9 @@ PaperNexus/
 
 ## Dependencies
 
-Avalonia 11.3.18, CommunityToolkit.Mvvm 8.4.2, Cronos 0.13.0, CronExpressionDescriptor 2.51.0, Microsoft.Extensions.Hosting 10.0.5, Newtonsoft.Json 13.0.4, SixLabors.ImageSharp 3.1.12 + Drawing 2.1.7
+Avalonia 12.1.1, CommunityToolkit.Mvvm 8.4.2, Cronos 0.13.0, CronExpressionDescriptor 2.51.0, Microsoft.Extensions.Hosting 10.0.5, Newtonsoft.Json 13.0.4, SixLabors.ImageSharp 3.1.12 + Drawing 2.1.7
+
+No `Avalonia.Diagnostics` reference: it has no 12.x release, and `AttachDevTools` was never called. Adding the visual-tree inspector back would mean pinning Avalonia to 11.x.
 
 ## Settings
 

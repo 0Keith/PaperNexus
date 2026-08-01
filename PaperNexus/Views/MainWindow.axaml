@@ -337,7 +337,7 @@
                                 <TextBlock Text="Folder" FontSize="12" Opacity="0.6"/>
                                 <Grid ColumnDefinitions="*,8,Auto,4,Auto">
                                     <TextBox Grid.Column="0" Text="{Binding Folder}"
-                                             Watermark="e.g. C:/Users/YourName/Wallpapers"/>
+                                             PlaceholderText="e.g. your Pictures folder"/>
                                     <Button Grid.Column="2" Click="BrowseFolder_Click"
                                             ToolTip.Tip="Browse for wallpapers folder"
                                             Padding="8,4">
@@ -415,7 +415,7 @@
                                     </Grid>
                                     <TextBox IsVisible="{Binding IsCronMode}"
                                              Text="{Binding SlideshowCronExpression}"
-                                             Watermark="e.g. */30 * * * *"/>
+                                             PlaceholderText="e.g. */30 * * * *"/>
                                     <TextBlock Text="{Binding ScheduleDescription}"
                                                FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                                 </StackPanel>
@@ -522,7 +522,7 @@
                                     <StackPanel Grid.Column="2" Spacing="4">
                                         <TextBlock Text="Color (hex)" FontSize="12" Opacity="0.6"/>
                                         <TextBox Text="{Binding AnnotationColor}"
-                                                 Watermark="#F5F5F5"/>
+                                                 PlaceholderText="#F5F5F5"/>
                                     </StackPanel>
                                 </Grid>
                                 <StackPanel Spacing="4">
