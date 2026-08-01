@@ -295,6 +295,10 @@ public partial class WallpaperConfigViewModel : ObservableObject
     private bool _isLoading;
     private bool _hasPendingSave;
     private CancellationTokenSource _statusCts = new();
+
+    // Guards the _statusCts swap. Status messages are raised from the UI thread and from
+    // background save/download continuations, so two calls can interleave mid-swap.
+    private readonly object _statusLock = new();
     private CancellationTokenSource _saveCts = new();
 
 
@@ -1010,13 +1014,16 @@ public partial class WallpaperConfigViewModel : ObservableObject
         if (_switchWallpaper is not null)
             _switchWallpaper.WallpaperChanged -= OnWallpaperChanged;
 
-        // Cancel any pending status-clear or gallery-load operations
-        _statusCts.Cancel();
-        _statusCts.Dispose();
-        // Replace with a fresh CTS so that the in-flight SaveSettingsAsync call below can
-        // call ShowTransientStatusAsync without hitting an ObjectDisposedException on the
-        // already-disposed token. The window is closing so the toast won't be visible anyway.
-        _statusCts = new CancellationTokenSource();
+        // Cancel any pending status-clear or gallery-load operations, then hand out a fresh
+        // source so an in-flight SaveSettingsAsync can still raise a status message. The old
+        // source is cancelled but not disposed here: a call may still be awaiting its token,
+        // and disposing it underneath that call is what previously threw
+        // ObjectDisposedException. Its owner disposes it once superseded.
+        lock (_statusLock)
+        {
+            _statusCts.Cancel();
+            _statusCts = new CancellationTokenSource();
+        }
 
         // If a debounced save is pending, flush it immediately before cancelling so that
         // changes made just before the window closes are not silently discarded.
@@ -1047,12 +1054,17 @@ public partial class WallpaperConfigViewModel : ObservableObject
     internal async Task ShowTransientStatusAsync(string message, int durationMs = 3000)
     {
         // Cancel the previous delay so the old message doesn't clear the new one prematurely.
-        // Dispose immediately after cancellation; the awaiting call has already observed the cancel.
-        var oldCts = _statusCts;
-        oldCts.Cancel();
-        _statusCts = new CancellationTokenSource();
-        var cts = _statusCts;
-        oldCts.Dispose();
+        // Swapping under a lock, and cancelling rather than disposing, fixes a race that
+        // threw ObjectDisposedException out of Task.Delay below: the previous code disposed
+        // the superseded source immediately, while the call that owned it was still awaiting
+        // its token. Superseding a message must only cancel it - the owner disposes it.
+        CancellationTokenSource cts;
+        lock (_statusLock)
+        {
+            _statusCts.Cancel();
+            cts = new CancellationTokenSource();
+            _statusCts = cts;
+        }
 
         StatusMessage = message;
         try
@@ -1061,6 +1073,16 @@ public partial class WallpaperConfigViewModel : ObservableObject
             StatusMessage = string.Empty;
         }
         catch (OperationCanceledException) { }
+        finally
+        {
+            // Dispose only once superseded. While this source is still the current one, a
+            // later call will Cancel() it, which would throw on a disposed instance.
+            var superseded = false;
+            lock (_statusLock)
+                superseded = !ReferenceEquals(_statusCts, cts);
+            if (superseded)
+                cts.Dispose();
+        }
     }
 
     // Rebuilds the gallery from the wallpapers folder. Cancels any in-progress gallery

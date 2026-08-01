@@ -42,6 +42,10 @@ public partial class EasterEggOverlay : UserControl
         BuildScanlines();
         BuildSprites(show);
 
+        // Recording here rather than at each trigger means a new egg cannot be added and
+        // silently left out of the checklist.
+        _ = EasterEggProgress.RecordAsync(show.Id);
+
         _timer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(1.0 / EasterEggAnimation.FramesPerSecond),
