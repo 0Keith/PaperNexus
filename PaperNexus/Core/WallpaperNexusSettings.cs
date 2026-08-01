@@ -126,6 +126,11 @@ public class WallpaperNexusSettings
     public List<string> FavoriteWallpapers { get; set; } = [];
     public List<string> BannedWallpapers { get; set; } = [];
 
+    // Ids of easter eggs the user has triggered, backing the checklist. Ids come from
+    // EasterEggCatalog; unknown entries are ignored rather than pruned, so downgrading the
+    // app does not lose progress on eggs a newer version added.
+    public List<string> DiscoveredEasterEggs { get; set; } = [];
+
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public List<WallpaperSource> Sources { get; set; } = DefaultSources;
 
@@ -219,6 +224,7 @@ public class WallpaperNexusSettings
             settings.Annotation.Color = defaultAnnotation.Color;
         settings.FavoriteWallpapers ??= [];
         settings.BannedWallpapers ??= [];
+        settings.DiscoveredEasterEggs ??= [];
         // A weight of 0 or less would make favorite priority a no-op
         if (settings.Slideshow.FavoritePriorityWeight <= 0)
             settings.Slideshow.FavoritePriorityWeight = 3;

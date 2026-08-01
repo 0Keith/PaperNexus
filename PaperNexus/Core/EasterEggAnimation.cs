@@ -14,6 +14,9 @@ public enum EasterEggMotion
 
 // Everything the overlay needs to stage one easter egg.
 public sealed record EasterEggShow(
+    // Catalog id, so playing a show is also what marks it discovered - the trigger sites
+    // never have to remember to record anything.
+    string Id,
     string Message,
     string[] Sprite,
     string[] Palette,

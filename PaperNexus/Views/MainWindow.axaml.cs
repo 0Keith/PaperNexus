@@ -126,6 +126,15 @@ public partial class MainWindow : Window
         }
     }
 
+    // Opens the secrets checklist. Discovery state is read when the dialog opens rather
+    // than cached, so an egg found moments ago is already ticked.
+    private async void OnSecretsClicked(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new EasterEggListDialog();
+        await dialog.LoadAsync();
+        await dialog.ShowDialog(this);
+    }
+
     // Shift+Click on the update button triggers a forced re-install of the current version,
     // useful for testing the update pipeline without needing a newer build to be published.
     private void OnUpdateButtonPointerPressed(object? sender, PointerPressedEventArgs e)

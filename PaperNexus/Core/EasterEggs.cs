@@ -41,10 +41,14 @@ public static class EasterEggs
 
     private const double SplashMessageChance = 0.25;
 
+    // The ordinary line, shown most of the time. Public so callers can tell an egg apart
+    // from the normal case without repeating the string.
+    public const string DefaultSplashMessage = "Starting up...";
+
     public static string SplashMessage(Random random)
     {
         if (random.NextDouble() >= SplashMessageChance)
-            return "Starting up...";
+            return DefaultSplashMessage;
         return SplashMessages[random.Next(SplashMessages.Length)];
     }
 
@@ -96,6 +100,7 @@ public static class EasterEggShows
     // The Konami reward bursts outward like a firework - the loudest egg, and the one people
     // deliberately go looking for.
     public static EasterEggShow Konami() => new(
+        Id: EasterEggCatalog.Konami,
         Message: "+30 LIVES GRANTED",
         Sprite: EasterEggSprites.Coin,
         Palette: LivesPalette,
@@ -103,6 +108,7 @@ public static class EasterEggShows
         ParticleCount: 28);
 
     public static EasterEggShow Version() => new(
+        Id: EasterEggCatalog.Version,
         Message: EasterEggs.NextVersionMessage(),
         Sprite: EasterEggSprites.Egg,
         Palette: EggPalette,
@@ -118,6 +124,7 @@ public static class EasterEggShows
             return null;
 
         return new EasterEggShow(
+            Id: EasterEggCatalog.Favorites,
             Message: message,
             Sprite: EasterEggSprites.Heart,
             Palette: HeartPalette,
@@ -137,6 +144,7 @@ public static class EasterEggShows
             hex?.Trim().TrimStart('#').Trim(), "C0FFEE", StringComparison.OrdinalIgnoreCase);
 
         return new EasterEggShow(
+            Id: EasterEggCatalog.Colors,
             Message: message,
             Sprite: isCoffee ? EasterEggSprites.Coffee : EasterEggSprites.Star,
             Palette: isCoffee ? CoffeePalette : EggPalette,
