@@ -18,14 +18,22 @@ public interface IWallpaperApplier
 // type preserves the IAddSingleton auto-discovery contract in Bootstrapper.
 internal sealed class WallpaperApplier : IWallpaperApplier, IAddSingleton<IWallpaperApplier>
 {
-    private readonly IWallpaperBackend _backend = SelectBackend();
+    private readonly IWallpaperBackend _backend;
 
-    private static IWallpaperBackend SelectBackend()
+    // The logger is passed to the Linux backend so a failed wallpaper switch says which
+    // desktop was detected and which helper commands were tried. Without it the only symptom
+    // is that the wallpaper silently does not change, which is not diagnosable remotely.
+    public WallpaperApplier(ILogger<WallpaperApplier> logger)
+    {
+        _backend = SelectBackend(logger);
+    }
+
+    private static IWallpaperBackend SelectBackend(ILogger logger)
     {
         if (OperatingSystem.IsWindows())
             return new WindowsWallpaperBackend();
         if (OperatingSystem.IsLinux())
-            return new LinuxWallpaperBackend();
+            return new LinuxWallpaperBackend(logger);
         return new NoOpWallpaperBackend();
     }
 

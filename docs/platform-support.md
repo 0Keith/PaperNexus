@@ -33,6 +33,13 @@ There is no cross-desktop API, so `LinuxWallpaperBackend` dispatches on the dete
   colour scheme.
 - **Anything else** - `feh`, then `xwallpaper`, then `swaybg` if installed.
 
+When a switch fails the backend logs a warning naming the detected desktop, and each
+attempted mechanism logs at debug level (which `--debug` enables) saying whether the helper
+was found and whether it succeeded. That matters because the failure mode is otherwise
+silent: the wallpaper simply does not change. Log growth is bounded regardless - `FileLogger`
+rotates at 5 MB and keeps one previous generation, so the logs directory cannot exceed
+about 10 MB.
+
 Both KDE and GNOME only repaint when the stored value actually changes, and PaperNexus always
 writes the same `current.png`, so each backend clears the key before writing the real path.
 `swaybg` runs for as long as the wallpaper is displayed, so the backend keeps its process and
