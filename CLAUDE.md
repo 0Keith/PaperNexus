@@ -93,7 +93,7 @@ PaperNexus/
 
 ## Dependencies
 
-Avalonia 11.3.12, CommunityToolkit.Mvvm 8.4.0, Cronos 0.11.1, CronExpressionDescriptor 2.45.0, Microsoft.Extensions.Hosting 10.0.3, Newtonsoft.Json 13.0.4, SixLabors.ImageSharp 3.1.12 + Drawing 2.1.7
+Avalonia 11.3.18, CommunityToolkit.Mvvm 8.4.2, Cronos 0.13.0, CronExpressionDescriptor 2.51.0, Microsoft.Extensions.Hosting 10.0.5, Newtonsoft.Json 13.0.4, SixLabors.ImageSharp 3.1.12 + Drawing 2.1.7
 
 ## Settings
 
@@ -129,7 +129,7 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 - **Publishing:** `dotnet publish PaperNexus/PaperNexus.csproj -c Release -r <win-x64|linux-x64> --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false`. The Linux output is renamed to `PaperNexus-linux-x64` because the auto-updater looks the asset up by that exact name.
 - **Website workflow:** `deploy-website.yml` deploys `website/` to Azure Static Web Apps. It stays on `ubuntu-latest` - `Azure/static-web-apps-deploy` is a Docker container action, which a self-hosted runner cannot run without Docker. Triggered only by changes under `website/`.
 - **Self-hosted runner:** The .NET workflows run on `[self-hosted, Linux, X64]`. The runner has no system .NET SDK and its user cannot write `/usr/share/dotnet`, so every job needs `actions/setup-dotnet@v5` with `DOTNET_INSTALL_DIR: ${{ runner.tool_cache }}/dotnet`. Tools that persist between runs (osslsigncode) are reused rather than reinstalled.
-- **Actions maintenance:** 30-day cycle. Currently `actions/checkout@v6`, `actions/setup-dotnet@v5`. **Next update: August 29, 2026.**
+- **Actions maintenance:** 30-day cycle. Currently `actions/checkout@v7`, `actions/setup-dotnet@v6`. **Next update: August 29, 2026.**
 
 ## Guidelines
 
