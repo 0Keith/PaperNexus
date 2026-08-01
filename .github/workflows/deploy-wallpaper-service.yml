@@ -23,7 +23,7 @@ jobs:
     # install location. Installing into the runner tool cache is both writable and
     # persistent, so the download happens once and is reused by later runs.
     - name: Set up .NET
-      uses: actions/setup-dotnet@v5
+      uses: actions/setup-dotnet@v6
       with:
         dotnet-version: '10.0.x'
       env:
