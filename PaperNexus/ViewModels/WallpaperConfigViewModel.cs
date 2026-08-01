@@ -102,6 +102,10 @@ public partial class WallpaperConfigViewModel : ObservableObject
         new IntervalTypeOption("Years",   IntervalType.Years,    1,  1),
     };
 
+    // Raised when an easter egg should play. The ViewModel decides *whether* an egg fires;
+    // the window owns the overlay and decides how it is drawn.
+    public event Action<EasterEggShow>? EasterEggTriggered;
+
     public static readonly IReadOnlyList<string> FontFamilyOptions = BuildFontFamilyOptions();
 
     // Builds the font picker list: bundled fonts first, then every font family installed
@@ -410,9 +414,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
     {
         TriggerSave();
         // A few hex values spell words and are a reasonable thing to try in a colour box.
-        var message = EasterEggs.MagicColorMessage(value);
-        if (message is not null)
-            _ = ShowTransientStatusAsync(message, 5000);
+        var show = EasterEggShows.MagicColor(value);
+        if (show is not null)
+            EasterEggTriggered?.Invoke(show);
     }
     partial void OnAnnotationOutlineEnabledChanged(bool value) => TriggerSave();
     partial void OnSelectedAnnotationPositionChanged(AnnotationPositionOption value) => TriggerSave();
@@ -707,9 +711,12 @@ public partial class WallpaperConfigViewModel : ObservableObject
                 await settings.SaveAsync();
                 if (!FavoriteWallpapers.Contains(path, StringComparer.OrdinalIgnoreCase))
                     FavoriteWallpapers.Add(path);
-                // Round numbers of favorites get a nod instead of the usual confirmation.
-                var milestone = EasterEggs.FavoriteMilestoneMessage(settings.FavoriteWallpapers.Count);
-                await ShowTransientStatusAsync(milestone ?? "✓ Added to favorites.", milestone is null ? 3000 : 5000);
+                // Round numbers of favorites play an overlay instead of the usual confirmation.
+                var milestone = EasterEggShows.Favorite(settings.FavoriteWallpapers.Count);
+                if (milestone is not null)
+                    EasterEggTriggered?.Invoke(milestone);
+                else
+                    await ShowTransientStatusAsync("✓ Added to favorites.");
             }
         }
         catch (Exception ex)
@@ -1155,9 +1162,9 @@ public partial class WallpaperConfigViewModel : ObservableObject
                 if (CurrentWallpaperPath.Equals(item.FilePath, StringComparison.OrdinalIgnoreCase))
                     IsCurrentWallpaperFavorited = true;
 
-                var milestone = EasterEggs.FavoriteMilestoneMessage(settings.FavoriteWallpapers.Count);
+                var milestone = EasterEggShows.Favorite(settings.FavoriteWallpapers.Count);
                 if (milestone is not null)
-                    await ShowTransientStatusAsync(milestone, 5000);
+                    EasterEggTriggered?.Invoke(milestone);
             }
             await settings.SaveAsync();
         }

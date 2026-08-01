@@ -82,6 +82,69 @@ public static class EasterEggs
     }
 }
 
+// Builds the staged overlay for each egg. Kept separate from the message text above so the
+// wording and the visuals can change independently, and so a trigger that should stay quiet
+// returns null rather than an empty show.
+public static class EasterEggShows
+{
+    // Arcade palettes: saturated, few colours, no gradients.
+    private static readonly string[] LivesPalette = ["#FF5C57", "#FF9F43", "#FFD93D"];
+    private static readonly string[] EggPalette = ["#F5F5F5", "#FFD93D", "#8BE9FD"];
+    private static readonly string[] HeartPalette = ["#E06C75", "#FF5C57", "#FF79C6"];
+    private static readonly string[] CoffeePalette = ["#C69C6D", "#8B5E34", "#F5F5F5"];
+
+    // The Konami reward bursts outward like a firework - the loudest egg, and the one people
+    // deliberately go looking for.
+    public static EasterEggShow Konami() => new(
+        Message: "+30 LIVES GRANTED",
+        Sprite: EasterEggSprites.Coin,
+        Palette: LivesPalette,
+        Motion: EasterEggMotion.Burst,
+        ParticleCount: 28);
+
+    public static EasterEggShow Version() => new(
+        Message: EasterEggs.NextVersionMessage(),
+        Sprite: EasterEggSprites.Egg,
+        Palette: EggPalette,
+        Motion: EasterEggMotion.Rise,
+        ParticleCount: 18);
+
+    // Null at every count that is not a milestone, so the caller shows its ordinary
+    // confirmation instead of an overlay.
+    public static EasterEggShow? Favorite(int favoriteCount)
+    {
+        var message = EasterEggs.FavoriteMilestoneMessage(favoriteCount);
+        if (message is null)
+            return null;
+
+        return new EasterEggShow(
+            Message: message,
+            Sprite: EasterEggSprites.Heart,
+            Palette: HeartPalette,
+            Motion: EasterEggMotion.Rise,
+            ParticleCount: 22);
+    }
+
+    // Coffee falls for #C0FFEE; the other word-colours get stars, since a coffee cup only
+    // makes sense for the one.
+    public static EasterEggShow? MagicColor(string? hex)
+    {
+        var message = EasterEggs.MagicColorMessage(hex);
+        if (message is null)
+            return null;
+
+        var isCoffee = string.Equals(
+            hex?.Trim().TrimStart('#').Trim(), "C0FFEE", StringComparison.OrdinalIgnoreCase);
+
+        return new EasterEggShow(
+            Message: message,
+            Sprite: isCoffee ? EasterEggSprites.Coffee : EasterEggSprites.Star,
+            Palette: isCoffee ? CoffeePalette : EggPalette,
+            Motion: EasterEggMotion.Fall,
+            ParticleCount: 20);
+    }
+}
+
 // Recognises the Konami code typed into a window. Fed one key at a time; reports true on
 // the key that completes the sequence, then resets so it can be triggered again.
 // A wrong key restarts matching rather than only resetting, so a stray press mid-sequence
