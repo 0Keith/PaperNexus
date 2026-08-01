@@ -1,7 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
-using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Threading;
 using PaperNexus.Core;
@@ -28,8 +27,6 @@ public partial class EasterEggOverlay : UserControl
         // Clicking anywhere skips the rest of the animation.
         PointerPressed += (_, _) => Dismiss();
     }
-
-    private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
     // Starts an egg. A show already playing is replaced rather than queued, so mashing a
     // trigger restarts the animation instead of stacking overlays.
