@@ -9,6 +9,16 @@ namespace PaperNexus.Core.Platform;
 public sealed class LinuxWallpaperBackend : IWallpaperBackend
 {
     private readonly LinuxDesktopEnvironment _desktop = LinuxDesktop.Detect();
+    private readonly ILogger _logger;
+
+    // Logged once rather than on every switch: the detected desktop cannot change while the
+    // app is running, and repeating it would be noise in a rotating log.
+    private bool _loggedDesktop;
+
+    public LinuxWallpaperBackend(ILogger logger)
+    {
+        _logger = logger;
+    }
 
     // The fill style is applied by the same command that sets the image on KDE, so it is
     // cached here and replayed whenever either half changes.
@@ -33,17 +43,33 @@ public sealed class LinuxWallpaperBackend : IWallpaperBackend
             Apply(_currentPath, style);
     }
 
-    private bool Apply(string wallpaperPath, WallpaperFillStyle style) => _desktop switch
+    private bool Apply(string wallpaperPath, WallpaperFillStyle style)
     {
-        LinuxDesktopEnvironment.Kde => ApplyKde(wallpaperPath, style),
-        LinuxDesktopEnvironment.Gnome => ApplyGnome(wallpaperPath, style),
-        _ => ApplyGeneric(wallpaperPath, style),
-    };
+        if (!_loggedDesktop)
+        {
+            _loggedDesktop = true;
+            _logger.LogInformation("Linux desktop detected as {Desktop}; wallpaper will be set via that backend.", _desktop);
+        }
+
+        var applied = _desktop switch
+        {
+            LinuxDesktopEnvironment.Kde => ApplyKde(wallpaperPath, style, _logger),
+            LinuxDesktopEnvironment.Gnome => ApplyGnome(wallpaperPath, style, _logger),
+            _ => ApplyGeneric(wallpaperPath, style),
+        };
+
+        // Warning rather than Debug: a wallpaper that silently fails to change is the whole
+        // failure mode this logging exists to explain.
+        if (!applied)
+            _logger.LogWarning("Could not set the wallpaper on {Desktop}. Tried every mechanism for that desktop; see the attempts above.", _desktop);
+
+        return applied;
+    }
 
     // KDE Plasma stores the wallpaper in each containment's config. Plasma only repaints
     // when the stored value actually changes, and PaperNexus always writes to the same
     // current.png, so the script clears the Image key before writing the real path.
-    private static bool ApplyKde(string wallpaperPath, WallpaperFillStyle style)
+    private static bool ApplyKde(string wallpaperPath, WallpaperFillStyle style, ILogger logger)
     {
         var fillMode = style switch
         {
@@ -70,27 +96,46 @@ public sealed class LinuxWallpaperBackend : IWallpaperBackend
             """;
 
         // The qdbus binary is named differently across Qt versions and distributions.
+        var found = false;
         foreach (var qdbus in new[] { "qdbus6", "qdbus-qt6", "qdbus", "qdbus-qt5" })
         {
             if (!LinuxDesktop.CommandExists(qdbus))
                 continue;
+
+            found = true;
             if (LinuxDesktop.Run(qdbus, "org.kde.plasmashell", "/PlasmaShell", "org.kde.PlasmaShell.evaluateScript", script))
+            {
+                logger.LogDebug("Set wallpaper through {Command} (plasmashell evaluateScript).", qdbus);
                 return true;
+            }
+            logger.LogDebug("{Command} is installed but the plasmashell evaluateScript call failed.", qdbus);
         }
+
+        if (!found)
+            logger.LogDebug("No qdbus binary on PATH (looked for qdbus6, qdbus-qt6, qdbus, qdbus-qt5).");
 
         // Fall back to the shipped CLI tool, which sets the image but not the fill mode.
         if (LinuxDesktop.CommandExists("plasma-apply-wallpaperimage"))
-            return LinuxDesktop.Run("plasma-apply-wallpaperimage", wallpaperPath);
+        {
+            var applied = LinuxDesktop.Run("plasma-apply-wallpaperimage", wallpaperPath);
+            logger.LogDebug("plasma-apply-wallpaperimage {Outcome} (fill mode not applied by this tool).",
+                applied ? "succeeded" : "failed");
+            return applied;
+        }
 
+        logger.LogDebug("plasma-apply-wallpaperimage is not installed either.");
         return false;
     }
 
     // GNOME reads the wallpaper from GSettings. Both the light and dark keys must be set,
     // otherwise the wallpaper appears to not change under the dark colour scheme.
-    private static bool ApplyGnome(string wallpaperPath, WallpaperFillStyle style)
+    private static bool ApplyGnome(string wallpaperPath, WallpaperFillStyle style, ILogger logger)
     {
         if (!LinuxDesktop.CommandExists("gsettings"))
+        {
+            logger.LogDebug("gsettings is not on PATH, so the GNOME backend cannot set the wallpaper.");
             return false;
+        }
 
         var pictureOption = style switch
         {
@@ -115,6 +160,8 @@ public sealed class LinuxWallpaperBackend : IWallpaperBackend
             LinuxDesktop.Run("gsettings", "set", schema, key, "");
             applied |= LinuxDesktop.Run("gsettings", "set", schema, key, imageUri);
         }
+        logger.LogDebug("gsettings picture-uri update {Outcome} (picture-options={Option}).",
+            applied ? "succeeded" : "failed", pictureOption);
         return applied;
     }
 
