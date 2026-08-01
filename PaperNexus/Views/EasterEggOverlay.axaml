@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PaperNexus.Views.EasterEggOverlay"
+             IsVisible="False"
+             IsHitTestVisible="True">
+
+    <!-- Fills the whole window. The backdrop is dark but translucent so the settings page
+         stays readable behind it, making the overlay feel layered rather than modal-heavy. -->
+    <Grid Background="#CC101014">
+
+        <!-- Sprites are drawn here, one Rectangle per filled sprite pixel. -->
+        <Canvas x:Name="SpriteCanvas" ClipToBounds="True" />
+
+        <!-- Scanlines over the top of the sprites: the cheapest, most recognisable cue that
+             this is meant to look like an arcade screen rather than a UI panel. -->
+        <Canvas x:Name="ScanlineCanvas" ClipToBounds="True" IsHitTestVisible="False" />
+
+        <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                Background="#F0000000"
+                BorderBrush="#FFD93D" BorderThickness="4"
+                Padding="28,20" MaxWidth="520">
+            <StackPanel Spacing="10">
+                <TextBlock x:Name="MessageText"
+                           Text=""
+                           FontSize="16"
+                           FontWeight="Bold"
+                           LetterSpacing="2"
+                           Foreground="#F5F5F5"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="CLICK OR PRESS ESC"
+                           FontSize="10"
+                           LetterSpacing="3"
+                           Opacity="0.55"
+                           Foreground="#8BE9FD"
+                           TextAlignment="Center"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

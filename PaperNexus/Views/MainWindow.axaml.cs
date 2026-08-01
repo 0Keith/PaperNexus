@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using PaperNexus.Core;
 using PaperNexus.ViewModels;
 using System.Globalization;
@@ -74,7 +75,10 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        DataContext = new WallpaperConfigViewModel();
+        var viewModel = new WallpaperConfigViewModel();
+        // The ViewModel decides whether an egg fires; the window owns how it is drawn.
+        viewModel.EasterEggTriggered += show => Dispatcher.UIThread.Post(() => EggOverlay.Play(show));
+        DataContext = viewModel;
         // Use the tunnel phase so Shift+Click can be intercepted before the button's own handler fires
         UpdateButton.AddHandler(InputElement.PointerPressedEvent, OnUpdateButtonPointerPressed, RoutingStrategies.Tunnel);
     }
@@ -118,8 +122,7 @@ public partial class MainWindow : Window
         if (_versionClickCount >= 5)
         {
             _versionClickCount = 0;
-            if (DataContext is WallpaperConfigViewModel vm)
-                await vm.ShowTransientStatusAsync(EasterEggs.NextVersionMessage(), 5000);
+            EggOverlay.Play(EasterEggShows.Version());
         }
     }
 
@@ -143,11 +146,18 @@ public partial class MainWindow : Window
     {
         base.OnKeyDown(e);
 
+        // Esc closes a playing overlay before anything else looks at the key.
+        if (e.Key == Key.Escape && EggOverlay.IsPlaying)
+        {
+            EggOverlay.Dismiss();
+            e.Handled = true;
+            return;
+        }
+
         if (!_konami.Advance(e.Key.ToString()))
             return;
 
-        if (DataContext is WallpaperConfigViewModel vm)
-            await vm.ShowTransientStatusAsync("🎮 +30 lives granted! (wallpaper edition)", 5000);
+        EggOverlay.Play(EasterEggShows.Konami());
     }
 
     // Restores the saved window position and size from settings, then triggers the ViewModel

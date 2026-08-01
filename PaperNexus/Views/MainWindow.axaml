@@ -27,6 +27,7 @@
         </Style>
     </Window.Styles>
 
+    <Panel>
     <Grid RowDefinitions="*,Auto" Margin="20">
         <!-- Two-column layout -->
         <Grid Grid.Row="0" ColumnDefinitions="*,16,*">
@@ -600,4 +601,9 @@
             </Grid>
         </StackPanel>
     </Grid>
+
+    <!-- Sits above everything, including the 20px page margin, so an easter egg animation
+         covers the whole window rather than being inset like page content. -->
+    <v:EasterEggOverlay x:Name="EggOverlay" />
+    </Panel>
 </Window>
