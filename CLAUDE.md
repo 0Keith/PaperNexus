@@ -124,13 +124,13 @@ Enforced via `.editorconfig`: .NET 10, C#, file-scoped namespaces, 4-space inden
 
 ## Build & CI/CD
 
-- **PR workflow:** set up .NET → restore → build (Release) → test (continue-on-error). Self-hosted runner (`[self-hosted, Linux, X64]`), `actions/checkout@v6`.
-- **Deploy workflow:** push to `main`/tags/manual → publish win-x64 and linux-x64 single-file → sign the exe, checksum the Linux binary → GitHub Release with three assets. Self-hosted runner (`[self-hosted, Linux, X64]`); signing uses `openssl` + `osslsigncode` (Linux equivalents of `New-SelfSignedCertificate`/`signtool.exe`).
+- **PR workflow:** set up .NET → restore → build (Release) → test (continue-on-error). GitHub-hosted runner (`ubuntu-latest`), `actions/checkout@v7`.
+- **Deploy workflow:** push to `main`/tags/manual → publish win-x64 and linux-x64 single-file → sign the exe, checksum the Linux binary → GitHub Release with three assets. GitHub-hosted runner (`ubuntu-latest`); signing uses `openssl` + `osslsigncode` (Linux equivalents of `New-SelfSignedCertificate`/`signtool.exe`).
 - **Version:** Default `0.0.0`, CI sets `-p:Version=$buildNum.0.0`. Tags use `vN` format. Auto-updater compares `Version.Major` as integer.
 - **Code signing:** Self-signed cert, auto-generated on first run, stored as `SIGNING_CERTIFICATE`/`SIGNING_CERTIFICATE_PASSWORD` secrets. Requires `GH_PAT` for persistence. 5-year validity, auto-renews at 30 days remaining.
 - **Publishing:** `dotnet publish PaperNexus/PaperNexus.csproj -c Release -r <win-x64|linux-x64> --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false`. The Linux output is renamed to `PaperNexus-linux-x64` because the auto-updater looks the asset up by that exact name.
-- **Website workflow:** `deploy-website.yml` deploys `website/` to Azure Static Web Apps. It stays on `ubuntu-latest` - `Azure/static-web-apps-deploy` is a Docker container action, which a self-hosted runner cannot run without Docker. Triggered only by changes under `website/`.
-- **Self-hosted runner:** The .NET workflows run on `[self-hosted, Linux, X64]`. The runner has no system .NET SDK and its user cannot write `/usr/share/dotnet`, so every job needs `actions/setup-dotnet@v5` with `DOTNET_INSTALL_DIR: ${{ runner.tool_cache }}/dotnet`. Tools that persist between runs (osslsigncode) are reused rather than reinstalled.
+- **Website workflow:** `deploy-website.yml` deploys `website/` to Azure Static Web Apps on `ubuntu-latest`. Triggered only by changes under `website/`.
+- **Runners:** All workflows run on GitHub-hosted `ubuntu-latest` (switched from a self-hosted runner 2026-08-24; the repo is public, so hosted minutes are free and fork pull requests never execute on private hardware). `osslsigncode` is installed per run via apt.
 - **Actions maintenance:** 30-day cycle. Currently `actions/checkout@v7`, `actions/setup-dotnet@v6`. **Next update: August 29, 2026.**
 
 ## Guidelines
